@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyreml"
+version = "0.0.0"
+requires-python = ">=3.10"
+dependencies = [
+    "torch",
+    "numpy",
+    "scipy",
+    "pandas",
+    "patsy",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pyreml*"]
+
+[tool.setuptools.package-data]
+pyreml = ["data/*", "config.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
