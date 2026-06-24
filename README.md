@@ -40,9 +40,8 @@ random regression and heteroscedasticity specification using [**patsy**](https:/
 **pyreml** also enables prediction of unobserved levels of a structured random effect, for instance in this geospatial analysis:
 
 <div align="center">
-  <img src="doc/img/kriging.png" alt="Kriging" width="500">
+  <img src="https://raw.githubusercontent.com/ai-for-genome-interpretation-lab/pyreml/main/doc/img/kriging.png" alt="Kriging" width="500">
 </div>
-
 
 ## Illustrative example
 
