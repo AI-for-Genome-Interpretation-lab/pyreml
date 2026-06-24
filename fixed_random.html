@@ -277,7 +277,7 @@ window.Quarto = {
 <p>Deciding whether a given effect should enter the model as fixed or random is rarely obvious: in most cases, the same explanatory variable can legitimately be treated either way. The goal of this section is not to give a mechanical rule but to lay out the arguments that should inform that decision when specifying a model with <span class="pyreml">pyreml</span>.</p>
 <p>The core idea behind a random effect is that its levels are regarded as a sample drawn from a population, summarised by a distribution:</p>
 <p><span class="math display">\[
-\mathbf{a} \sim \mathcal{N}(0, \mathbf{\Sigma_a}),
+\mathbf{a} \sim \mathcal{N}(0, \mathbf{G_a}),
 \]</span></p>
 <p>which is often made acceptable by the central limit theorem.</p>
 <p>A fixed effect, by contrast, carries no such distributional assumption: its levels are treated as purely deterministic quantities to be estimated on their own, with no population behind them.</p>
