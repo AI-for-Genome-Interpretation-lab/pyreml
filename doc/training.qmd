@@ -124,18 +124,15 @@ $$
     &= \left(\mathbf{Z}\mathbf{G}\mathbf{Z}^{\top} + \mathbf{R}\right)^{-1} \\
     &= \mathbf{R}^{-1}
     - \mathbf{R}^{-1}\mathbf{Z}
-   \mathbf{P}^{-1}
+   \mathbf{C}^{-1}
     \mathbf{Z}^{\top}\mathbf{R}^{-1},
 \end{align}
 $$
 
-with:
+with the capacitance matrix $\mathbf{C}$:
 
 $$
-\mathbf{P} =  \left(
-        \mathbf{G}^{-1}
-        + \mathbf{Z}^{\top}\mathbf{R}^{-1}\mathbf{Z}
-    \right).
+\mathbf{C} = \mathbf{Z}^{\top}\mathbf{R}^{-1}\mathbf{Z} + \mathbf{G}^{-1}.
 $$
 
 
@@ -146,7 +143,7 @@ $$
 \log |\mathbf{V}|
     = \log |\mathbf{R}|
     + \log |\mathbf{G}|
-    + \log |\mathbf{P}|.
+    + \log |\mathbf{C}|.
 $$
 
 Using the properties of direct sum and Kronecker product and direct sum:
@@ -191,7 +188,7 @@ the number of columns of $\mathbf{Z}$
 (the total dimension of $\mathbf{u}$) and $n$ the
 number of stacked observations (*i.e.* $\mathbf{Z}$
 is narrower than tall). Indeed, inverting the $q \times q$
-matrix $\mathbf{P}$ is cheaper than inverting the $n \times n$ matrix
+matrix $\mathbf{C}$ is cheaper than inverting the $n \times n$ matrix
 $\mathbf{V}$ only when $q < n$. 
 
 [pyreml]{.pyreml} mostly conforms to this "dimensional rule",

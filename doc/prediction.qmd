@@ -21,11 +21,12 @@ levels solely through their correlation to the observed ones expressed in $\math
 
 ## Prediction error variance
 
-All the levels of $\mathbf{K_a}$ that were included in the HMME
-come with a Prediction Error Variance (PEV) computed as:
+All the random effects $\hat{\mathbf{u}}$ included in the HMME
+come with a Prediction Error Variance (PEV). The PEV and their
+covariance $\mathbf{P}$ are computed all together as:
 
 $$
-\mathrm{PEV}(\hat{\mathbf{u}}) =
+\mathbf{P} =
 \mathbf{G}
 - \mathbf{G}\mathbf{Z}^\top\mathbf{V}^{-1}\mathbf{Z}\mathbf{G}
 + \mathbf{G}\mathbf{Z}^\top\mathbf{V}^{-1}\mathbf{X}

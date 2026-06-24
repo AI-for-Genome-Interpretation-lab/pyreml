@@ -100,10 +100,10 @@ the [kinship helpers](kinships.qmd).
 ### Autoregressive
 
 `ar` forms the right-hand factor entrywise from a known `distance` matrix
-$\mathbf{D}$,
+$\mathbf{E}$,
 
 $$
-(\mathbf{K_a})_{ij} = \exp(-\rho\, D_{ij}),
+(\mathbf{K_a})_{ij} = \exp(-\rho\, E_{ij}),
 $$
 
 with a single decay $\rho > 0$ estimated during the fit. This generalizes an
