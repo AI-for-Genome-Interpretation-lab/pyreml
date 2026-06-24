@@ -452,8 +452,8 @@ window.Quarto = {
 <span id="cb4-84"><a href="#cb4-84" aria-hidden="true" tabindex="-1"></a>    ),</span>
 <span id="cb4-85"><a href="#cb4-85" aria-hidden="true" tabindex="-1"></a>).fit()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<p>A <a href="./variance_structures.html#jitter">jitter</a> is required as some specificities of the random effect <span class="math inline">\(diag(\mathbf{\Psi_a})\)</span> are close to zero in this example.</p>
-<p>The factor-analytic can be read as a principal component analysis. Let us scale the covariance to correlation, interpret <span class="math inline">\(\mathbf{\Lambda}\)</span> as a raw amount of <span class="math inline">\(\Sigma_{A}\)</span> explained by each axis, and study the structure of the genetic component of the traits in their correlative space.</p>
+<p>A <a href="./variance_structures.html#jitter">jitter</a> is required as some specificities of the random effect <span class="math inline">\(\operatorname{diag}(\mathbf{\Psi_a})\)</span> are close to zero in this example.</p>
+<p>The factor-analytic can be read as a principal component analysis. Let us scale the covariance to correlation, interpret <span class="math inline">\(\mathbf{\Lambda_a}\)</span> as a raw amount of <span class="math inline">\(\mathbf{\Sigma_a}\)</span> explained by each axis, and study the structure of the genetic component of the traits in their correlative space.</p>
 <div class="scroll-cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># FA decomposition of the genetic covariance</span></span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>S  <span class="op">=</span> model.random[<span class="dv">0</span>].variance[<span class="st">"sigma"</span>]</span>
@@ -586,7 +586,7 @@ Jia, Y., &amp; Jannink, J.-L. (2012). Multiple-<span>Trait</span> <span>Genomic<
     }
       var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
       var mailtoRegex = new RegExp(/^mailto:/);
-        var filterRegex = new RegExp('/' + window.location.host + '/');
+        var filterRegex = new RegExp("https:\/\/AI-for-Genome-Interpretation-lab\.github\.io\/pyreml\/");
       var isInternal = (href) => {
           return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
       }

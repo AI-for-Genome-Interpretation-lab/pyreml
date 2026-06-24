@@ -293,13 +293,13 @@ window.Quarto = {
 </section>
 <section id="factor-analytic" class="level3">
 <h3 class="anchored" data-anchor-id="factor-analytic">Factor-analytic</h3>
-<p>When the number of components is large, a <code>full</code> covariance becomes expensive (it holds <span class="math inline">\(k\,c(k\,c+1)/2\)</span> free parameters). The factor-analytic structure approximates it with a low-rank-plus-diagonal form <span class="citation" data-cites="kirkpatrick_direct_2004 meyer_multivariate_2007">(<a href="#ref-kirkpatrick_direct_2004" role="doc-biblioref">Kirkpatrick &amp; Meyer, 2004</a>; <a href="#ref-meyer_multivariate_2007" role="doc-biblioref">Meyer, 2007</a>)</span>:</p>
+<p>When the number of components is large, a <code>full</code> covariance becomes expensive (it holds <span class="math inline">\(kc(kc+1)/2\)</span> free parameters). The factor-analytic structure approximates it with a low-rank-plus-diagonal form <span class="citation" data-cites="kirkpatrick_direct_2004 meyer_multivariate_2007">(<a href="#ref-kirkpatrick_direct_2004" role="doc-biblioref">Kirkpatrick &amp; Meyer, 2004</a>; <a href="#ref-meyer_multivariate_2007" role="doc-biblioref">Meyer, 2007</a>)</span>:</p>
 <p><span class="math display">\[
-\mathbf{\Sigma_a} \approx \mathbf{Q}\mathbf{\Lambda}\mathbf{Q}^\top
-+ \mathbf{\Psi},
+\mathbf{\Sigma_a} \approx \mathbf{Q_a}\mathbf{\Lambda_a}\mathbf{Q_a}^\top
++ \mathbf{\Psi_a},
 \]</span></p>
-<p>with <span class="math inline">\(q \ll k\,c\)</span> orthonormal axes gathered in <span class="math inline">\(\mathbf{Q}\)</span> (scaled by the eigenvalues <span class="math inline">\(\mathbf{\Lambda}\)</span>) and a diagonal specificity <span class="math inline">\(\mathbf{\Psi}\)</span> that restores variance consistency after the low-rank approximation. The number of axes is set with <code>n_axes</code> (a practical default is <code>2</code>). The <span class="math inline">\(\mathbf{Q}
-\mathbf{\Lambda}\mathbf{Q}^\top\)</span> form is reminiscent of a principal-component decomposition.</p>
+<p>with <span class="math inline">\(l \ll kc\)</span> orthonormal axes gathered in <span class="math inline">\(\mathbf{Q_a}\)</span> (scaled by the eigenvalues <span class="math inline">\(\mathbf{\Lambda_a}\)</span>) and a diagonal specificity <span class="math inline">\(\mathbf{\Psi_a}\)</span> that restores variance consistency after the low-rank approximation. The number of axes is set with <code>n_axes</code> (a practical default is <code>2</code>). The <span class="math inline">\(\mathbf{Q_a}
+\mathbf{\Lambda_a}\mathbf{Q_a}^\top\)</span> form is reminiscent of a principal-component decomposition.</p>
 </section>
 </section>
 <section id="right-hand-factor-mathbfk_a" class="level2">
@@ -362,13 +362,13 @@ window.Quarto = {
 </section>
 <section id="the-residual" class="level2">
 <h2 class="anchored" data-anchor-id="the-residual">The residual</h2>
-<p>The <code>Residual</code> reuses the very same <span class="math inline">\(\mathbf{\Sigma_R}\)</span> and <span class="math inline">\(\mathbf{K_R}\)</span> factors, with one difference: it has no <code>unit</code> and no <code>formula</code>. Its levels are the observations themselves, so <span class="math inline">\(\mathbf{K}_R\)</span> runs over observations (<code>iid</code> by default) and <span class="math inline">\(\mathbf{\Sigma}_R\)</span> over the responses:</p>
+<p>The <code>Residual</code> reuses the very same <span class="math inline">\(\mathbf{\Sigma_R}\)</span> and <span class="math inline">\(\mathbf{K_R}\)</span> factors, with one difference: it has no <code>unit</code> and no <code>formula</code>. Its levels are the observations themselves, so <span class="math inline">\(\mathbf{K_R}\)</span> runs over observations (<code>iid</code> by default) and <span class="math inline">\(\mathbf{\Sigma_R}\)</span> over the responses:</p>
 <p><span class="math display">\[
-\mathbf{R}_{\text{tot}} = \mathbf{\Sigma}_R \otimes \mathbf{K}_R.
+\mathbf{R}_{tot} = \mathbf{\Sigma_R} \otimes \mathbf{K_R}.
 \]</span></p>
 <p>Because observations may be missing in unbalanced designs, <span class="math inline">\(\mathbf{R}_{\text{tot}}\)</span> is assembled over all original rows and then restricted to the observed entries through a residual “incidence” <span class="math inline">\(\mathbf{W}\)</span>:</p>
 <p><span class="math display">\[
-\mathbf{R} = \mathbf{W}\,\mathbf{R}_{\text{tot}}\,\mathbf{W}^\top.
+\mathbf{R} = \mathbf{W}\,\mathbf{R}_{tot}\,\mathbf{W}^\top.
 \]</span></p>
 <p>Any structure can be declared on the residual, but not all are identifiable; the choice between a <code>full</code> and a <code>diag</code> residual across responses is discussed in <a href="./multivariate.html">Multivariate</a>.</p>
 </section>
@@ -377,12 +377,12 @@ window.Quarto = {
 <p>In some cases, <span class="math inline">\(\mathbf{\Sigma_a}\)</span> (or <span class="math inline">\(\mathbf{\Sigma_R}\)</span>) may exhibit a perfect correlation of <span class="math inline">\(1\)</span> or <span class="math inline">\(-1\)</span> which is expected and meaningful. However, such situation makes <span class="math inline">\(\mathbf{G}\)</span> (respectively <span class="math inline">\(\mathbf{R}\)</span>) singular. For this reason, a <code>jitter</code> argument (<span class="math inline">\(\varepsilon\)</span>) (0 by default, and <em>e.g</em> <code>jitter = 1e-6</code> for an actual effect) is available for <code>Random</code> and <code>Residual</code>. It improves the conditionning of <span class="math inline">\(\mathbf{\Sigma_a}\)</span> (respectively <span class="math inline">\(\mathbf{\Sigma_R}\)</span>) with a relative and an absolute increase of the diagonal:</p>
 <p><span class="math display">\[
 \mathbf{\Sigma_a} \approx
-\mathbf{\Sigma}_a
+\mathbf{\Sigma_a}
 +
 \varepsilon \mathbf{I}
 +
 \varepsilon\,
-\operatorname{diag}(\mathbf{\Sigma}_a)
+\operatorname{diag}(\mathbf{\Sigma_a})
 \]</span></p>
 </section>
 <section id="caution-specifying-covariance-structures" class="level2">
@@ -475,7 +475,7 @@ Meyer, K. (2007). Multivariate analyses of carcass traits for <span>Angus</span>
     }
       var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
       var mailtoRegex = new RegExp(/^mailto:/);
-        var filterRegex = new RegExp('/' + window.location.host + '/');
+        var filterRegex = new RegExp("https:\/\/AI-for-Genome-Interpretation-lab\.github\.io\/pyreml\/");
       var isInternal = (href) => {
           return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
       }
