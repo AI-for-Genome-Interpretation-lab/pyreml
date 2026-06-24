@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.37">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Variance structures – pyreml</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+  margin-bottom: 0em;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-7f8f88aac4f3542376d5c11b86a4c14d.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-8124cdf9140e22d01433ca88cc906b30.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="./index.html">
+    <span class="navbar-title">pyreml</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="./building_models.html"> 
+<span class="menu-text">Building models</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link active" href="./variance_structures.html" aria-current="page"> 
+<span class="menu-text">Variance structures</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="./fixed_random.html"> 
+<span class="menu-text">Fixed or random ?</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="./training.html"> 
+<span class="menu-text">Training</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="./prediction.html"> 
+<span class="menu-text">Prediction</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="./multivariate.html"> 
+<span class="menu-text">Multivariate analysis</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="./random_regression.html"> 
+<span class="menu-text">Random regression</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="./kinships.html"> 
+<span class="menu-text">Kinship matrices</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="./larix.html"> 
+<span class="menu-text">Larix dataset</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="./contact.html"> 
+<span class="menu-text">Contact</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="./license.html"> 
+<span class="menu-text">License</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#left-hand-factor-mathbfsigma_a" id="toc-left-hand-factor-mathbfsigma_a" class="nav-link active" data-scroll-target="#left-hand-factor-mathbfsigma_a">Left-hand factor: <span class="math inline">\(\mathbf{\Sigma_a}\)</span></a>
+  <ul class="collapse">
+  <li><a href="#independent-and-identically-distributed" id="toc-independent-and-identically-distributed" class="nav-link" data-scroll-target="#independent-and-identically-distributed">Independent and identically distributed</a></li>
+  <li><a href="#diagonal-and-full" id="toc-diagonal-and-full" class="nav-link" data-scroll-target="#diagonal-and-full">Diagonal and full</a></li>
+  <li><a href="#factor-analytic" id="toc-factor-analytic" class="nav-link" data-scroll-target="#factor-analytic">Factor-analytic</a></li>
+  </ul></li>
+  <li><a href="#right-hand-factor-mathbfk_a" id="toc-right-hand-factor-mathbfk_a" class="nav-link" data-scroll-target="#right-hand-factor-mathbfk_a">Right-hand factor: <span class="math inline">\(\mathbf{K_a}\)</span></a>
+  <ul class="collapse">
+  <li><a href="#structured" id="toc-structured" class="nav-link" data-scroll-target="#structured">Structured</a></li>
+  <li><a href="#autoregressive" id="toc-autoregressive" class="nav-link" data-scroll-target="#autoregressive">Autoregressive</a></li>
+  <li><a href="#heteroscedastic" id="toc-heteroscedastic" class="nav-link" data-scroll-target="#heteroscedastic">Heteroscedastic</a></li>
+  </ul></li>
+  <li><a href="#the-residual" id="toc-the-residual" class="nav-link" data-scroll-target="#the-residual">The residual</a></li>
+  <li><a href="#jitter" id="toc-jitter" class="nav-link" data-scroll-target="#jitter">Jitter</a></li>
+  <li><a href="#caution-specifying-covariance-structures" id="toc-caution-specifying-covariance-structures" class="nav-link" data-scroll-target="#caution-specifying-covariance-structures">Caution specifying covariance structures</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Variance structures</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p>Every random effect and the residual of a <span class="pyreml">pyreml</span> model is structured with a covariance that factors into 2 independent parts. Choosing the architecture for these two factors is how a model’s variance structure is declared.</p>
+<p>This factorization formalizes as a Kronecker product such as for the random effect <span class="math inline">\(\mathbf{a}\)</span>:</p>
+<p><span class="math display">\[
+\mathbf{a} \sim \mathcal{N}(\mathbf{0}, \mathbf{G_a}),
+\qquad
+\mathbf{G_a} = \mathbf{\Sigma_a} \otimes \mathbf{K_a},
+\]</span></p>
+<p>where:</p>
+<ul>
+<li><p><span class="math inline">\(\mathbf{\Sigma_a}\)</span> is the <strong>left-hand</strong> factor, <em>i.e.</em> the covariance <em>across the components</em> of the effect</p></li>
+<li><p><span class="math inline">\(\mathbf{K_a}\)</span> is the <strong>right-hand</strong> factor, <em>i.e.</em> the covariance <em>across its levels</em>.</p></li>
+</ul>
+<p>The two factors are set independently, through <code>left_hand</code> and <code>right_hand</code>.</p>
+<section id="left-hand-factor-mathbfsigma_a" class="level2">
+<h2 class="anchored" data-anchor-id="left-hand-factor-mathbfsigma_a">Left-hand factor: <span class="math inline">\(\mathbf{\Sigma_a}\)</span></h2>
+<p><code>left_hand</code> sets the covariance across components. A component is a (response, formula element) pair: with <span class="math inline">\(k\)</span> responses and <span class="math inline">\(c\)</span> columns produced by the effect’s <a href="https://pypi.org/project/patsy/">patsy</a> <code>formula</code>, <span class="math inline">\(\mathbf{\Sigma_a}\)</span> is <span class="math inline">\((k\,c) \times (k\,c)\)</span>. How multiple responses are handled is covered in <a href="./multivariate.html">Multivariate</a>. How the <code>formula</code> carries a regression or random factors is covered in <a href="./random_regression.html">Random regression and factors</a>.</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th><code>left_hand</code></th>
+<th>Structure</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>iid</code></td>
+<td><a href="#independent-and-identically-distributed">An i.i.d. covariance</a> (default)</td>
+</tr>
+<tr class="even">
+<td><code>diag</code></td>
+<td><a href="#diagonal-and-full">A diagonal covariance</a></td>
+</tr>
+<tr class="odd">
+<td><code>full</code></td>
+<td><a href="#diagonal-and-full">A full covariance</a></td>
+</tr>
+<tr class="even">
+<td><code>fa</code></td>
+<td><a href="#factor-analytic">A factor-analytic approximation</a> of <code>full</code></td>
+</tr>
+</tbody>
+</table>
+<section id="independent-and-identically-distributed" class="level3">
+<h3 class="anchored" data-anchor-id="independent-and-identically-distributed">Independent and identically distributed</h3>
+<p>With <code>iid</code>, <span class="math inline">\(\mathbf{\Sigma_a}\)</span> collapses to a single scalar: <span class="math inline">\(\sigma_a^2\mathbf{I}\)</span>.</p>
+<p>All variances are equal and no covariance is estimated across components. The initial value of <span class="math inline">\(\mathbf{\Sigma_a}\)</span> can be set with <code>init</code> (a scalar for <code>iid</code>, a <span class="math inline">\((k\,c)\times(k\,c)\)</span> matrix otherwise); it defaults to the identity.</p>
+</section>
+<section id="diagonal-and-full" class="level3">
+<h3 class="anchored" data-anchor-id="diagonal-and-full">Diagonal and full</h3>
+<p><code>diag</code> estimates one variance per component, with no covariance between them; <code>full</code> estimates the entire symmetric covariance, capturing every pairwise covariance across components. Both are estimated through an unconstrained internal parameterization that keeps <span class="math inline">\(\mathbf{\Sigma_a}\)</span> positive-definite throughout the fit.</p>
+</section>
+<section id="factor-analytic" class="level3">
+<h3 class="anchored" data-anchor-id="factor-analytic">Factor-analytic</h3>
+<p>When the number of components is large, a <code>full</code> covariance becomes expensive (it holds <span class="math inline">\(k\,c(k\,c+1)/2\)</span> free parameters). The factor-analytic structure approximates it with a low-rank-plus-diagonal form <span class="citation" data-cites="kirkpatrick_direct_2004 meyer_multivariate_2007">(<a href="#ref-kirkpatrick_direct_2004" role="doc-biblioref">Kirkpatrick &amp; Meyer, 2004</a>; <a href="#ref-meyer_multivariate_2007" role="doc-biblioref">Meyer, 2007</a>)</span>:</p>
+<p><span class="math display">\[
+\mathbf{\Sigma_a} \approx \mathbf{Q}\mathbf{\Lambda}\mathbf{Q}^\top
++ \mathbf{\Psi},
+\]</span></p>
+<p>with <span class="math inline">\(q \ll k\,c\)</span> orthonormal axes gathered in <span class="math inline">\(\mathbf{Q}\)</span> (scaled by the eigenvalues <span class="math inline">\(\mathbf{\Lambda}\)</span>) and a diagonal specificity <span class="math inline">\(\mathbf{\Psi}\)</span> that restores variance consistency after the low-rank approximation. The number of axes is set with <code>n_axes</code> (a practical default is <code>2</code>). The <span class="math inline">\(\mathbf{Q}
+\mathbf{\Lambda}\mathbf{Q}^\top\)</span> form is reminiscent of a principal-component decomposition.</p>
+</section>
+</section>
+<section id="right-hand-factor-mathbfk_a" class="level2">
+<h2 class="anchored" data-anchor-id="right-hand-factor-mathbfk_a">Right-hand factor: <span class="math inline">\(\mathbf{K_a}\)</span></h2>
+<p><code>right_hand</code> sets the covariance across levels. A level is a distinct value of the grouping variable <code>unit</code>; with <span class="math inline">\(l\)</span> levels, <span class="math inline">\(\mathbf{K_a}\)</span> is <span class="math inline">\(l \times l\)</span>.</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th><code>right_hand</code></th>
+<th>Structure</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>iid</code></td>
+<td>Identity <span class="math inline">\(\mathbf{I}\)</span> — independent, homoscedastic levels (default).</td>
+</tr>
+<tr class="even">
+<td><code>ar</code></td>
+<td><a href="#autoregressive">Autoregressive kernel</a> on a known <code>distance</code> matrix.</td>
+</tr>
+<tr class="odd">
+<td><code>str</code></td>
+<td><a href="#structured">A known covariance</a> (e.g.&nbsp;a kinship), via <code>covariance</code>.</td>
+</tr>
+<tr class="even">
+<td><code>het</code></td>
+<td><a href="#heteroscedastic">Heteroscedastic diagonal</a>, one variance per level resulting of <code>het_formula</code> (modalities and/or regressors).</td>
+</tr>
+</tbody>
+</table>
+<section id="structured" class="level3">
+<h3 class="anchored" data-anchor-id="structured">Structured</h3>
+<p><code>str</code> plugs in a known covariance over the levels supplied as a <a href="https://numpy.org/">numpy</a> array through <code>covariance</code>. Because the matrix is indexed by the user’s own labels, <code>matrix_index</code> lists its levels in the order of its rows and columns, so <span class="pyreml">pyreml</span> can align it to the data.</p>
+<p>Common structured covariances used in genetics applications are provided with the <a href="./kinships.html">kinship helpers</a>.</p>
+</section>
+<section id="autoregressive" class="level3">
+<h3 class="anchored" data-anchor-id="autoregressive">Autoregressive</h3>
+<p><code>ar</code> forms the right-hand factor entrywise from a known <code>distance</code> matrix <span class="math inline">\(\mathbf{D}\)</span>,</p>
+<p><span class="math display">\[
+(\mathbf{K_a})_{ij} = \exp(-\rho\, D_{ij}),
+\]</span></p>
+<p>with a single decay <span class="math inline">\(\rho &gt; 0\)</span> estimated during the fit. This generalizes an autoregressive correlation to arbitrary Euclidean distances (e.g.&nbsp;diagonals in a row–column trial). As for <code>str</code>, <code>matrix_index</code> orders the rows and columns of <code>distance</code>. The estimated <span class="math inline">\(\rho\)</span> is reused to predict new levels (see <a href="./prediction.html">Prediction</a>).</p>
+</section>
+<section id="heteroscedastic" class="level3">
+<h3 class="anchored" data-anchor-id="heteroscedastic">Heteroscedastic</h3>
+<p><code>het</code> is a diagonal right-hand factor whose entries are a log-linear function of an incidence matrix <span class="math inline">\(\mathcal{V}\)</span> built by <strong>patsy</strong> from <code>het_formula</code>:</p>
+<p><span class="math display">\[
+\mathbf{K_a} = \operatorname{diag}\!\big(\exp(\mathcal{V}\,\mathbf{h})\big),
+\]</span></p>
+<p>where:</p>
+<ul>
+<li><p><span class="math inline">\(\mathbf{h}\)</span> holds the coefficients of the model on the log scale,</p></li>
+<li><p><span class="math inline">\(\mathcal{V}\)</span> is an incidence-like matrix attributing and dosing the elements of <span class="math inline">\(\mathbf{h}\)</span> to the corresponding level of the random effect (or to the corresponding individual for a residual).</p></li>
+</ul>
+<p>The <code>Intercept</code> column anchors the scale: its coefficient is fixed to <span class="math inline">\(0\)</span>, so its multiplier is <span class="math inline">\(\exp(0)=1\)</span> and the overall variance level is carried by the left-hand factor <span class="math inline">\(\mathbf{\Sigma_a}\)</span>. The remaining <span class="math inline">\(p-1\)</span> columns carry the trainable coefficients. The <code>Intercept</code> must therefore be kept as removing it (<code>het_formula = "0 + ..."</code> or <code>het_formula = "-1 + ..."</code>) un-anchors the scale, which becomes confounded with <span class="math inline">\(\mathbf{\Sigma_a}\)</span>.</p>
+<p>For a purely categorical formula (<code>het_formula = "C(group)"</code>), <span class="math inline">\(\mathcal{V}\)</span> reduces to treatment contrasts and the model collapses to one variance multiplier per modality: the reference modality is fixed to <span class="math inline">\(1\)</span> and the other <span class="math inline">\(p-1\)</span> modalities are estimated as ratios <span class="math inline">\(\exp(h_j)\)</span> to it. For continuous terms (e.g.&nbsp;<code>"1 + age"</code>), the variance becomes a smooth function <span class="math inline">\(\exp(\mathcal{V}\,\mathbf{h})\)</span> of the covariate.</p>
+<p>It is primarily designed to be paired with <code>left_hand="iid"</code>. With a non-<code>iid</code> left-hand factor, <code>het</code> should be understood as scaling the whole <span class="math inline">\(\mathbf{\Sigma_a}\)</span> by a per-row factor (through the Kronecker product) rather than estimating distinct <span class="math inline">\(\mathbf{\Sigma_a}\)</span>’s.</p>
+</section>
+</section>
+<section id="the-residual" class="level2">
+<h2 class="anchored" data-anchor-id="the-residual">The residual</h2>
+<p>The <code>Residual</code> reuses the very same <span class="math inline">\(\mathbf{\Sigma_R}\)</span> and <span class="math inline">\(\mathbf{K_R}\)</span> factors, with one difference: it has no <code>unit</code> and no <code>formula</code>. Its levels are the observations themselves, so <span class="math inline">\(\mathbf{K}_R\)</span> runs over observations (<code>iid</code> by default) and <span class="math inline">\(\mathbf{\Sigma}_R\)</span> over the responses:</p>
+<p><span class="math display">\[
+\mathbf{R}_{\text{tot}} = \mathbf{\Sigma}_R \otimes \mathbf{K}_R.
+\]</span></p>
+<p>Because observations may be missing in unbalanced designs, <span class="math inline">\(\mathbf{R}_{\text{tot}}\)</span> is assembled over all original rows and then restricted to the observed entries through a residual “incidence” <span class="math inline">\(\mathbf{W}\)</span>:</p>
+<p><span class="math display">\[
+\mathbf{R} = \mathbf{W}\,\mathbf{R}_{\text{tot}}\,\mathbf{W}^\top.
+\]</span></p>
+<p>Any structure can be declared on the residual, but not all are identifiable; the choice between a <code>full</code> and a <code>diag</code> residual across responses is discussed in <a href="./multivariate.html">Multivariate</a>.</p>
+</section>
+<section id="jitter" class="level2">
+<h2 class="anchored" data-anchor-id="jitter">Jitter</h2>
+<p>In some cases, <span class="math inline">\(\mathbf{\Sigma_a}\)</span> (or <span class="math inline">\(\mathbf{\Sigma_R}\)</span>) may exhibit a perfect correlation of <span class="math inline">\(1\)</span> or <span class="math inline">\(-1\)</span> which is expected and meaningful. However, such situation makes <span class="math inline">\(\mathbf{G}\)</span> (respectively <span class="math inline">\(\mathbf{R}\)</span>) singular. For this reason, a <code>jitter</code> argument (<span class="math inline">\(\varepsilon\)</span>) (0 by default, and <em>e.g</em> <code>jitter = 1e-6</code> for an actual effect) is available for <code>Random</code> and <code>Residual</code>. It improves the conditionning of <span class="math inline">\(\mathbf{\Sigma_a}\)</span> (respectively <span class="math inline">\(\mathbf{\Sigma_R}\)</span>) with a relative and an absolute increase of the diagonal:</p>
+<p><span class="math display">\[
+\mathbf{\Sigma_a} \approx
+\mathbf{\Sigma}_a
++
+\varepsilon \mathbf{I}
++
+\varepsilon\,
+\operatorname{diag}(\mathbf{\Sigma}_a)
+\]</span></p>
+</section>
+<section id="caution-specifying-covariance-structures" class="level2">
+<h2 class="anchored" data-anchor-id="caution-specifying-covariance-structures">Caution specifying covariance structures</h2>
+<p><span class="pyreml">pyreml</span> philosophy is to provide a simple, flexible and unified framework for a large variety of applications. Therefore, no <em>a priori</em> constraint is applied on the user specification of <code>left_hand</code> and <code>right_hand</code>, for the <code>Random</code> effects as well as for the <code>Residual</code>.</p>
+<p>However, the fact these model specifications are allowed by <span class="pyreml">pyreml</span> does not mean all of them are suitable. Many potential specifications may be statistically problematic.</p>
+
+
+
+</section>
+
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" data-line-spacing="2" role="list">
+<div id="ref-kirkpatrick_direct_2004" class="csl-entry" role="listitem">
+Kirkpatrick, M., &amp; Meyer, K. (2004). Direct <span>Estimation</span> of <span>Genetic</span> <span>Principal</span> <span>Components</span>. <em>Genetics</em>, <em>168</em>(4), 2295–2306. <a href="https://doi.org/10.1534/genetics.104.029181">https://doi.org/10.1534/genetics.104.029181</a>
+</div>
+<div id="ref-meyer_multivariate_2007" class="csl-entry" role="listitem">
+Meyer, K. (2007). Multivariate analyses of carcass traits for <span>Angus</span> cattle fitting reduced rank and factor analytic models. <em>Journal of Animal Breeding and Genetics</em>, <em>124</em>(2), 50–64. <a href="https://doi.org/10.1111/j.1439-0388.2007.00637.x">https://doi.org/10.1111/j.1439-0388.2007.00637.x</a>
+</div>
+</div></section></div></main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

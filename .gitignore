@@ -1,8 +1,0 @@
-doc/_site/*
-**/*.egg-info
-**/*.pyc
-**/build/*
-doc/.quarto/
-**/*.quarto_ipynb
-**/*.whl
-**/*.tar.gz
