@@ -287,7 +287,7 @@ window.Quarto = {
 <section id="kriging" class="level2">
 <h2 class="anchored" data-anchor-id="kriging">Kriging</h2>
 <p>Solving the HMME requires the inversion of <span class="math inline">\(\mathbf{G}\)</span>, hence implicitely <span class="math inline">\(\mathbf{K_a}\)</span>, which can bottleneck when the number of levels to predict upscales.</p>
-<p>For this reason, <span class="pyreml">pyreml</span> provides a kriging approach that consists in the sole inversion of the <span class="math inline">\(\mathbf{K}_{train}\)</span>, the submatrix of <span class="math inline">\(\mathbf{K_a}\)</span> that only encompasses the levels included in the training set (<em>i.e.</em> the observed levels):</p>
+<p>For this reason, <span class="pyreml">pyreml</span> provides a kriging approach that consists in the sole inversion of the <span class="math inline">\(\mathbf{K}_{\text{train}}\)</span>, the submatrix of <span class="math inline">\(\mathbf{K_a}\)</span> that only encompasses the levels included in the training set (<em>i.e.</em> the observed levels):</p>
 <p><span class="math display">\[
 \hat{\mathbf{a}}_{\text{pred}} =
 \mathbf{K}_{\text{pred}}\,\mathbf{K}_{\text{train}}^{-1}\,
