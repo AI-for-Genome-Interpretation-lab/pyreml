@@ -11,7 +11,7 @@ The core idea behind a random effect is that its levels are regarded as a sample
 from a population, summarised by a distribution:
 
 $$
-\mathbf{a} \sim \mathcal{N}(0, \mathbf{\Sigma_a}),
+\mathbf{a} \sim \mathcal{N}(0, \mathbf{G_a}),
 $$
 
 which is often made acceptable by the central limit theorem.
