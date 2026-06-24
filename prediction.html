@@ -287,14 +287,14 @@ window.Quarto = {
 <section id="kriging" class="level2">
 <h2 class="anchored" data-anchor-id="kriging">Kriging</h2>
 <p>Solving the HMME requires the inversion of <span class="math inline">\(\mathbf{G}\)</span>, hence implicitely <span class="math inline">\(\mathbf{K_a}\)</span>, which can bottleneck when the number of levels to predict upscales.</p>
-<p>For this reason, <span class="pyreml">pyreml</span> provides a kriging approach that consists in the sole inversion of the <span class="math inline">\(\mathbf{K}_{train}\)</span>, the submatrix of <span class="math inline">\(\mathbf{K}_a\)</span> that only encompasses the levels included in the training set (<em>i.e.</em> the observed levels):</p>
+<p>For this reason, <span class="pyreml">pyreml</span> provides a kriging approach that consists in the sole inversion of the <span class="math inline">\(\mathbf{K}_{train}\)</span>, the submatrix of <span class="math inline">\(\mathbf{K_a}\)</span> that only encompasses the levels included in the training set (<em>i.e.</em> the observed levels):</p>
 <p><span class="math display">\[
 \hat{\mathbf{a}}_{\text{pred}} =
 \mathbf{K}_{\text{pred}}\,\mathbf{K}_{\text{train}}^{-1}\,
 \hat{\mathbf{a}}_{\text{train}},
 \]</span></p>
 <p>with <span class="math inline">\(\hat{\mathbf{a}}_{\text{pred}}\)</span> the pure prediction of unobserved levels, <span class="math inline">\(\hat{\mathbf{a}}_{\text{train}}\)</span> the prediction of the observed levels (usually predicted at the HMME step), and <span class="math inline">\(\mathbf{K}_{\text{pred}}\)</span> the covariance between the observed and non-observed levels.</p>
-<p>For <code>str</code>, <span class="math inline">\(\mathbf{K}_a\)</span> is read from the supplied covariance; for <code>ar</code>, it is rebuilt from the supplied distance with the estimated decay, <span class="math inline">\((\mathbf{K}_a)_{ij} = \exp(-\hat{\rho}\, D_{ij})\)</span>.</p>
+<p>For <code>str</code>, <span class="math inline">\(\mathbf{K_a}\)</span> is read from the supplied covariance; for <code>ar</code>, it is rebuilt from the supplied distance with the estimated decay, <span class="math inline">\((\mathbf{K_a})_{ij} = \exp(-\hat{\rho}\, D_{ij})\)</span>.</p>
 <p>Prediction by kriging is operated at the random effect level, using <code>predict</code>:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>preds <span class="op">=</span> model.random[<span class="dv">0</span>].predict(</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    matrix_index <span class="op">=</span> full_index,   <span class="co"># all levels: train + pred</span></span>
