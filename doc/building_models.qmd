@@ -1,0 +1,156 @@
+---
+title: "Building models"
+---
+
+[pyreml]{.pyreml} relies on the `MixedModel.from_dataframe()` method to build a model from a [pandas](https://pandas.pydata.org/) DataFrame.
+This high-leve constructor reads the design from [patsy](https://pypi.org/project/patsy/) formulas, assembles the incidence and covariance
+matrices, and returns a model ready to fit.
+
+## The `from_dataframe` constructor
+
+```python
+model = MixedModel.from_dataframe(
+    data     = df,
+    response = "height",
+    fixed    = "1 + C(BLOC)",
+    random   = Random(
+        formula      = "1",
+        unit         = "ID",
+        right_hand   = "str",
+        covariance   = K,
+        matrix_index = ped["id"].tolist(),
+    ),
+    residual = Residual(
+        right_hand = "het",
+        het_formula = "1 + C(BLOC)",
+    )
+)
+
+model.fit()
+```
+
+| Argument   | Meaning                                                                                      |
+|------------|---------------------------------------------------------------------------------------------|
+| `data`     | One row per observation, wide format (one column per response variable).                     |
+| `response` | One response variable, or a list for a [multivariate](multivariate.qmd) model.              |
+| `fixed`    | A patsy formula; the intercept is `"1"`. Applied per response.                               |
+| `random`   | A `Random` object or a list of them. See [variance structures](variance_structures.qmd) and [random regression](random_regression.qmd). |
+| `residual` | A `Residual` object; defaults to `iid`. See [variance structures](variance_structures.qmd). |
+| `dtype`    | The PyTorch floating-point dtype for every tensor of the model. Defaults to `torch.double` for maximal precision. Downgrade to `torch.float` for computational speed. |
+| `device`   | The device the model lives and trains on. Defaults to `"cpu"`, use `cuda` for [GPU acceleration](http://www.nvidia.com/cuda). |
+
+Each argument maps onto a term of the model: `fixed` builds $\mathbf{X}$, each
+`random` effect contributes columns to $\mathbf{Z}$ and a block of $\mathbf{G}$,
+and `residual` defines $\mathbf{R}$ (see [the model](index.qmd#the-model)).
+
+## Data layout and missing values
+
+`data` is in wide format: one row per observation, one column per response
+variable. Missing values are handled per response: a row missing a given
+response is dropped for that response only, while rows missing a fixed covariate
+or a grouping variable are dropped throughout. Each response therefore keeps its
+own set of observed rows, and unbalanced designs are handled out of the box.
+
+## The fitted model
+
+After `fit()` (see [Training](training.qmd)), the estimates are read off the model and its effects:
+
+| Accessor                   | Content                                                              |
+|----------------------------|---------------------------------------------------------------------|
+| `model.estimates`          | Fixed-effect estimates (BLUE) as a long table `response · term · estimate`. |
+| `model.EEV`                | Estimation error variance of the fixed effects.                     |
+| `model.random[i].table`    | Random-effect predictions (BLUP) for effect `i`, as a long table.   |
+| `model.random[i].variance` | Its estimated variance structure. For homogeneity across methods, `sigma` is always a variance ($\Sigma$ or $\sigma^2$) and never a standard deviation $\sigma$. |
+| `model.residual.table`     | Model residuals.                                                    |
+| `model.residual.variance`  | The estimated residual variance.                                    |
+| `model.AIC`                | Akaike information criterion (AIC).                                 |
+
+## Low-level constructor
+
+[pyreml]{.pyreml} provides a low-level constructor for application cases that are
+not implemented. The low-level constructor builds directly from the response
+vector `y`, the design matrices `X` and `Z`, and a "residual incidence" matrix
+`W` that masks useless elements of `R`. It must also be provided a list of
+PyTorch variance parameters `varparams` and at least one differentiable variance
+method: `varmeth`, `varmeth_inv`, or both.
+
+Like `from_dataframe`, it accepts `dtype` and `device`. Every tensor
+inside `varmeth` / `varmeth_inv` must match them.
+
+```python
+import torch
+from pyreml import MixedModel
+
+dtype  = torch.double
+device = "cuda"
+
+log_su = torch.zeros((), dtype=dtype, device=device, requires_grad=True)
+log_se = torch.zeros((), dtype=dtype, device=device, requires_grad=True)
+
+varparams = [{"tensor": log_su}, {"tensor": log_se}]
+
+def varmeth(self):
+    G = torch.exp(log_su) * torch.eye(self.Z.shape[1], dtype=self.dtype, device=self.device)
+    R = torch.exp(log_se) * torch.eye(self.n, dtype=self.dtype, device=self.device)
+    return G, R
+
+model = MixedModel(
+    y, X, Z, W=None,
+    varmeth=varmeth,
+    varparams=varparams,
+    dtype=dtype,
+    device=device,
+)
+model.fit()
+```
+
+### The `varmeth` contract
+
+`varmeth(self) -> (G, R)` is bound as a method on the
+model, so it can read `self.Z`, `self.W`, `self.n`, `self.dtype`, `self.device`, …
+and returns the pair
+$(\mathbf{G}, \mathbf{R})$ that forms $\mathbf{V} = \mathbf{Z}\mathbf{G}
+\mathbf{Z}^\top + \mathbf{R}$. It must be differentiable in the `varparams`
+tensors so autograd can propagate the REML gradient. `G` may be `None` when the
+model has no random effect.
+
+### The `varmeth_inv` contract
+
+`varmeth_inv(self) -> (Ginv, Rinv, logdet_G, logdet_R)` is the inverse-side
+alternative. Rather than forming $\mathbf{V}$ and factoring it, it supplies the
+structured inverses $\mathbf{G}^{-1}$ and $\mathbf{R}^{-1}$ together with the
+log-determinants $\log|\mathbf{G}|$ and $\log|\mathbf{R}|$, from which the
+likelihood is evaluated without ever assembling $\mathbf{V}$ (see
+[SMW](training.qmd#smw)). Like `varmeth`, it is bound as a method and must be
+differentiable in the `varparams` tensors. `Ginv` and `logdet_G` may both be
+`None` when the model has no random effect.
+
+```python
+def varmeth_inv(self):
+    Ginv = torch.exp(-log_su) * torch.eye(self.Z.shape[1], dtype=self.dtype, device=self.device)
+    Rinv = torch.exp(-log_se) * torch.eye(self.n, dtype=self.dtype, device=self.device)
+    logdet_G = self.Z.shape[1] * log_su
+    logdet_R = self.n * log_se
+    return Ginv, Rinv, logdet_G, logdet_R
+
+model = MixedModel(
+    y, X, Z, W=None,
+    varmeth_inv=varmeth_inv,
+    varparams=varparams,
+    dtype=dtype,
+    device=device,
+)
+model.fit()
+```
+
+Either method alone is sufficient and fixes the solving path; supplying both
+lets the model choose (see [SMW](training.qmd#smw)).
+
+### The `varparams` format
+
+A list of dicts, one per trainable variance
+parameter, each carrying at least a `tensor` key — a leaf PyTorch tensor with
+`requires_grad`, created on the model's `dtype` and `device`. These must be the
+very tensors read inside `varmeth` (or
+`varmeth_inv`). The optimizer trains $\boldsymbol{\beta}$ jointly with them;
+$\boldsymbol{\beta}$ is initialized from $\mathbf{X}$ and is not part of `varparams`.

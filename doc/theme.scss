@@ -1,0 +1,18 @@
+/*-- scss:defaults --*/
+$pyreml-blue: #3776AB;
+
+/*-- scss:rules --*/
+.pyreml {
+  font-family: $font-family-monospace;
+  font-weight: 600;
+  color: $pyreml-blue;
+}
+
+.scroll-cell {
+  max-height: 300px;
+  overflow-y: auto;
+  overflow-x: auto;
+  border: 1px solid #ddd;
+  padding: 0.75rem;
+  border-radius: 6px;
+}

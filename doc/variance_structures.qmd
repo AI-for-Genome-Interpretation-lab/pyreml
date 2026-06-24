@@ -1,0 +1,201 @@
+---
+title: "Variance structures"
+---
+
+Every random effect and the residual of a [pyreml]{.pyreml} model is structured
+with a covariance that factors into 2 independent parts. Choosing the architecture for these two factors is how a model's variance structure is
+declared.
+
+This factorization formalizes as a Kronecker product such as for the random effect $\mathbf{a}$:
+
+$$
+\mathbf{a} \sim \mathcal{N}(\mathbf{0}, \mathbf{G_a}),
+\qquad
+\mathbf{G_a} = \mathbf{\Sigma_a} \otimes \mathbf{K_a},
+$$
+
+where:
+
+- $\mathbf{\Sigma_a}$ is the **left-hand** factor, *i.e.* the covariance *across
+the components* of the effect
+
+- $\mathbf{K_a}$ is the **right-hand** factor, *i.e.* the covariance *across its levels*.
+
+The two factors are set independently, through `left_hand` and `right_hand`.
+
+## Left-hand factor: $\mathbf{\Sigma_a}$
+
+`left_hand` sets the covariance across components. A component is a 
+(response, formula element) pair: with $k$ responses and
+$c$ columns produced by the effect's [patsy](https://pypi.org/project/patsy/)
+`formula`, $\mathbf{\Sigma_a}$ is $(k\,c) \times (k\,c)$.
+How multiple responses are handled is covered in [Multivariate](multivariate.qmd).
+How the `formula` carries a regression or random factors is
+covered in [Random regression and factors](random_regression.qmd).
+
+| `left_hand` | Structure                                                         |
+|-------------|-------------------------------------------------------------------|
+| `iid`       | [An i.i.d. covariance](#independent-and-identically-distributed) (default) |
+| `diag`      | [A diagonal covariance](#diagonal-and-full)                       |
+| `full`      | [A full covariance](#diagonal-and-full)                           |
+| `fa`        | [A factor-analytic approximation](#factor-analytic) of `full`     |
+
+### Independent and identically distributed
+
+With `iid`, $\mathbf{\Sigma_a}$ collapses to a single scalar: $\sigma_a^2\mathbf{I}$.
+
+All variances are equal and no covariance is estimated across components. The initial value of $\mathbf{\Sigma_a}$ can
+be set with `init` (a scalar for `iid`, a $(k\,c)\times(k\,c)$ matrix otherwise);
+it defaults to the identity.
+
+### Diagonal and full
+
+`diag` estimates one variance per component, with no covariance between them;
+`full` estimates the entire symmetric covariance, capturing every pairwise
+covariance across components. Both are estimated through an unconstrained
+internal parameterization that keeps $\mathbf{\Sigma_a}$ positive-definite
+throughout the fit.
+
+### Factor-analytic
+
+When the number of components is large, a `full` covariance becomes expensive
+(it holds $k\,c(k\,c+1)/2$ free parameters). The factor-analytic structure
+approximates it with a low-rank-plus-diagonal form [@kirkpatrick_direct_2004; @meyer_multivariate_2007]:
+
+$$
+\mathbf{\Sigma_a} \approx \mathbf{Q}\mathbf{\Lambda}\mathbf{Q}^\top
++ \mathbf{\Psi},
+$$
+
+with $q \ll k\,c$ orthonormal axes gathered in $\mathbf{Q}$ (scaled by the
+eigenvalues $\mathbf{\Lambda}$) and a diagonal specificity $\mathbf{\Psi}$
+that restores variance consistency after the low-rank approximation. The number
+of axes is set with `n_axes` (a practical default is `2`). The $\mathbf{Q}
+\mathbf{\Lambda}\mathbf{Q}^\top$ form is reminiscent of a principal-component
+decomposition.
+
+## Right-hand factor: $\mathbf{K_a}$
+
+`right_hand` sets the covariance across levels. A level is a
+distinct value of the grouping variable `unit`; with $l$ levels, $\mathbf{K_a}$ is
+$l \times l$.
+
+| `right_hand` | Structure                                                                  |
+|--------------|----------------------------------------------------------------------------|
+| `iid`        | Identity $\mathbf{I}$ — independent, homoscedastic levels (default).        |
+| `ar`         | [Autoregressive kernel](#autoregressive) on a known `distance` matrix.      |
+| `str`        | [A known covariance](#structured) (e.g. a kinship), via `covariance`.       |
+| `het`        | [Heteroscedastic diagonal](#heteroscedastic), one variance per level resulting of `het_formula` (modalities and/or regressors). |
+
+### Structured
+
+`str` plugs in a known covariance over the levels supplied as a [numpy](https://numpy.org/) array
+through `covariance`. Because the matrix is indexed by the user's own labels,
+`matrix_index` lists its levels in the order of its rows and columns,
+so [pyreml]{.pyreml} can align it to the data. 
+
+Common structured covariances used in genetics applications are provided with
+the [kinship helpers](kinships.qmd).
+
+### Autoregressive
+
+`ar` forms the right-hand factor entrywise from a known `distance` matrix
+$\mathbf{D}$,
+
+$$
+(\mathbf{K_a})_{ij} = \exp(-\rho\, D_{ij}),
+$$
+
+with a single decay $\rho > 0$ estimated during the fit. This generalizes an
+autoregressive correlation to arbitrary Euclidean distances (e.g. diagonals in a
+row–column trial). As for `str`, `matrix_index` orders the rows and columns of
+`distance`. The estimated $\rho$ is reused to predict new levels (see
+[Prediction](prediction.qmd)).
+
+### Heteroscedastic
+
+`het` is a diagonal right-hand factor whose entries are a log-linear function of
+an incidence matrix $\mathcal{V}$ built by **patsy** from `het_formula`:
+
+$$
+\mathbf{K_a} = \operatorname{diag}\!\big(\exp(\mathcal{V}\,\mathbf{h})\big),
+$$
+
+where:
+
+- $\mathbf{h}$ holds the coefficients of the model on the log
+scale,
+
+- $\mathcal{V}$ is an incidence-like matrix attributing and dosing
+the elements of $\mathbf{h}$ to the corresponding level of the random effect (or
+to the corresponding individual for a residual).
+
+The `Intercept` column anchors the scale: its coefficient is fixed to $0$, so its
+multiplier is $\exp(0)=1$ and the overall variance level is carried by the
+left-hand factor $\mathbf{\Sigma_a}$. The remaining $p-1$ columns carry the
+trainable coefficients. The `Intercept` must therefore be kept as removing it
+(`het_formula = "0 + ..."` or `het_formula = "-1 + ..."`) un-anchors the scale, which becomes confounded with
+$\mathbf{\Sigma_a}$.
+
+For a purely categorical formula (`het_formula = "C(group)"`), $\mathcal{V}$
+reduces to treatment contrasts and the model collapses to one variance
+multiplier per modality: the reference modality is fixed to $1$ and the other
+$p-1$ modalities are estimated as ratios $\exp(h_j)$ to it. For continuous terms
+(e.g. `"1 + age"`), the variance becomes a smooth function
+$\exp(\mathcal{V}\,\mathbf{h})$ of the covariate.
+
+It is primarily designed to be paired with `left_hand="iid"`. With a non-`iid`
+left-hand factor, `het` should be understood as scaling the whole
+$\mathbf{\Sigma_a}$ by a per-row factor (through the Kronecker product) rather
+than estimating distinct $\mathbf{\Sigma_a}$'s.
+
+## The residual
+
+The `Residual` reuses the very same $\mathbf{\Sigma_R}$ and $\mathbf{K_R}$
+factors, with one difference: it has no `unit` and no `formula`. Its levels are
+the observations themselves, so $\mathbf{K}_R$ runs over observations (`iid`
+by default) and $\mathbf{\Sigma}_R$ over the responses:
+
+$$
+\mathbf{R}_{\text{tot}} = \mathbf{\Sigma}_R \otimes \mathbf{K}_R.
+$$
+
+Because observations may be missing in unbalanced designs,
+$\mathbf{R}_{\text{tot}}$ is assembled over all original rows and then restricted
+to the observed entries through a residual "incidence" $\mathbf{W}$:
+
+$$
+\mathbf{R} = \mathbf{W}\,\mathbf{R}_{\text{tot}}\,\mathbf{W}^\top.
+$$
+
+Any structure can be declared on the residual, but not all are identifiable; the
+choice between a `full` and a `diag` residual across responses is discussed in
+[Multivariate](multivariate.qmd).
+
+## Jitter
+
+In some cases, $\mathbf{\Sigma_a}$ (or $\mathbf{\Sigma_R}$) may exhibit a perfect correlation of $1$ or $-1$
+which is expected and meaningful. However, such situation makes $\mathbf{G}$ (respectively $\mathbf{R}$) singular.
+For this reason, a `jitter` argument ($\varepsilon$) (0 by default, and *e.g* `jitter = 1e-6` for an actual effect)
+is available for `Random` and `Residual`. It improves the conditionning of $\mathbf{\Sigma_a}$
+(respectively $\mathbf{\Sigma_R}$) with a relative and an absolute
+increase of the diagonal:
+
+$$
+\mathbf{\Sigma_a} \approx
+\mathbf{\Sigma}_a
++
+\varepsilon \mathbf{I}
++
+\varepsilon\,
+\operatorname{diag}(\mathbf{\Sigma}_a)
+$$
+
+## Caution specifying covariance structures
+
+[pyreml]{.pyreml} philosophy is to provide a simple, flexible and unified framework for
+a large variety of applications. Therefore, no *a priori* constraint is applied on the user
+specification of `left_hand` and `right_hand`, for the `Random` effects as well as for the `Residual`.
+
+However, the fact these model specifications are allowed by [pyreml]{.pyreml} does not mean
+all of them are suitable. Many potential specifications may be statistically problematic.

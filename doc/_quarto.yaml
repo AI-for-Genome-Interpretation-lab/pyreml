@@ -1,0 +1,42 @@
+project:
+  type: website
+  output-dir: _site
+
+website:
+  title: "pyreml"
+  navbar:
+    background: primary
+    search: true
+    left:
+      - href: building_models.qmd
+        text: Building models
+      - href: variance_structures.qmd
+        text: Variance structures
+      - href: fixed_random.qmd
+        text: Fixed or random ?
+      - href: training.qmd
+        text: Training
+      - href: prediction.qmd
+        text: Prediction
+      - href: multivariate.qmd
+        text: Multivariate analysis
+      - href: random_regression.qmd
+        text: Random regression
+      - href: kinships.qmd
+        text: Kinship matrices
+      - href: larix.qmd
+        text: Larix dataset
+      - href: contact.qmd
+        text: Contact
+      - href: license.qmd
+        text: License
+
+bibliography: references.bib
+csl: apa.csl
+
+format:
+  html:
+    theme: 
+      - flatly
+      - theme.scss
+    toc: true
