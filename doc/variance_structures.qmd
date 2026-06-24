@@ -59,19 +59,19 @@ throughout the fit.
 ### Factor-analytic
 
 When the number of components is large, a `full` covariance becomes expensive
-(it holds $k\,c(k\,c+1)/2$ free parameters). The factor-analytic structure
+(it holds $kc(kc+1)/2$ free parameters). The factor-analytic structure
 approximates it with a low-rank-plus-diagonal form [@kirkpatrick_direct_2004; @meyer_multivariate_2007]:
 
 $$
-\mathbf{\Sigma_a} \approx \mathbf{Q}\mathbf{\Lambda}\mathbf{Q}^\top
-+ \mathbf{\Psi},
+\mathbf{\Sigma_a} \approx \mathbf{Q_a}\mathbf{\Lambda_a}\mathbf{Q_a}^\top
++ \mathbf{\Psi_a},
 $$
 
-with $q \ll k\,c$ orthonormal axes gathered in $\mathbf{Q}$ (scaled by the
-eigenvalues $\mathbf{\Lambda}$) and a diagonal specificity $\mathbf{\Psi}$
+with $l \ll kc$ orthonormal axes gathered in $\mathbf{Q_a}$ (scaled by the
+eigenvalues $\mathbf{\Lambda_a}$) and a diagonal specificity $\mathbf{\Psi_a}$
 that restores variance consistency after the low-rank approximation. The number
-of axes is set with `n_axes` (a practical default is `2`). The $\mathbf{Q}
-\mathbf{\Lambda}\mathbf{Q}^\top$ form is reminiscent of a principal-component
+of axes is set with `n_axes` (a practical default is `2`). The $\mathbf{Q_a}
+\mathbf{\Lambda_a}\mathbf{Q_a}^\top$ form is reminiscent of a principal-component
 decomposition.
 
 ## Right-hand factor: $\mathbf{K_a}$
@@ -153,11 +153,11 @@ than estimating distinct $\mathbf{\Sigma_a}$'s.
 
 The `Residual` reuses the very same $\mathbf{\Sigma_R}$ and $\mathbf{K_R}$
 factors, with one difference: it has no `unit` and no `formula`. Its levels are
-the observations themselves, so $\mathbf{K}_R$ runs over observations (`iid`
-by default) and $\mathbf{\Sigma}_R$ over the responses:
+the observations themselves, so $\mathbf{K_R}$ runs over observations (`iid`
+by default) and $\mathbf{\Sigma_R}$ over the responses:
 
 $$
-\mathbf{R}_{\text{tot}} = \mathbf{\Sigma}_R \otimes \mathbf{K}_R.
+\mathbf{R}_{tot} = \mathbf{\Sigma_R} \otimes \mathbf{K_R}.
 $$
 
 Because observations may be missing in unbalanced designs,
@@ -165,7 +165,7 @@ $\mathbf{R}_{\text{tot}}$ is assembled over all original rows and then restricte
 to the observed entries through a residual "incidence" $\mathbf{W}$:
 
 $$
-\mathbf{R} = \mathbf{W}\,\mathbf{R}_{\text{tot}}\,\mathbf{W}^\top.
+\mathbf{R} = \mathbf{W}\,\mathbf{R}_{tot}\,\mathbf{W}^\top.
 $$
 
 Any structure can be declared on the residual, but not all are identifiable; the
@@ -183,12 +183,12 @@ increase of the diagonal:
 
 $$
 \mathbf{\Sigma_a} \approx
-\mathbf{\Sigma}_a
+\mathbf{\Sigma_a}
 +
 \varepsilon \mathbf{I}
 +
 \varepsilon\,
-\operatorname{diag}(\mathbf{\Sigma}_a)
+\operatorname{diag}(\mathbf{\Sigma_a})
 $$
 
 ## Caution specifying covariance structures
