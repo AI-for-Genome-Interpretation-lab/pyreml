@@ -34,11 +34,11 @@ $\mathbf{a}$:
 $$
 \begin{bmatrix}\mathbf{u}_{a1}\\\mathbf{u}_{a2}\end{bmatrix}
 \sim
-\mathcal{N}\!\left(\mathbf{0}, \mathbf{\Sigma}_a \otimes \mathbf{K}_a\right),
+\mathcal{N}\!\left(\mathbf{0}, \mathbf{\Sigma_a} \otimes \mathbf{K_a}\right),
 $$
 
 the between-response covariance being carried by the left-hand factor
-$\mathbf{\Sigma}_a$.
+$\mathbf{\Sigma_a}$.
 
 The full stacked random vector keeps the direct-sum form 
 $\mathbf{u} \sim \mathcal{N}(\mathbf{0}, \bigoplus_e \mathbf{\Sigma}_e \otimes

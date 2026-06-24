@@ -43,7 +43,7 @@ $\mathbf{K_a}$, which can bottleneck when the number of levels to
 predict upscales.
 
 For this reason, [pyreml]{.pyreml} provides a kriging approach that consists
-in the sole inversion of the $\mathbf{K}_{train}$, the submatrix of $\mathbf{K}_a$
+in the sole inversion of the $\mathbf{K}_{train}$, the submatrix of $\mathbf{K_a}$
 that only encompasses the levels included in the training set (*i.e.* the
 observed levels):
 
@@ -58,9 +58,9 @@ $\hat{\mathbf{a}}_{\text{train}}$ the prediction of the observed levels (usually
 predicted at the HMME step), and $\mathbf{K}_{\text{pred}}$ the covariance
 between the observed and non-observed levels.
 
-For `str`, $\mathbf{K}_a$ is read from the supplied covariance; for `ar`, it is
+For `str`, $\mathbf{K_a}$ is read from the supplied covariance; for `ar`, it is
 rebuilt from the supplied distance with the estimated decay,
-$(\mathbf{K}_a)_{ij} = \exp(-\hat{\rho}\, D_{ij})$.
+$(\mathbf{K_a})_{ij} = \exp(-\hat{\rho}\, D_{ij})$.
 
 Prediction by kriging is operated at the random effect level, using `predict`:
 
