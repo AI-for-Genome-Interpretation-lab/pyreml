@@ -273,9 +273,9 @@ window.Quarto = {
 </section>
 <section id="prediction-error-variance" class="level2">
 <h2 class="anchored" data-anchor-id="prediction-error-variance">Prediction error variance</h2>
-<p>All the levels of <span class="math inline">\(\mathbf{K_a}\)</span> that were included in the HMME come with a Prediction Error Variance (PEV) computed as:</p>
+<p>All the random effects <span class="math inline">\(\hat{\mathbf{u}}\)</span> included in the HMME come with a Prediction Error Variance (PEV). The PEV and their covariance <span class="math inline">\(\mathbf{P}\)</span> are computed all together as:</p>
 <p><span class="math display">\[
-\mathrm{PEV}(\hat{\mathbf{u}}) =
+\mathbf{P} =
 \mathbf{G}
 - \mathbf{G}\mathbf{Z}^\top\mathbf{V}^{-1}\mathbf{Z}\mathbf{G}
 + \mathbf{G}\mathbf{Z}^\top\mathbf{V}^{-1}\mathbf{X}

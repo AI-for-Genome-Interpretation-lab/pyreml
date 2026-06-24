@@ -346,23 +346,20 @@ window.Quarto = {
     &amp;= \left(\mathbf{Z}\mathbf{G}\mathbf{Z}^{\top} + \mathbf{R}\right)^{-1} \\
     &amp;= \mathbf{R}^{-1}
     - \mathbf{R}^{-1}\mathbf{Z}
-   \mathbf{P}^{-1}
+   \mathbf{C}^{-1}
     \mathbf{Z}^{\top}\mathbf{R}^{-1},
 \end{align}
 \]</span></p>
-<p>with:</p>
+<p>with the capacitance matrix <span class="math inline">\(\mathbf{C}\)</span>:</p>
 <p><span class="math display">\[
-\mathbf{P} =  \left(
-        \mathbf{G}^{-1}
-        + \mathbf{Z}^{\top}\mathbf{R}^{-1}\mathbf{Z}
-    \right).
+\mathbf{C} = \mathbf{Z}^{\top}\mathbf{R}^{-1}\mathbf{Z} + \mathbf{G}^{-1}.
 \]</span></p>
 <p>The associated determinant lemma gives the REML log-determinant without forming <span class="math inline">\(\mathbf{V}\)</span> either:</p>
 <p><span class="math display">\[
 \log |\mathbf{V}|
     = \log |\mathbf{R}|
     + \log |\mathbf{G}|
-    + \log |\mathbf{P}|.
+    + \log |\mathbf{C}|.
 \]</span></p>
 <p>Using the properties of direct sum and Kronecker product and direct sum:</p>
 <p><span class="math display">\[
@@ -390,7 +387,7 @@ window.Quarto = {
 </section>
 <section id="implementation-of-smw" class="level3">
 <h3 class="anchored" data-anchor-id="implementation-of-smw">Implementation of SMW</h3>
-<p>SMW is usually more efficient when <span class="math inline">\(q &lt; n\)</span>, with <span class="math inline">\(q\)</span> the number of columns of <span class="math inline">\(\mathbf{Z}\)</span> (the total dimension of <span class="math inline">\(\mathbf{u}\)</span>) and <span class="math inline">\(n\)</span> the number of stacked observations (<em>i.e.</em> <span class="math inline">\(\mathbf{Z}\)</span> is narrower than tall). Indeed, inverting the <span class="math inline">\(q \times q\)</span> matrix <span class="math inline">\(\mathbf{P}\)</span> is cheaper than inverting the <span class="math inline">\(n \times n\)</span> matrix <span class="math inline">\(\mathbf{V}\)</span> only when <span class="math inline">\(q &lt; n\)</span>.</p>
+<p>SMW is usually more efficient when <span class="math inline">\(q &lt; n\)</span>, with <span class="math inline">\(q\)</span> the number of columns of <span class="math inline">\(\mathbf{Z}\)</span> (the total dimension of <span class="math inline">\(\mathbf{u}\)</span>) and <span class="math inline">\(n\)</span> the number of stacked observations (<em>i.e.</em> <span class="math inline">\(\mathbf{Z}\)</span> is narrower than tall). Indeed, inverting the <span class="math inline">\(q \times q\)</span> matrix <span class="math inline">\(\mathbf{C}\)</span> is cheaper than inverting the <span class="math inline">\(n \times n\)</span> matrix <span class="math inline">\(\mathbf{V}\)</span> only when <span class="math inline">\(q &lt; n\)</span>.</p>
 <p><span class="pyreml">pyreml</span> mostly conforms to this “dimensional rule”, selecting <code>SMW=True</code> when <span class="math inline">\(q &lt; n\)</span>, <code>SMW=False</code> otherwise.</p>
 <p>However:</p>
 <ul>

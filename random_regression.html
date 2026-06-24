@@ -244,7 +244,7 @@ window.Quarto = {
 
 
 <p>Each random effect of a <span class="pyreml">pyreml</span> model takes a <code>formula</code> specification, that is reminescent of the <code>(1 + x | unit)</code> idiom in <a href="https://cran.r-project.org/web/packages/lme4/index.html">lme4</a>. This formula should be comprehensive for <a href="https://pypi.org/project/patsy/">patsy</a>. Each column read from this formula (intercept, regressor, modalities of factors, and interactions) becomes a component of the effect that varies from one <code>unit</code> to the next.</p>
-<p>The left-hand factor <span class="math inline">\(\mathbf{\Sigma}_a\)</span> models the covariance between these components (see <a href="./variance_structures.html">Variance structures</a>).</p>
+<p>The left-hand factor <span class="math inline">\(\mathbf{\Sigma_a}\)</span> models the covariance between these components (see <a href="./variance_structures.html">Variance structures</a>).</p>
 <section id="random-regression" class="level2">
 <h2 class="anchored" data-anchor-id="random-regression">Random regression</h2>
 <p>A formula including a regression, such as <code>"1 + x"</code>, gives each unit its own random intercept and its own random slope.</p>
@@ -259,7 +259,7 @@ window.Quarto = {
 y_{ij} = (\beta_0 + a_{0i}) + (\beta_{1} + a_{1i})\, x_{j} + r_{ij},
 \qquad
 \begin{bmatrix} \mathbf{a_{0}} \\ \mathbf{a_{1}} \end{bmatrix}
-\sim \mathcal{N}(\mathbf{0}, \mathbf{\Sigma}_{\text{a}} \otimes \mathbf{I}),
+\sim \mathcal{N}(\mathbf{0}, \mathbf{\Sigma_a} \otimes \mathbf{I}),
 \]</span></p>
 <p>Where <span class="math inline">\(j\)</span> is the index for the longitudinal variable (for instance, the time or a dose of treatment) and <span class="math inline">\(i\)</span> is the index for the random effect unit (for instance, an individual).</p>
 </section>
@@ -272,7 +272,7 @@ y_{ij} = (\beta_0 + a_{0i}) + (\beta_{1} + a_{1i})\, x_{j} + r_{ij},
 <span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    left_hand  <span class="op">=</span> <span class="st">"full"</span>,</span>
 <span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    right_hand <span class="op">=</span> <span class="st">"iid"</span>,</span>
 <span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Each treatment now contributes one random component per patient, and the left-hand factor <span class="math inline">\(\mathbf{\Sigma}_{\text{a}}\)</span> (across modalities of treatments) captures how those treatment effects covary.</p>
+<p>Each treatment now contributes one random component per patient, and the left-hand factor <span class="math inline">\(\mathbf{\Sigma_a}\)</span> (across modalities of treatments) captures how those treatment effects covary.</p>
 </section>
 <section id="illustration" class="level2">
 <h2 class="anchored" data-anchor-id="illustration">Illustration</h2>

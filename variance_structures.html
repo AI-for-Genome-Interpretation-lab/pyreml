@@ -338,9 +338,9 @@ window.Quarto = {
 </section>
 <section id="autoregressive" class="level3">
 <h3 class="anchored" data-anchor-id="autoregressive">Autoregressive</h3>
-<p><code>ar</code> forms the right-hand factor entrywise from a known <code>distance</code> matrix <span class="math inline">\(\mathbf{D}\)</span>,</p>
+<p><code>ar</code> forms the right-hand factor entrywise from a known <code>distance</code> matrix <span class="math inline">\(\mathbf{E}\)</span>,</p>
 <p><span class="math display">\[
-(\mathbf{K_a})_{ij} = \exp(-\rho\, D_{ij}),
+(\mathbf{K_a})_{ij} = \exp(-\rho\, E_{ij}),
 \]</span></p>
 <p>with a single decay <span class="math inline">\(\rho &gt; 0\)</span> estimated during the fit. This generalizes an autoregressive correlation to arbitrary Euclidean distances (e.g.&nbsp;diagonals in a row–column trial). As for <code>str</code>, <code>matrix_index</code> orders the rows and columns of <code>distance</code>. The estimated <span class="math inline">\(\rho\)</span> is reused to predict new levels (see <a href="./prediction.html">Prediction</a>).</p>
 </section>

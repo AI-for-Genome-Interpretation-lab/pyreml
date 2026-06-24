@@ -290,18 +290,18 @@ window.Quarto = {
 </ul>
 <p>This shrinkage can be expressed analytically <span class="citation" data-cites="garrick_deregressing_2009">(<a href="#ref-garrick_deregressing_2009" role="doc-biblioref">Garrick et al., 2009</a>)</span>:</p>
 <p><span class="math display">\[
-\mathbf{\tilde{a}} = \mathbf{\hat{a}}\, \mathcal{C_\mathbf{a}}^{-1},
+\mathbf{\tilde{a}} = \mathbf{\hat{a}}\, \mathbf{\Delta_a}^{-1},
 \qquad
-\mathcal{C_\mathbf{a}} = (\mathbf{\Sigma_a} - \mathbf{P_a})\, \mathbf{P_a}^{-1},
+\mathbf{\Delta_a} = (\mathbf{\Sigma_a} - \mathbf{P_a})\, \mathbf{P_a}^{-1},
 \]</span></p>
 <p>with:</p>
 <ul>
 <li><span class="math inline">\(\mathbf{\tilde{a}}\)</span> the deregressed BLUPs, which can be understood as the value <span class="math inline">\(\mathbf{\hat{a}}\)</span> would have taken if they were BLUEs,</li>
 <li><span class="math inline">\(\mathbf{\hat{a}}\)</span> the BLUPs of the random effect <span class="math inline">\(\mathbf{a}\)</span>,</li>
-<li><span class="math inline">\(\mathcal{C_\mathbf{a}}\)</span> the coefficient of determination matrix of <span class="math inline">\(\mathbf{\hat{a}}\)</span>,</li>
+<li><span class="math inline">\(\mathbf{\Delta_a}\)</span> the coefficient of determination matrix of <span class="math inline">\(\mathbf{\hat{a}}\)</span>,</li>
 <li><span class="math inline">\(\mathbf{P_a}\)</span> the prediction error variance matrix of <span class="math inline">\(\mathbf{\hat{a}}\)</span>.</li>
 </ul>
-<p>The diagonal of <span class="math inline">\(\mathcal{C_\mathbf{a}}\)</span> can immediately be understood as <span class="math inline">\(R^2\)</span>, ranging from <span class="math inline">\(0\)</span> to <span class="math inline">\(1\)</span>:</p>
+<p>The diagonal of <span class="math inline">\(\mathbf{\Delta_a}\)</span> can immediately be understood as <span class="math inline">\(R^2\)</span>, ranging from <span class="math inline">\(0\)</span> to <span class="math inline">\(1\)</span>:</p>
 <ul>
 <li><p>close to <span class="math inline">\(0\)</span>, it indicates that no information is available for this specific level of the random effect. In this case, the corresponding BLUP is extremely shrunk: <span class="math inline">\(\mathbf{\hat{a}}_i \approx 0\)</span>.</p></li>
 <li><p>close to <span class="math inline">\(1\)</span>, the level of the random effect is well known. In this case, defining the effect as BLUE or BLUP would lead to the same outcome: <span class="math inline">\(\mathbf{\hat{a}}_i \approx \mathbf{\tilde{a}}_i\)</span>,</p></li>
