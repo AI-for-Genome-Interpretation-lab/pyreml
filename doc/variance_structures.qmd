@@ -64,14 +64,14 @@ When the number of components is large, a `full` covariance becomes expensive
 approximates it with a low-rank-plus-diagonal form [@kirkpatrick_direct_2004; @meyer_multivariate_2007]:
 
 $$
-\mathbf{\Sigma_a} \approx \mathbf{Q_a}\mathbf{\Lambda_a}\mathbf{Q_a}^\top
+\mathbf{\Sigma_a} = \mathbf{Q_a}\mathbf{\Lambda_a}\mathbf{Q_a}^\top
 + \mathbf{\Psi_a},
 $$
 
-with $l \ll kc$ orthonormal axes gathered in $\mathbf{Q_a}$ (scaled by the
+with `n_axes` $\ll kc$ orthonormal axes gathered in $\mathbf{Q_a}$ (scaled by the
 eigenvalues $\mathbf{\Lambda_a}$) and a diagonal specificity $\mathbf{\Psi_a}$
 that restores variance consistency after the low-rank approximation. The number
-of axes is set with `n_axes` (a practical default is `2`). The $\mathbf{Q_a}
+of axes is set with the `n_axes` argument, a practical default being `n_axes = 2`. The $\mathbf{Q_a}
 \mathbf{\Lambda_a}\mathbf{Q_a}^\top$ form is reminiscent of a principal-component
 decomposition (PCA). This analogy with the PCA can be useful for *post hoc*
 interpretation of the FA model.

@@ -176,9 +176,9 @@ the left hand (possibly a mere scalar $\sigma^2_\mathbf{a}$) needs inversion at 
 - with any diagonal covariance (`left_hand` in `{iid, diag}` or `right_hand` in
 `{iid, het}`); the inversion turns an $O(n^3)$ factorization into an
 $O(n)$ elementwise operation;
-- with `left_hand = fa`; the inversion of $\mathbf{\Sigma_a}$ is also done with SMW,
-as it is approximated by the form
-$\mathbf{\Sigma_a} \approx \mathbf{Q_a}\mathbf{\Lambda_a}\mathbf{Q_a}^\top + \mathbf{\Psi_a}$,
+- with `left_hand = fa`; the inversion of $\mathbf{\Sigma_a}$ is also done with SMW
+as it is approximated by the same form
+$\mathbf{\Sigma_a} = \mathbf{Q_a}\mathbf{\Lambda_a}\mathbf{Q_a}^\top + \mathbf{\Psi_a}$,
 breaking the problem down even further.
 
 ### Implementation of SMW
