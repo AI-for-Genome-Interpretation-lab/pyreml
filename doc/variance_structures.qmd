@@ -33,6 +33,10 @@ How multiple responses are handled is covered in [Multivariate](multivariate.qmd
 How the `formula` carries a regression or random factors is
 covered in [Random regression and factors](random_regression.qmd).
 
+The initial value of $\mathbf{\Sigma_a}$ can
+be set with `init` (a scalar for `iid`, a $(k\,c)\times(k\,c)$ matrix otherwise);
+it defaults to the identity.
+
 | `left_hand` | Structure                                                         |
 |-------------|-------------------------------------------------------------------|
 | `iid`       | [An i.i.d. covariance](#independent-and-identically-distributed) (default) |
@@ -43,10 +47,7 @@ covered in [Random regression and factors](random_regression.qmd).
 ### Independent and identically distributed
 
 With `iid`, $\mathbf{\Sigma_a}$ collapses to a single scalar: $\sigma_a^2\mathbf{I}$.
-
-All variances are equal and no covariance is estimated across components. The initial value of $\mathbf{\Sigma_a}$ can
-be set with `init` (a scalar for `iid`, a $(k\,c)\times(k\,c)$ matrix otherwise);
-it defaults to the identity.
+All variances are equal and no covariance is estimated across components.
 
 ### Diagonal and full
 
@@ -72,7 +73,8 @@ eigenvalues $\mathbf{\Lambda_a}$) and a diagonal specificity $\mathbf{\Psi_a}$
 that restores variance consistency after the low-rank approximation. The number
 of axes is set with `n_axes` (a practical default is `2`). The $\mathbf{Q_a}
 \mathbf{\Lambda_a}\mathbf{Q_a}^\top$ form is reminiscent of a principal-component
-decomposition.
+decomposition (PCA). This analogy with the PCA can be useful for *post hoc*
+interpretation of the FA model.
 
 ## Right-hand factor: $\mathbf{K_a}$
 

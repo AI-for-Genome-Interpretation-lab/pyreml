@@ -15,7 +15,7 @@ website:
       - href: fixed_random.qmd
         text: Fixed or random ?
       - href: training.qmd
-        text: Training
+        text: Training models
       - href: prediction.qmd
         text: Prediction
       - href: multivariate.qmd

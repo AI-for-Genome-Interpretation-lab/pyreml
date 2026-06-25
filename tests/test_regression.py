@@ -81,6 +81,11 @@ class TestOLS:
         actual = mod_ols.residual.table["residual"].tolist()
         np.testing.assert_allclose(actual, expected, atol=1e-10)
 
+    def test_tvals(self, mod_ols):
+        expected = EXPECTED_FIXED_REG["tvals"]
+        actual = mod_ols.estimates["t"].tolist()
+        np.testing.assert_allclose(actual, expected, atol=1e-10)
+
 
 class TestLMM:
 
@@ -138,3 +143,8 @@ class TestLMM:
             idx = [i + j * L for j in range(c)]
             block = pev[np.ix_(idx, idx)]
             np.testing.assert_allclose(block, expected[:, :, i], atol=2.5e-3)  # !!
+
+    def test_tvals(self, mod_lmm):
+            expected = EXPECTED_RANDOM_REG["tvals"]
+            actual = mod_lmm.estimates["t"].tolist()
+            np.testing.assert_allclose(actual, expected, rtol=1e-5) # woodbury

@@ -239,7 +239,7 @@ class MixedModel:
             self.residual.format_variance()
 
             self.EEV = EEV
-            self.format_fixed()
+            self.format_fixed(compute_SE=True)
 
             residuals = (self.y - self.X @ self.beta).flatten()
             self.residual.format_residuals(residuals, self.W)
@@ -384,7 +384,7 @@ class MixedModel:
                 PEV = C[p:, p:]
 
                 # Fixed effects: labelled table if high-level, raw beta + EEV otherwise.
-                self.format_fixed()
+                self.format_fixed(compute_SE=True)
 
                 # Model residuals: e_hat = y - X beta_hat - Z u_hat.
                 y_hat = self.X @ self.beta + self.Z @ self.uhat
@@ -409,33 +409,55 @@ class MixedModel:
                 
                 self.compute_AIC()
 
-    def format_fixed(self):
-            """
-            Format the fixed-effect estimates.
+    def format_fixed(self, compute_SE: bool = False):
+        """
+        Format the fixed-effect estimates.
 
-            High-level build (fixed_names + response stored on the model): a long
-            DataFrame [response | term | estimate] in self.estimates, kept in the native
-            order of beta (response-outer, term-inner) so that row i aligns with
-            row/col i of the estimation error variance matrix self.EEV. The full EEV
-            is delivered as-is (SE = sqrt(diag(EEV)) is recoverable, and the
-            off-diagonals carry the covariances between estimates).
+        High-level build (fixed_names + response stored on the model): a long
+        DataFrame in self.estimates, kept in the native order of beta
+        (response-outer, term-inner) so that row i aligns with row/col i of the
+        estimation error variance matrix self.EEV. Columns are
+        [response | term | estimate]; if compute_SE is True, SE and t are appended
+        (SE = sqrt(diag(EEV)), t = estimate / SE), which requires self.EEV to be
+        current. The full EEV is also delivered as-is (the off-diagonals carry the
+        covariances between estimates).
 
-            Low-level fallback: self.estimates is not built; the raw beta vector
-            (self.beta) and self.EEV are the only outputs.
-            """
-            fixed_names = getattr(self, "fixed_names", None)
-            response = getattr(self, "response", None)
-            if fixed_names is None or response is None:
-                return  # fallback: raw beta + EEV only
+        Low-level fallback: self.estimates is not built; the raw beta vector
+        (self.beta) and self.EEV are the only outputs.
+        """
+        fixed_names = getattr(self, "fixed_names", None)
+        response = getattr(self, "response", None)
+        if fixed_names is None or response is None:
+            return  # fallback: raw beta + EEV only
 
-            beta = self.beta.detach().flatten().tolist()
-            p_fixed = len(fixed_names)
+        beta = self.beta.detach().flatten().tolist()
+        p_fixed = len(fixed_names)
+
+        if compute_SE:
+            se = torch.sqrt(torch.diag(self.EEV)).detach().flatten().tolist()
+            rows = [
+                (
+                    resp,
+                    term,
+                    beta[r * p_fixed + t],
+                    se[r * p_fixed + t],
+                    beta[r * p_fixed + t] / se[r * p_fixed + t],
+                )
+                for r, resp in enumerate(response)
+                for t, term in enumerate(fixed_names)
+            ]
+            self.estimates = pd.DataFrame(
+                rows, columns=["response", "term", "estimate", "SE", "t"]
+            )
+        else:
             rows = [
                 (resp, term, beta[r * p_fixed + t])
                 for r, resp in enumerate(response)
                 for t, term in enumerate(fixed_names)
             ]
-            self.estimates = pd.DataFrame(rows, columns=["response", "term", "estimate"])
+            self.estimates = pd.DataFrame(
+                rows, columns=["response", "term", "estimate"]
+            )
 
     def compute_AIC(self):
         """

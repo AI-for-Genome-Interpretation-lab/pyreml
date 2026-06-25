@@ -1,12 +1,12 @@
 ---
-title: "Training"
+title: "Training models"
 ---
 
 [pyreml]{.pyreml} fits linear mixed models by direct differentiation of the Restricted
 Maximum Likelihood (REML) using [PyTorch](https://pytorch.org/) for variance parameter estimation.
 It benefits from PyTorch parallelization and GPU acceleration.
 
-## Fitting
+## The `fit` method
 
 Once a [pyreml]{.pyreml} model is specified, it can be trained with the `.fit()` method.
 

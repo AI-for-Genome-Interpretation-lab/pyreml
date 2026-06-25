@@ -52,6 +52,7 @@ result = {
     "beta": ref.params.tolist(),
     "eev": ref.cov_params().values.tolist(),
     "residuals": ref.resid.tolist(),
+    "tvals": ref.tvalues.tolist()
 }
 
 with open("../data/regression_fixed.json", "w") as f:
@@ -96,6 +97,8 @@ with localconverter(ro.default_converter + numpy2ri.converter + pandas2ri.conver
     sigma_r   = float(stats.sigma(mod_lme4)[0]) ** 2
     blup      = np.array(ranef(mod_lme4)[0]).tolist()
     residuals = list(stats.residuals(mod_lme4))
+    coef_tab = np.array(ro.r("coef")(ro.r("summary")(mod_lme4)))
+    tvals    = coef_tab[:, 2].tolist()
 
 ranef_cv = ranef(mod_lme4, **{"condVar": True})
 pev_raw = np.array(ro.r("attr")(ranef_cv[0], "postVar"))
@@ -109,6 +112,7 @@ result = {
     "blup": blup,
     "residuals": residuals,
     "pev": pev,
+    "tvals": tvals,
 }
 
 with open("../data/regression_random.json", "w") as f:
