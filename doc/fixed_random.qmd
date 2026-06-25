@@ -108,9 +108,9 @@ BLUE = dev_BLUE
 
 # compute CD
 sigma2 = mod_BLUP.random[0].variance["sigma"]
-Sigma  = np.eye(len(levels)) * sigma2
+Variance  = np.eye(len(levels)) * sigma2
 PEV    = mod_BLUP.random[0].PEV.numpy()
-CD     = (Sigma - PEV) @ np.linalg.inv(Sigma)
+CD     = (Variance - PEV) @ np.linalg.inv(Variance)
 
 # compute the deregressed BLUP
 DEREG = BLUP @ np.linalg.pinv(CD)

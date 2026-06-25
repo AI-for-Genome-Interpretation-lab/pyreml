@@ -34,7 +34,7 @@ $$
   \mathbf{X}^\top\mathbf{V}^{-1}\mathbf{Z}\mathbf{G}.
 $$
 
-The PEV is then exposed as `model.random[i].PEV`.
+The PEV matrix for each random effect $\mathbf{P_a}$ is then exposed as `model.random[i].PEV`.
 
 ## Kriging
 
