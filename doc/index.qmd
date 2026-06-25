@@ -88,7 +88,7 @@ model.random[0].table.head()
 - [Building models](building_models.qmd)
 - [Variance structures](variance_structures.qmd)
 - [Choosing between fixed and random effects](fixed_random.qmd)
-- [Training](training.qmd)
+- [Training models](training.qmd)
 - [Prediction](prediction.qmd)
 - [Multivariate analysis](multivariate.qmd)
 - [Random regressions and factors](random_regression.qmd)
@@ -99,7 +99,8 @@ model.random[0].table.head()
 
 Please cite this package as:
 
-Marchal, A., & Raimondi, D. (2026). pyreml - general-purpose linear mixed model solver [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.20826541
+Marchal, A., & Raimondi, D. (2026). pyreml - general-purpose linear mixed model solver [Computer software]. Zenodo.
+[https://doi.org/10.5281/zenodo.20826541](https://doi.org/10.5281/zenodo.20826541)
 
 ## Code
 

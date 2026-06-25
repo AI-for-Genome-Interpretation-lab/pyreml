@@ -34,11 +34,11 @@ $\mathbf{a}$:
 $$
 \begin{bmatrix}\mathbf{u}_{a1}\\\mathbf{u}_{a2}\end{bmatrix}
 \sim
-\mathcal{N}\!\left(\mathbf{0}, \mathbf{\Sigma}_a \otimes \mathbf{K}_a\right),
+\mathcal{N}\!\left(\mathbf{0}, \mathbf{\Sigma_a} \otimes \mathbf{K_a}\right),
 $$
 
 the between-response covariance being carried by the left-hand factor
-$\mathbf{\Sigma}_a$.
+$\mathbf{\Sigma_a}$.
 
 The full stacked random vector keeps the direct-sum form 
 $\mathbf{u} \sim \mathcal{N}(\mathbf{0}, \bigoplus_e \mathbf{\Sigma}_e \otimes
@@ -229,11 +229,11 @@ model = MixedModel.from_dataframe(
 
 A [jitter](variance_structures.qmd#jitter)
 is required as some specificities of the random effect
-$diag(\mathbf{\Psi_a})$ are close to zero in this example.
+$\operatorname{diag}(\mathbf{\Psi_a})$ are close to zero in this example.
 
 The factor-analytic can be read as a principal component analysis. Let us
-scale the covariance to correlation, interpret $\mathbf{\Lambda}$ as a raw
-amount of $\Sigma_{A}$ explained by each axis, and study the structure of
+scale the covariance to correlation, interpret $\mathbf{\Lambda_a}$ as a raw
+amount of $\mathbf{\Sigma_a}$ explained by each axis, and study the structure of
 the genetic component of the traits in their correlative space.
 
 ::: {.scroll-cell}

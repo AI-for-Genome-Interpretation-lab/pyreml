@@ -1,5 +1,5 @@
 {% set name = "pyreml" %}
-{% set version = "0.1.1" %}
+{% set version = "0.1.2" %}
 
 package:
   name: {{ name|lower }}
@@ -7,7 +7,7 @@ package:
 
 source:
   url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
-  sha256: 55f274b1351568f7e298c41540bb40b41be43d80e3fa730f80ded69a31f22d60 
+  sha256: be93a936db9a077c1f27226f3e56b72a69dc812cdbfc390b8959ecd5bb85a0e3 
 
 build:
   noarch: python

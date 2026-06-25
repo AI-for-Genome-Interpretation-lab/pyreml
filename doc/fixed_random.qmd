@@ -11,7 +11,7 @@ The core idea behind a random effect is that its levels are regarded as a sample
 from a population, summarised by a distribution:
 
 $$
-\mathbf{a} \sim \mathcal{N}(0, \mathbf{\Sigma_a}),
+\mathbf{a} \sim \mathcal{N}(0, \mathbf{G_a}),
 $$
 
 which is often made acceptable by the central limit theorem.
@@ -37,9 +37,9 @@ between the predicted and the true value underlying the observed phenomenon.
 This shrinkage can be expressed analytically [@garrick_deregressing_2009]:
 
 $$
-\mathbf{\tilde{a}} = \mathbf{\hat{a}}\, \mathcal{C_\mathbf{a}}^{-1},
+\mathbf{\tilde{a}} = \mathbf{\hat{a}}\, \mathbf{\Delta_a}^{-1},
 \qquad
-\mathcal{C_\mathbf{a}} = (\mathbf{\Sigma_a} - \mathbf{P_a})\, \mathbf{P_a}^{-1},
+\mathbf{\Delta_a} = (\mathbf{G_a} - \mathbf{P_a})\, \mathbf{G_a}^{-1},
 $$
 
 with:
@@ -47,10 +47,10 @@ with:
 - $\mathbf{\tilde{a}}$ the deregressed BLUPs, which can be understood as the value $\mathbf{\hat{a}}$ would have
 taken if they were BLUEs,
 - $\mathbf{\hat{a}}$ the BLUPs of the random effect $\mathbf{a}$,
-- $\mathcal{C_\mathbf{a}}$ the coefficient of determination matrix of $\mathbf{\hat{a}}$,
+- $\mathbf{\Delta_a}$ the coefficient of determination matrix of $\mathbf{\hat{a}}$,
 - $\mathbf{P_a}$ the prediction error variance matrix of $\mathbf{\hat{a}}$.
 
-The diagonal of $\mathcal{C_\mathbf{a}}$ can immediately
+The diagonal of $\mathbf{\Delta_a}$ can immediately
 be understood as $R^2$, ranging from $0$ to $1$:
 
 - close to $0$, it indicates that no information is available for this specific level
@@ -108,9 +108,9 @@ BLUE = dev_BLUE
 
 # compute CD
 sigma2 = mod_BLUP.random[0].variance["sigma"]
-Sigma  = np.eye(len(levels)) * sigma2
+Variance  = np.eye(len(levels)) * sigma2
 PEV    = mod_BLUP.random[0].PEV.numpy()
-CD     = (Sigma - PEV) @ np.linalg.inv(Sigma)
+CD     = (Variance - PEV) @ np.linalg.inv(Variance)
 
 # compute the deregressed BLUP
 DEREG = BLUP @ np.linalg.pinv(CD)

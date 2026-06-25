@@ -9,7 +9,7 @@ Each column read from this formula (intercept, regressor, modalities of factors,
 interactions) becomes a component of the effect that varies from one `unit`
 to the next.
 
-The left-hand factor $\mathbf{\Sigma}_a$ models the covariance
+The left-hand factor $\mathbf{\Sigma_a}$ models the covariance
 between these components (see [Variance structures](variance_structures.qmd)).
 
 ## Random regression
@@ -33,7 +33,7 @@ $$
 y_{ij} = (\beta_0 + a_{0i}) + (\beta_{1} + a_{1i})\, x_{j} + r_{ij},
 \qquad
 \begin{bmatrix} \mathbf{a_{0}} \\ \mathbf{a_{1}} \end{bmatrix}
-\sim \mathcal{N}(\mathbf{0}, \mathbf{\Sigma}_{\text{a}} \otimes \mathbf{I}),
+\sim \mathcal{N}(\mathbf{0}, \mathbf{\Sigma_a} \otimes \mathbf{I}),
 $$
 
 Where $j$ is the index for the longitudinal variable (for instance, the time or a dose of treatment) and
@@ -55,7 +55,7 @@ Random(
 ```
 
 Each treatment now contributes one random component per patient, and the left-hand
-factor $\mathbf{\Sigma}_{\text{a}}$ (across modalities of treatments) captures how
+factor $\mathbf{\Sigma_a}$ (across modalities of treatments) captures how
 those treatment effects covary.
 
 ## Illustration
