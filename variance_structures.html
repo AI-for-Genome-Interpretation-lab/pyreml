@@ -295,10 +295,10 @@ window.Quarto = {
 <h3 class="anchored" data-anchor-id="factor-analytic">Factor-analytic</h3>
 <p>When the number of components is large, a <code>full</code> covariance becomes expensive (it holds <span class="math inline">\(kc(kc+1)/2\)</span> free parameters). The factor-analytic structure approximates it with a low-rank-plus-diagonal form <span class="citation" data-cites="kirkpatrick_direct_2004 meyer_multivariate_2007">(<a href="#ref-kirkpatrick_direct_2004" role="doc-biblioref">Kirkpatrick &amp; Meyer, 2004</a>; <a href="#ref-meyer_multivariate_2007" role="doc-biblioref">Meyer, 2007</a>)</span>:</p>
 <p><span class="math display">\[
-\mathbf{\Sigma_a} \approx \mathbf{Q_a}\mathbf{\Lambda_a}\mathbf{Q_a}^\top
+\mathbf{\Sigma_a} = \mathbf{Q_a}\mathbf{\Lambda_a}\mathbf{Q_a}^\top
 + \mathbf{\Psi_a},
 \]</span></p>
-<p>with <span class="math inline">\(l \ll kc\)</span> orthonormal axes gathered in <span class="math inline">\(\mathbf{Q_a}\)</span> (scaled by the eigenvalues <span class="math inline">\(\mathbf{\Lambda_a}\)</span>) and a diagonal specificity <span class="math inline">\(\mathbf{\Psi_a}\)</span> that restores variance consistency after the low-rank approximation. The number of axes is set with <code>n_axes</code> (a practical default is <code>2</code>). The <span class="math inline">\(\mathbf{Q_a}
+<p>with <code>n_axes</code> <span class="math inline">\(\ll kc\)</span> orthonormal axes gathered in <span class="math inline">\(\mathbf{Q_a}\)</span> (scaled by the eigenvalues <span class="math inline">\(\mathbf{\Lambda_a}\)</span>) and a diagonal specificity <span class="math inline">\(\mathbf{\Psi_a}\)</span> that restores variance consistency after the low-rank approximation. The number of axes is set with the <code>n_axes</code> argument, a practical default being <code>n_axes = 2</code>. The <span class="math inline">\(\mathbf{Q_a}
 \mathbf{\Lambda_a}\mathbf{Q_a}^\top\)</span> form is reminiscent of a principal-component decomposition (PCA). This analogy with the PCA can be useful for <em>post hoc</em> interpretation of the FA model.</p>
 </section>
 </section>

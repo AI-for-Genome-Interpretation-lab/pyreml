@@ -382,7 +382,7 @@ window.Quarto = {
 <ul>
 <li>with <code>right_hand = str</code> for a given effect <span class="math inline">\(\mathbf{a}\)</span>; the inversion of <span class="math inline">\(\mathbf{K_a}\)</span> is done once for all and cached so that only the left hand (possibly a mere scalar <span class="math inline">\(\sigma^2_\mathbf{a}\)</span>) needs inversion at each step;</li>
 <li>with any diagonal covariance (<code>left_hand</code> in <code>{iid, diag}</code> or <code>right_hand</code> in <code>{iid, het}</code>); the inversion turns an <span class="math inline">\(O(n^3)\)</span> factorization into an <span class="math inline">\(O(n)\)</span> elementwise operation;</li>
-<li>with <code>left_hand = fa</code>; the inversion of <span class="math inline">\(\mathbf{\Sigma_a}\)</span> is also done with SMW, as it is approximated by the form <span class="math inline">\(\mathbf{\Sigma_a} \approx \mathbf{Q_a}\mathbf{\Lambda_a}\mathbf{Q_a}^\top + \mathbf{\Psi_a}\)</span>, breaking the problem down even further.</li>
+<li>with <code>left_hand = fa</code>; the inversion of <span class="math inline">\(\mathbf{\Sigma_a}\)</span> is also done with SMW as it is approximated by the same form <span class="math inline">\(\mathbf{\Sigma_a} = \mathbf{Q_a}\mathbf{\Lambda_a}\mathbf{Q_a}^\top + \mathbf{\Psi_a}\)</span>, breaking the problem down even further.</li>
 </ul>
 </section>
 <section id="implementation-of-smw" class="level3">
