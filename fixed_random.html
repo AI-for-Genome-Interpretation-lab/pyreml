@@ -350,9 +350,9 @@ window.Quarto = {
 <span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a><span class="co"># compute CD</span></span>
 <span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>sigma2 <span class="op">=</span> mod_BLUP.random[<span class="dv">0</span>].variance[<span class="st">"sigma"</span>]</span>
-<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>Sigma  <span class="op">=</span> np.eye(<span class="bu">len</span>(levels)) <span class="op">*</span> sigma2</span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>Variance  <span class="op">=</span> np.eye(<span class="bu">len</span>(levels)) <span class="op">*</span> sigma2</span>
 <span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>PEV    <span class="op">=</span> mod_BLUP.random[<span class="dv">0</span>].PEV.numpy()</span>
-<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>CD     <span class="op">=</span> (Sigma <span class="op">-</span> PEV) <span class="op">@</span> np.linalg.inv(Sigma)</span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>CD     <span class="op">=</span> (Variance <span class="op">-</span> PEV) <span class="op">@</span> np.linalg.inv(Variance)</span>
 <span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a><span class="co"># compute the deregressed BLUP</span></span>
 <span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>DEREG <span class="op">=</span> BLUP <span class="op">@</span> np.linalg.pinv(CD)</span>
