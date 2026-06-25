@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>Training – pyreml</title>
+<title>Training models – pyreml</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -189,7 +189,7 @@ window.Quarto = {
   </li>  
   <li class="nav-item">
     <a class="nav-link active" href="./training.html" aria-current="page"> 
-<span class="menu-text">Training</span></a>
+<span class="menu-text">Training models</span></a>
   </li>  
   <li class="nav-item">
     <a class="nav-link" href="./prediction.html"> 
@@ -235,7 +235,7 @@ window.Quarto = {
     <h2 id="toc-title">On this page</h2>
    
   <ul>
-  <li><a href="#fitting" id="toc-fitting" class="nav-link active" data-scroll-target="#fitting">Fitting</a></li>
+  <li><a href="#the-fit-method" id="toc-the-fit-method" class="nav-link active" data-scroll-target="#the-fit-method">The <code>fit</code> method</a></li>
   <li><a href="#ols" id="toc-ols" class="nav-link" data-scroll-target="#ols">OLS</a></li>
   <li><a href="#reml" id="toc-reml" class="nav-link" data-scroll-target="#reml">REML</a></li>
   <li><a href="#hmme" id="toc-hmme" class="nav-link" data-scroll-target="#hmme">HMME</a></li>
@@ -254,7 +254,7 @@ window.Quarto = {
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">Training</h1>
+<h1 class="title">Training models</h1>
 </div>
 
 
@@ -272,8 +272,8 @@ window.Quarto = {
 
 
 <p><span class="pyreml">pyreml</span> fits linear mixed models by direct differentiation of the Restricted Maximum Likelihood (REML) using <a href="https://pytorch.org/">PyTorch</a> for variance parameter estimation. It benefits from PyTorch parallelization and GPU acceleration.</p>
-<section id="fitting" class="level2">
-<h2 class="anchored" data-anchor-id="fitting">Fitting</h2>
+<section id="the-fit-method" class="level2">
+<h2 class="anchored" data-anchor-id="the-fit-method">The <code>fit</code> method</h2>
 <p>Once a <span class="pyreml">pyreml</span> model is specified, it can be trained with the <code>.fit()</code> method.</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>model.fit()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>This runs the full pipeline, calling this series of methods:</p>

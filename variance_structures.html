@@ -154,7 +154,7 @@ window.Quarto = {
   </li>  
   <li class="nav-item">
     <a class="nav-link" href="./training.html"> 
-<span class="menu-text">Training</span></a>
+<span class="menu-text">Training models</span></a>
   </li>  
   <li class="nav-item">
     <a class="nav-link" href="./prediction.html"> 
@@ -256,6 +256,7 @@ window.Quarto = {
 <section id="left-hand-factor-mathbfsigma_a" class="level2">
 <h2 class="anchored" data-anchor-id="left-hand-factor-mathbfsigma_a">Left-hand factor: <span class="math inline">\(\mathbf{\Sigma_a}\)</span></h2>
 <p><code>left_hand</code> sets the covariance across components. A component is a (response, formula element) pair: with <span class="math inline">\(k\)</span> responses and <span class="math inline">\(c\)</span> columns produced by the effect’s <a href="https://pypi.org/project/patsy/">patsy</a> <code>formula</code>, <span class="math inline">\(\mathbf{\Sigma_a}\)</span> is <span class="math inline">\((k\,c) \times (k\,c)\)</span>. How multiple responses are handled is covered in <a href="./multivariate.html">Multivariate</a>. How the <code>formula</code> carries a regression or random factors is covered in <a href="./random_regression.html">Random regression and factors</a>.</p>
+<p>The initial value of <span class="math inline">\(\mathbf{\Sigma_a}\)</span> can be set with <code>init</code> (a scalar for <code>iid</code>, a <span class="math inline">\((k\,c)\times(k\,c)\)</span> matrix otherwise); it defaults to the identity.</p>
 <table class="caption-top table">
 <thead>
 <tr class="header">
@@ -284,8 +285,7 @@ window.Quarto = {
 </table>
 <section id="independent-and-identically-distributed" class="level3">
 <h3 class="anchored" data-anchor-id="independent-and-identically-distributed">Independent and identically distributed</h3>
-<p>With <code>iid</code>, <span class="math inline">\(\mathbf{\Sigma_a}\)</span> collapses to a single scalar: <span class="math inline">\(\sigma_a^2\mathbf{I}\)</span>.</p>
-<p>All variances are equal and no covariance is estimated across components. The initial value of <span class="math inline">\(\mathbf{\Sigma_a}\)</span> can be set with <code>init</code> (a scalar for <code>iid</code>, a <span class="math inline">\((k\,c)\times(k\,c)\)</span> matrix otherwise); it defaults to the identity.</p>
+<p>With <code>iid</code>, <span class="math inline">\(\mathbf{\Sigma_a}\)</span> collapses to a single scalar: <span class="math inline">\(\sigma_a^2\mathbf{I}\)</span>. All variances are equal and no covariance is estimated across components.</p>
 </section>
 <section id="diagonal-and-full" class="level3">
 <h3 class="anchored" data-anchor-id="diagonal-and-full">Diagonal and full</h3>
@@ -299,7 +299,7 @@ window.Quarto = {
 + \mathbf{\Psi_a},
 \]</span></p>
 <p>with <span class="math inline">\(l \ll kc\)</span> orthonormal axes gathered in <span class="math inline">\(\mathbf{Q_a}\)</span> (scaled by the eigenvalues <span class="math inline">\(\mathbf{\Lambda_a}\)</span>) and a diagonal specificity <span class="math inline">\(\mathbf{\Psi_a}\)</span> that restores variance consistency after the low-rank approximation. The number of axes is set with <code>n_axes</code> (a practical default is <code>2</code>). The <span class="math inline">\(\mathbf{Q_a}
-\mathbf{\Lambda_a}\mathbf{Q_a}^\top\)</span> form is reminiscent of a principal-component decomposition.</p>
+\mathbf{\Lambda_a}\mathbf{Q_a}^\top\)</span> form is reminiscent of a principal-component decomposition (PCA). This analogy with the PCA can be useful for <em>post hoc</em> interpretation of the FA model.</p>
 </section>
 </section>
 <section id="right-hand-factor-mathbfk_a" class="level2">
