@@ -57,9 +57,6 @@ class TestOLS:
     def test_do_REML(self, mod_ols):
         assert mod_ols.do_REML is False
 
-    def test_do_HMME(self, mod_ols):
-        assert mod_ols.do_HMME is False
-
     def test_random(self, mod_ols):
         assert mod_ols.random == []
 
@@ -94,9 +91,6 @@ class TestLMM:
 
     def test_do_REML(self, mod_lmm):
         assert mod_lmm.do_REML is True
-
-    def test_do_HMME(self, mod_lmm):
-        assert mod_lmm.do_HMME is True
 
     def test_response(self, mod_lmm):
         assert mod_lmm.response == ["height"]
