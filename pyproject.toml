@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyreml"
-version = "0.1.2"
+version = "0.1.3"
 readme = "README.md" 
 requires-python = ">=3.10"
 dependencies = [
@@ -20,7 +20,7 @@ authors = [
   {name = "Daniele Raimondi"},
 ]
 license = "GPL-3.0-or-later"
-description = "General-purpose linear mixed model solver (REML, BLUP, LMM)."
+description = "General-purpose linear mixed model solver."
 [project.urls]
 Homepage = "https://github.com/ai-for-genome-interpretation-lab/pyreml"
 Documentation = "https://ai-for-genome-interpretation-lab.github.io/pyreml/"

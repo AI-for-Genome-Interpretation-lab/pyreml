@@ -58,7 +58,6 @@ After `fit()` (see [Training](training.qmd)), the estimates are read off the mod
 | Accessor                   | Content                                                              |
 |----------------------------|---------------------------------------------------------------------|
 | `model.estimates`          | Fixed-effect estimates (BLUE) as a long table `response · term · estimate · SE · t`. |
-| `model.EEV`                | Estimation error variance of the fixed effects.                     |
 | `model.random[i].table`    | Random-effect predictions (BLUP) for effect `i`, as a long table.   |
 | `model.random[i].variance` | Its estimated variance structure. For homogeneity across methods, `sigma` is always a variance ($\Sigma$ or $\sigma^2$) and never a standard deviation $\sigma$. |
 | `model.residual.table`     | Model residuals.                                                    |

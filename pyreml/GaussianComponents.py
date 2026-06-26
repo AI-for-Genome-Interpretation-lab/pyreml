@@ -613,7 +613,6 @@ class GaussianComponent:
             ]
 
             metadata = {
-                "axis": ["response", "component"],
                 "labels": labels,
             }
 
