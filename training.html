@@ -180,12 +180,12 @@ window.Quarto = {
 <span class="menu-text">Building models</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./variance_structures.html"> 
-<span class="menu-text">Variance structures</span></a>
-  </li>  
-  <li class="nav-item">
     <a class="nav-link" href="./fixed_random.html"> 
 <span class="menu-text">Fixed or random ?</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="./variance_structures.html"> 
+<span class="menu-text">Variance structures</span></a>
   </li>  
   <li class="nav-item">
     <a class="nav-link active" href="./training.html" aria-current="page"> 
@@ -282,8 +282,7 @@ window.Quarto = {
 <li><p><code>.REML()</code>, <a href="#reml">REML</a> estimation of the variance components,</p></li>
 <li><p><code>.HMME()</code>, <a href="#hmme">Henderson’s mixed model equations</a> (HMME) for the random-effect predictions.</p></li>
 </ul>
-<p>REML is engaged whenever the model carries random effects, a residual variance structure, or several responses ; otherwise the fitting process stops at the OLS step.</p>
-<p>HMME is only engaged if the model carries random effects to predict.</p>
+<p>REML and HMME are engaged whenever the model carries random effects, a residual variance structure, or several responses ; otherwise the fitting process stops at the OLS step.</p>
 </section>
 <section id="ols" class="level2">
 <h2 class="anchored" data-anchor-id="ols">OLS</h2>
