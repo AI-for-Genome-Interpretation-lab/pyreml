@@ -104,9 +104,8 @@ class MixedModel:
             and torch.allclose(W, torch.eye(W.shape[0], dtype=dtype, device = device))
         )
 
-        do_HMME = Z is not None
         do_REML = (
-            do_HMME
+            Z is not None
             or len(response) > 1
             or residual.right_hand != "iid"
         )
@@ -142,7 +141,6 @@ class MixedModel:
             varmeth_inv = varmeth_inv,
             varparams=varparams,
             do_REML=do_REML,
-            do_HMME=do_HMME,
             dtype = dtype,
             device = device,
         )
@@ -169,7 +167,6 @@ class MixedModel:
         varmeth: Callable | None = None,
         varmeth_inv: Callable | None = None,
         do_REML: bool = True,
-        do_HMME: bool = True,
         dtype = torch.double,
         device = "cpu",
     ):
@@ -197,7 +194,6 @@ class MixedModel:
         self.beta = nn.Parameter(torch.zeros(self.X.shape[1], 1, dtype=dtype, device = device))
 
         self.varparams   = varparams
-        self.do_HMME     = do_HMME
         self.do_REML     = do_REML
         self.varmeth     = types.MethodType(varmeth, self) if varmeth is not None else None
         self.varmeth_inv = types.MethodType(varmeth_inv, self) if varmeth_inv is not None else None
@@ -214,9 +210,7 @@ class MixedModel:
         self.OLS(terminate=not self.do_REML)
 
         if self.do_REML:
-            self.REML(terminate=not self.do_HMME)
-
-        if self.do_HMME:
+            self.REML()
             self.HMME()
 
         return self
@@ -258,7 +252,6 @@ class MixedModel:
         self,
         n_epoch: int = 10_000,
         convergence: float = 1.0e-10,
-        terminate: bool = True,
     ):
         """
         Restricted maximum likelihood estimation of the variance components + beta
@@ -277,15 +270,6 @@ class MixedModel:
         residual = getattr(self, "residual", None)
         if residual is not None:
             residual.format_variance()
-
-        if terminate:
-
-            self.format_fixed()
-
-            residuals = (self.y - self.X @ self.beta).flatten()
-            self.residual.format_residuals(residuals, self.W)
-
-            self.compute_AIC()
 
     def REML_closure(self):
 
@@ -362,59 +346,69 @@ class MixedModel:
                     Ginv = torch.linalg.inv(G)
                     Rinv = torch.linalg.inv(R)
 
-                XtRiX = self.X.T @ Rinv @ self.X
-                XtRiZ = self.X.T @ Rinv @ self.Z
-                ZtRiZ = self.Z.T @ Rinv @ self.Z
+                if self.Z is None:
+                    LH = self.X.T @ Rinv @ self.X
+                    RH = self.X.T @ Rinv @ self.y
+                else:
+                    XtRiX = self.X.T @ Rinv @ self.X
+                    XtRiZ = self.X.T @ Rinv @ self.Z
+                    ZtRiZ = self.Z.T @ Rinv @ self.Z
 
-                LH = torch.cat(
-                    [
-                        torch.cat([XtRiX, XtRiZ], dim=1),
-                        torch.cat([XtRiZ.T, ZtRiZ + Ginv], dim=1),
-                    ],
-                    dim=0,
-                )
-                RH = torch.cat(
-                    [self.X.T @ Rinv @ self.y, self.Z.T @ Rinv @ self.y], dim=0
-                )
-
+                    LH = torch.cat([
+                            torch.cat([XtRiX, XtRiZ], dim=1),
+                            torch.cat([XtRiZ.T, ZtRiZ + Ginv], dim=1),
+                        ],
+                        dim=0,
+                    )
+                    RH = torch.cat([
+                            self.X.T @ Rinv @ self.y,
+                            self.Z.T @ Rinv @ self.y
+                        ],
+                        dim=0
+                    )
+                
                 # Factor LH once (symmetric PD): reuse for the solve and the inverse.
                 Lchol = torch.linalg.cholesky(LH)
                     
                 sol = torch.cholesky_solve(RH, Lchol)
                 C = torch.cholesky_inverse(Lchol)          # C = LH^{-1}
-
+                
                 p = self.p
                 self.beta.data.copy_(sol[:p])
-                self.uhat.data.copy_(sol[p:])
-
-                # Blocks of C: top-left = EEV of beta_hat, bottom-right = PEV of u_hat.
                 self.EEV = C[:p, :p]
-                PEV = C[p:, p:]
+
+                if self.Z is not None:
+                    self.uhat.data.copy_(sol[p:])
+                    PEV = C[p:, p:]
 
                 # Fixed effects: labelled table if high-level, raw beta + EEV otherwise.
                 self.format_fixed(compute_SE=True)
 
-                # Model residuals: e_hat = y - X beta_hat - Z u_hat.
-                y_hat = self.X @ self.beta + self.Z @ self.uhat
+                if self.Z is None:
+                    y_hat = self.X @ self.beta
+                else:
+                    y_hat = self.X @ self.beta + self.Z @ self.uhat
+
                 residuals = (self.y - y_hat).flatten()
 
                 random = getattr(self, "random", None)
                 residual = getattr(self, "residual", None)
 
-                if random is not None and residual is not None:
-                    # High-level build: dispatch each effect's slice.
+                if random is not None:
                     offset = 0
                     for rand in random:
                         size = rand.k * rand.c * rand.L
                         idx = slice(offset, offset + size)
                         rand.format_pred(self.uhat[idx], PEV[idx, idx])
                         offset += size
+                else:
+                    self.PEV = PEV
+                    
+                if residual is not None:
                     residual.format_residuals(residuals, self.W)
                 else:
-                    # Low-level constructor: no Random/Residual objects, store flat.
                     self.residuals = residuals
-                    self.PEV = PEV
-                
+
                 self.compute_AIC()
 
     def format_fixed(self, compute_SE: bool = False):

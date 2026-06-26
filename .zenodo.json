@@ -2,7 +2,7 @@
   "title": "pyreml - general-purpose linear mixed model solver",
   "description": "pyreml is a general-purpose linear mixed model solver. It fits linear mixed models for a wide range of applications: quantitative genetics, spatial statistics, health sciences, among others. Models are fitted by direct differentiation of the Restricted Maximum Likelihood (REML), using PyTorch for variance parameter estimation. It benefits from PyTorch parallelization and GPU acceleration.",
   "upload_type": "software",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "language": "eng",
   "creators": [
     {

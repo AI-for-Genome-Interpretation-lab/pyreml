@@ -10,10 +10,10 @@ website:
     left:
       - href: building_models.qmd
         text: Building models
-      - href: variance_structures.qmd
-        text: Variance structures
       - href: fixed_random.qmd
         text: Fixed or random ?
+      - href: variance_structures.qmd
+        text: Variance structures
       - href: training.qmd
         text: Training models
       - href: prediction.qmd
