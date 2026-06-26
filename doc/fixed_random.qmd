@@ -201,7 +201,7 @@ sampling process, not a variance expressed by the effect itself.
 ### Do we aim generalization outside the training dataset ?
 
 As mentionned in the [previous section](fixed_random.qmd#the-blup-intuition),
-the BLUPs are mathematically build as to maximize the generalizability of
+the BLUPs are mathematically built as to maximize the generalizability of
 a prediction. As opposed to a commun misconception, the focal interest for 
 an effect and its generalizability argues in favor of considering it as random.
 
