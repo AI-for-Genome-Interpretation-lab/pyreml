@@ -23,13 +23,14 @@ class MixedModel:
         residual: Residual | None = None,
         SMW: bool | None = None,
         dtype = torch.double,
-        device = "cpu",
+        device: str = "cpu",
     ):
 
         response = [response] if isinstance(response, str) else list(response)
         residual = Residual() if residual is None else residual
         random = [] if random is None else (random if isinstance(random, list) else [random])
 
+        ## Filter NAs
         missing = [r.unit for r in random if r.unit not in data.columns]
         if missing:
             raise ValueError(f"random grouping variables not found in data: {missing}")
@@ -50,18 +51,25 @@ class MixedModel:
 
         data = data.loc[keep].copy()
 
-        dm = patsy.dmatrix(fixed, data=data, return_type="dataframe")
-        fixed_names = dm.design_info.column_names
-        X_base = np.asarray(dm)
-
         masks = [data[resp].notna().to_numpy() for resp in response]
 
         y = np.hstack(
             [data.loc[m, resp].to_numpy() for resp, m in zip(response, masks)]
         )
 
+        ## Build X
+        dm = patsy.dmatrix(fixed, data=data, return_type="dataframe")
+        fixed_names = dm.design_info.column_names
+        X_base = np.asarray(dm)
+        
+        empty = np.where(~X_base.any(axis=0))[0]
+        keep = [i for i in range(X_base.shape[1]) if i not in set(empty)]
+        X_base = X_base[:, keep]
+        fixed_names = [fixed_names[i] for i in keep]
+
         X = block_diag(*[X_base[m] for m in masks])
 
+        ## build Z and everything random related
         Z_blocks = []
         random_blocks = []
         random_blocks_inv = []
