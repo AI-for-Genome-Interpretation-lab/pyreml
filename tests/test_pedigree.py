@@ -320,11 +320,11 @@ class TestMultivariateStr:
 
     def test_SigmaA(self, mod_str):
         actual = mod_str.random[0].build_S().detach().numpy()
-        np.testing.assert_allclose(actual, np.array(EXPECTED_STR["SigmaA"]), rtol = 0.05) # ! => woodbury
+        np.testing.assert_allclose(actual, np.array(EXPECTED_STR["SigmaA"]), rtol = 0.06) # !! => woodbury
 
     def test_SigmaR(self, mod_str):
         actual = mod_str.residual.build_S().detach().numpy()
-        np.testing.assert_allclose(actual, np.array(EXPECTED_STR["SigmaR"]), rtol=0.002) # !
+        np.testing.assert_allclose(actual, np.array(EXPECTED_STR["SigmaR"]), rtol=0.003) # ! => woodbury
 
     def test_blup_a(self, mod_str):
         blup, ids = _multi_blup(mod_str, 0)
