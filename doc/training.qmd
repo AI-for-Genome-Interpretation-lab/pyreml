@@ -99,11 +99,10 @@ $$
 
 Their solution gives the best linear unbiased estimator (BLUE) of
 $\boldsymbol{\beta}$ and the best linear unbiased predictor (BLUP) of
-$\mathbf{u}$, in a single solve. They are formed only when the model has random
-effects; otherwise REML already delivers $\boldsymbol{\beta}$.
+$\mathbf{u}$, in a single solve.
 
-The same system also yields the error variances of the estimates. See
-[Prediction](prediction.qmd) for the prediction error variance of
+The same system also yields the error variances of the estimates and predictions.
+See [Prediction](prediction.qmd) for the prediction error variance of
 $\hat{\mathbf{u}}$.
 
 ## SMW

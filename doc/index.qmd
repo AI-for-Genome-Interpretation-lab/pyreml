@@ -86,8 +86,8 @@ model.random[0].table.head()
 ## Manual contents
 
 - [Building models](building_models.qmd)
-- [Variance structures](variance_structures.qmd)
 - [Choosing between fixed and random effects](fixed_random.qmd)
+- [Variance structures](variance_structures.qmd)
 - [Training models](training.qmd)
 - [Prediction](prediction.qmd)
 - [Multivariate analysis](multivariate.qmd)
