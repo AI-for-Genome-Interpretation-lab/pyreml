@@ -22,10 +22,8 @@ This runs the full pipeline, calling this series of methods:
 
 - `.HMME()`, [Henderson's mixed model equations](#hmme) (HMME) for the random-effect predictions.
 
-REML is engaged whenever the model carries random effects, a residual variance structure,
+REML and HMME are engaged whenever the model carries random effects, a residual variance structure,
 or several responses ; otherwise the fitting process stops at the OLS step.
-
-HMME is only engaged if the model carries random effects to predict.
 
 ## OLS
 
