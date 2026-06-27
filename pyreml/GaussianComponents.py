@@ -1223,6 +1223,7 @@ class Residual(GaussianComponent):
         if self.right_hand in _COORD_RIGHT:
             self.make_coords(data)
         self.n, self.q = self.W.shape
+        self.d = self.k * self.c
 
         if self.distance is not None or self.covariance is not None:
             if self.distance is not None:
