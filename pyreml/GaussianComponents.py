@@ -7,16 +7,25 @@ import torch
 import torch.nn as nn
 import warnings
 
+LEFT = Literal["iid", "diag", "full", "fa", "bl_resp", "bl_form", "kr_resp", "kr_form"]
+RIGHT = Literal["iid", "str", "het", "dist", "eucl", "ar_iso", "ar_ani"]
+
+# right-hand families
+_COORD_RIGHT = ("eucl", "ar_iso", "ar_ani")        # read coordinates from the frame
+_DECAY_RIGHT = ("dist", "eucl", "ar_iso", "ar_ani")  # exp(-decay), rate(s) > 0
+
+
 class GaussianComponent:
 
     def __init__(
         self,
         unit: str | None,
         formula: str = "1",
-        left_hand: Literal["iid", "diag", "full", "fa"] = "iid",
-        right_hand: Literal["iid", "ar", "str", "het"] = "iid",
+        left_hand: LEFT = "iid",
+        right_hand: RIGHT = "iid",
         covariance: None | np.ndarray = None,
         distance: None | np.ndarray = None,
+        coords: None | list[str] = None,
         matrix_index: None | list = None,
         het_formula: None | str = None,
         n_axes: None | int = None,
@@ -37,33 +46,38 @@ class GaussianComponent:
         distinct values are the levels of the effect.
  
         Supported types for S (`left_hand`), with d = k * c:
-            - iid:  S = s² * I_d, a single scalar variance (equal
-                    variances, no covariance across components) (default)
-            - diag: a diagonal covariance matrix, estimated from the data
-            - full: a full covariance matrix, estimated from the data
-            - fa: factor-analytic approximation of the full structure
-
+            - iid:  S = s² * I_d, a single scalar variance (default)
+            - diag: a diagonal covariance matrix
+            - full: a full covariance matrix
+            - fa:   factor-analytic approximation of the full structure
+            - bl_resp / bl_form: block-diagonal across responses / formula columns
+                    (k blocks c×c, resp. c blocks k×k), each a full covariance
+            - kr_resp / kr_form: the separable (proportional-block) counterparts,
+                    S = diag(alpha) ⊗ Omega (resp. A ⊗ diag(omega)); the first
+                    scaling factor is anchored to 1.
 
         Supported types for K (`right_hand`):
             - iid:  identity matrix, independent levels (default)
-            - ar:   exponential autoregressive kernel, K = exp(-ar * D),
-                    with ar = exp(log_ar) > 0 estimated and D a known distance
-                    matrix between levels (see `distance`)
             - str:  known structure matrix, e.g. a kinship (see `covariance`)
-            - het:  diagonal, one variance per column resulting of "het_formula".
-                    "het" is primarily meant to be paired with left_hand="iid".
- 
+            - het:  diagonal, log-linear in `het_formula`
+            - dist: exp(-rho * D) over a supplied distance matrix `distance`
+            - eucl: exp(-rho * ||dx||_2), distance built internally from `coords`
+            - ar_iso / ar_ani: separable autoregressive decay from `coords`,
+                    one shared rate (iso) or one rate per axis (ani)
+
         `covariance` is the known structure matrix for right_hand="str".
-        `distance`   is the known distance matrix for right_hand="ar".
+        `distance`   is the known distance matrix for right_hand="dist".
+        `coords` lists the DataFrame columns holding the coordinates for the
+            coordinate-based kernels (eucl / ar_iso / ar_ani). Each level of
+            `unit` must carry a single coordinate (constant within the level) and
+            no two levels may share the same coordinate (otherwise K is singular).
         `matrix_index` lists the levels of `unit` in the order in which they
-            appear in the rows/cols of `covariance` / `distance`. Required
-            whenever such a matrix is given for a grouped random effect; not
-            allowed for residual structures (`unit=None`).
+            appear in the rows/cols of `covariance` / `distance`.
         `het_formula` is the formula for right_hand="het".
         `n_axes` is the number of factorial axes for left_hand="fa".
-        `init` is the initial value of S. For left_hand in {full, diag, fa} it is
-            a (k*c) x (k*c) array (or its diagonal for diag); for left_hand="iid"
-            it is a scalar. When None, S starts at the identity.
+        `init` is the initial value of S. For the matrix structures it is a
+            (k*c) x (k*c) array; entries outside the retained block / Kronecker
+            structure are ignored. For left_hand="iid" it is a scalar.
         """
 
         self.unit = unit
@@ -72,32 +86,36 @@ class GaussianComponent:
         self.right_hand = right_hand
         self.covariance = covariance
         self.distance = distance
+        self.coords = coords
         self.matrix_index = matrix_index
         self.het_formula = het_formula
         self.n_axes = n_axes
         self.init = init
         self.jitter = jitter
 
-        # check "ar"
-        if self.right_hand == "ar":
+        # check "dist"
+        if self.right_hand == "dist":
             if self.distance is None:
-                raise ValueError(
-                    "`distance` is required when right_hand = 'ar'."
-                )
+                raise ValueError("`distance` is required when right_hand = 'dist'.")
         elif self.distance is not None:
-            raise ValueError(
-                "`distance` must be None when right_hand != 'ar'."
-            )
-        
+            raise ValueError("`distance` must be None when right_hand != 'dist'.")
+
         # check str
         if self.right_hand == "str":
             if self.covariance is None:
-                raise ValueError(
-                    "`covariance` is required when right_hand = 'str'."
-                )
+                raise ValueError("`covariance` is required when right_hand = 'str'.")
         elif self.covariance is not None:
+            raise ValueError("`covariance` must be None when right_hand != 'str'.")
+
+        # check coords (eucl / ar_iso / ar_ani)
+        if self.right_hand in _COORD_RIGHT:
+            if self.coords is None:
+                raise ValueError(
+                    "`coords` is required when right_hand in {'eucl', 'ar_iso', 'ar_ani'}."
+                )
+        elif self.coords is not None:
             raise ValueError(
-                "`covariance` must be None when right_hand != 'str'."
+                "`coords` must be None unless right_hand in {'eucl', 'ar_iso', 'ar_ani'}."
             )
 
         # check het
@@ -105,9 +123,7 @@ class GaussianComponent:
             if self.het_formula is None:
                 raise ValueError("`het_formula` is required when `right_hand='het'`.")
         elif self.het_formula is not None:
-            raise ValueError(
-                "`het_formula` must be None when right_hand != 'het'."
-            )
+            raise ValueError("`het_formula` must be None when right_hand != 'het'.")
         
         if self.right_hand == "het" and self.left_hand != "iid":
             warnings.warn(
@@ -122,10 +138,8 @@ class GaussianComponent:
                     "`n_axes` is required when left_hand = 'fa'. A practical default is n_axes = 2."
                 )
         elif self.n_axes is not None:
-            raise ValueError(
-                "`n_axes` must be None when left_hand != 'fa'."
-            )
- 
+            raise ValueError("`n_axes` must be None when left_hand != 'fa'.")
+
     def init_varparams(self) -> None:
         """
         Instantiate the trainable variance parameters for this effect.
@@ -134,17 +148,19 @@ class GaussianComponent:
             - iid:  S = exp(log_S) * I_d              (log_S a scalar)
             - full: S = matrix_exp(log_S + log_S.T)   (log_S a (d, d) matrix)
             - diag: S = diag(exp(log_S))              (log_S a (d,) vector)
-            - fa:   S = Q diag(Lambda) Q.T + diag(Psi), with Q, _ = qr(M).
-                    The three blocks (M (d, q), log_Lambda (q,), log_Psi (d,))
-                    are concatenated into a single flat parameter `log_S` of
-                    length d*q + q + d, in that order; build_S slices it back
-                    with the known dimensions.
- 
+            - fa:   S = Q diag(Lambda) Q.T + diag(Psi)
+            - bl_resp: log_S a (k, c, c) stack, each block matrix_exp(B + B.T)
+            - bl_form: log_S a (c, k, k) stack, blocks laid formula-outer then permuted
+            - kr_resp: log_S = [Omega_flat (c*c), log_alpha (k-1)]
+                       S = diag([1, exp(log_alpha)]) ⊗ matrix_exp(B + B.T)
+            - kr_form: log_S = [A_flat (k*k), log_omega (c-1)]
+                       S = matrix_exp(B + B.T) ⊗ diag([1, exp(log_omega)])
+
         Right-hand factor K:
             - iid / str: no trainable parameter
-            - ar:  a single log_ar (ar = exp(log_ar) > 0), initialized at 0
-            - het: p-1 trainable log-ratios log_h (the reference modality is
-                   fixed at variance 1). Requires make_V(data) beforehand.
+            - dist / eucl / ar_iso: a single log_rho (rho = exp(log_rho) > 0)
+            - ar_ani: a log_rho vector, one rate per coordinate axis
+            - het: p-1 trainable log-ratios log_h. Requires make_V(data) beforehand.
         """
         self.varparams = []
 
@@ -152,7 +168,7 @@ class GaussianComponent:
         self.components = [
             (resp, name) for resp in self.responses for name in self.colnames
         ]
-        d = self.k * self.c
+        k, c, d = self.k, self.c, self.d
 
         # --- left-hand factor S ---------------------------------------------
         match self.left_hand:
@@ -173,7 +189,7 @@ class GaussianComponent:
                     log_S0 = torch.zeros(d, d, dtype = self.dtype, device = self.device)
                 else:
                     init = np.asarray(self.init, dtype=float)
-                    log_S0 = torch.as_tensor(np.real(logm(init)) / 2.0, dtype=torch.double, device=self.device)
+                    log_S0 = torch.as_tensor(np.real(logm(init)) / 2.0, dtype=self.dtype, device=self.device)
                 self.log_S = nn.Parameter(log_S0)
                 n_left = d * (d + 1) // 2
 
@@ -229,6 +245,77 @@ class GaussianComponent:
                 # the q factors: dim O(q) = q(q-1)/2 directions
                 n_left = d * q + d - q * (q - 1) // 2
 
+            case "bl_resp":
+                # k blocks of c x c, each parameterized like `full`
+                if self.init is None:
+                    log_S0 = torch.zeros(k, c, c, dtype=self.dtype, device=self.device)
+                else:
+                    init = np.asarray(self.init, dtype=float)
+                    blocks = [
+                        np.real(logm(init[r * c:(r + 1) * c, r * c:(r + 1) * c])) / 2.0
+                        for r in range(k)
+                    ]
+                    log_S0 = torch.as_tensor(np.stack(blocks), dtype=self.dtype, device=self.device)
+                self.log_S = nn.Parameter(log_S0)
+                n_left = k * c * (c + 1) // 2
+
+            case "bl_form":
+                # c blocks of k x k (one per formula column)
+                if self.init is None:
+                    log_S0 = torch.zeros(c, k, k, dtype=self.dtype, device=self.device)
+                else:
+                    init = np.asarray(self.init, dtype=float)
+                    blocks = []
+                    for e in range(c):
+                        idx = [r * c + e for r in range(k)]
+                        blocks.append(np.real(logm(init[np.ix_(idx, idx)])) / 2.0)
+                    log_S0 = torch.as_tensor(np.stack(blocks), dtype=self.dtype, device=self.device)
+                self.log_S = nn.Parameter(log_S0)
+                n_left = c * k * (k + 1) // 2
+
+            case "kr_resp":
+                # S = diag([1, exp(log_alpha)]) ⊗ Omega, Omega (c x c) full
+                if self.init is None:
+                    Bflat = torch.zeros(c * c, dtype=self.dtype, device=self.device)
+                    log_alpha = torch.zeros(k - 1, dtype=self.dtype, device=self.device)
+                else:
+                    init = np.asarray(self.init, dtype=float)
+                    Omega0 = init[:c, :c]
+                    Bflat = torch.as_tensor(
+                        (np.real(logm(Omega0)) / 2.0).reshape(-1), dtype=self.dtype, device=self.device
+                    )
+                    ratios = [
+                        np.trace(init[r * c:(r + 1) * c, r * c:(r + 1) * c]) / np.trace(Omega0)
+                        for r in range(1, k)
+                    ]
+                    log_alpha = torch.as_tensor(
+                        np.log(ratios) if ratios else np.zeros(0), dtype=self.dtype, device=self.device
+                    )
+                self.log_S = nn.Parameter(torch.cat([Bflat, log_alpha]))
+                n_left = c * (c + 1) // 2 + (k - 1)
+
+            case "kr_form":
+                # S = A ⊗ diag([1, exp(log_omega)]), A (k x k) full
+                if self.init is None:
+                    Bflat = torch.zeros(k * k, dtype=self.dtype, device=self.device)
+                    log_omega = torch.zeros(c - 1, dtype=self.dtype, device=self.device)
+                else:
+                    init = np.asarray(self.init, dtype=float)
+                    idx0 = [r * c + 0 for r in range(k)]
+                    A0 = init[np.ix_(idx0, idx0)]
+                    Bflat = torch.as_tensor(
+                        (np.real(logm(A0)) / 2.0).reshape(-1), dtype=self.dtype, device=self.device
+                    )
+                    ratios = []
+                    for e in range(1, c):
+                        idx_e = [r * c + e for r in range(k)]
+                        ratios.append(np.trace(init[np.ix_(idx_e, idx_e)]) / np.trace(A0))
+                    log_omega = torch.as_tensor(
+                        np.log(ratios) if ratios else np.zeros(0), dtype=self.dtype, device=self.device
+                    )
+                self.log_S = nn.Parameter(torch.cat([Bflat, log_omega]))
+                n_left = k * (k + 1) // 2 + (c - 1)
+
             case _:
                 raise ValueError(f"unsupported left hand type: {self.left_hand}")
 
@@ -246,17 +333,47 @@ class GaussianComponent:
             case "iid":
                 n_right = 0
 
-            case "ar":
+            case "dist":
                 if self.distance is None:
-                    raise ValueError("a distance matrix `distance` must be provided for right_hand='ar'")
-                self.log_ar = nn.Parameter(torch.zeros((), dtype = self.dtype, device = self.device))
+                    raise ValueError("a distance matrix `distance` must be provided for right_hand='dist'")
+                self.log_rho = nn.Parameter(torch.zeros((), dtype=self.dtype, device=self.device))
                 self.varparams.append({
                     "effect": self.unit if self.unit is not None else "residual",
-                    "element": "ar",
-                    "tensor": self.log_ar,
-                    "structure": "ar",
+                    "element": "rho",
+                    "tensor": self.log_rho,
+                    "structure": "dist",
                 })
                 n_right = 1
+
+            case "eucl" | "ar_iso":
+                if not hasattr(self, "coords_levels"):
+                    raise ValueError(
+                        "make_coords(data) must be called before init_varparams for "
+                        f"right_hand='{self.right_hand}'."
+                    )
+                self.log_rho = nn.Parameter(torch.zeros((), dtype=self.dtype, device=self.device))
+                self.varparams.append({
+                    "effect": self.unit if self.unit is not None else "residual",
+                    "element": "rho",
+                    "tensor": self.log_rho,
+                    "structure": self.right_hand,
+                })
+                n_right = 1
+
+            case "ar_ani":
+                if not hasattr(self, "coords_levels"):
+                    raise ValueError(
+                        "make_coords(data) must be called before init_varparams for right_hand='ar_ani'."
+                    )
+                self.log_rho = nn.Parameter(torch.zeros(self.coord_dim, dtype=self.dtype, device=self.device))
+                self.varparams.append({
+                    "effect": self.unit if self.unit is not None else "residual",
+                    "element": "rho",
+                    "tensor": self.log_rho,
+                    "index": list(self.coords),
+                    "structure": "ar_ani",
+                })
+                n_right = self.coord_dim
 
             case "str":
                 if self.covariance is None:
@@ -328,22 +445,60 @@ class GaussianComponent:
         rest = [c for c in cols if c != "Intercept"]
         V_df = V_df[["Intercept"] + rest]
 
-        self.V = torch.tensor(V_df.to_numpy(), dtype = self.dtype, device = self.device)
+        self.V = torch.tensor(V_df.to_numpy(), dtype=self.dtype, device=self.device)
         self.het_index = rest
         self.n_het = len(rest)
- 
+
+    def make_coords(self, data: pd.DataFrame) -> None:
+        """
+        Read the coordinates for the coordinate-based kernels (eucl / ar_iso /
+        ar_ani) and store them as one position per level.
+
+        Two constraints are enforced:
+            - intra-level constancy: every row of a given `unit` level must carry
+              the same coordinate,
+            - inter-level uniqueness: no two levels may share a coordinate (else
+              the across-level kernel K would be singular).
+
+        Granularity:
+            - residual (unit=None): one position per observation,
+            - grouped: one position per level of `unit`, aligned to self.index.
+
+        Sets self.coords_levels ((L, axes) tensor) and self.coord_dim.
+        """
+        if self.coords is None:
+            raise ValueError("`coords` is required for the coordinate-based kernels.")
+
+        if self.unit is None:
+            P = data[self.coords].to_numpy(dtype=float)
+        else:
+            g = data.groupby(self.unit, sort=False)[self.coords]
+            if (g.nunique() > 1).to_numpy().any():
+                raise ValueError("`coords` must be constant within each level of `unit`.")
+            frame = g.first().reindex(self.index)
+            P = frame.to_numpy(dtype=float)
+
+        if np.unique(P, axis=0).shape[0] != P.shape[0]:
+            raise ValueError(
+                "`coords` must be unique across levels: duplicated coordinates make "
+                "the across-level kernel singular."
+            )
+
+        self.coord_dim = P.shape[1]
+        self.coords_levels = torch.as_tensor(P, dtype=self.dtype, device=self.device)
+
     def build_S(self) -> torch.Tensor:
         """
         Rebuild the left-hand factor S from its log-parameterization.
         Differentiable in self.log_S.
         """
         log_S = self.log_S
+        k, c, d = self.k, self.c, self.d
 
         match self.left_hand:
 
             case "iid":
-                d = self.k * self.c
-                return torch.exp(log_S) * torch.eye(d, dtype = self.dtype, device = self.device)
+                return torch.exp(log_S) * torch.eye(d, dtype=self.dtype, device=self.device)
             
             case "full":
                 return torch.linalg.matrix_exp(log_S + log_S.T)
@@ -352,60 +507,101 @@ class GaussianComponent:
                 return torch.diag(torch.exp(log_S))
             
             case "fa":
-                d = self.k * self.c
                 q = self.n_axes
                 M = log_S[: d * q].reshape(d, q)
-                log_Lambda = log_S[d * q : d * q + q]
-                log_Psi = log_S[d * q + q :]
+                log_Lambda = log_S[d * q: d * q + q]
+                log_Psi = log_S[d * q + q:]
 
                 Q, _ = torch.linalg.qr(M)
                 Lambda = torch.exp(log_Lambda)
                 Psi = torch.exp(log_Psi)
                 return (Q * Lambda) @ Q.T + torch.diag(Psi)
 
+            case "bl_resp":
+                blocks = torch.linalg.matrix_exp(log_S + log_S.transpose(-1, -2))  # (k, c, c)
+                return torch.block_diag(*blocks)
+
+            case "bl_form":
+                blocks = torch.linalg.matrix_exp(log_S + log_S.transpose(-1, -2))  # (c, k, k)
+                S_form = torch.block_diag(*blocks)                                  # formula-outer
+                perm = self.torch.arange(self.d, device=self.device).reshape(self.c, self.k).T.reshape(-1)()
+                return S_form[perm][:, perm]
+
+            case "kr_resp":
+                Bflat = log_S[: c * c].reshape(c, c)
+                log_alpha = log_S[c * c:]
+                Omega = torch.linalg.matrix_exp(Bflat + Bflat.T)
+                alpha = torch.cat([torch.ones(1, dtype=self.dtype, device=self.device), torch.exp(log_alpha)])
+                return torch.kron(torch.diag(alpha), Omega)
+
+            case "kr_form":
+                Bflat = log_S[: k * k].reshape(k, k)
+                log_omega = log_S[k * k:]
+                Alpha = torch.linalg.matrix_exp(Bflat + Bflat.T)
+                omega = torch.cat([torch.ones(1, dtype=self.dtype, device=self.device), torch.exp(log_omega)])
+                return torch.kron(Alpha, torch.diag(omega))
+
             case _:
                 raise NotImplementedError(f"left_hand='{self.left_hand}' is not implemented.")
 
     def build_K(
-            self,
-            covariance: None | torch.Tensor = None,
-            distance: None | torch.Tensor = None,
-        ) -> torch.Tensor:
-            """
-            Build the right-hand factor K. Differentiable when the structure
-            carries trainable parameters (ar, het), constant otherwise (iid, str).
+        self,
+        covariance: None | torch.Tensor = None,
+        distance: None | torch.Tensor = None,
+        coords: None | torch.Tensor = None,
+    ) -> torch.Tensor:
+        """
+        Build the right-hand factor K. Differentiable when the structure carries
+        trainable parameters (dist, eucl, ar_iso, ar_ani, het), constant
+        otherwise (iid, str).
 
-            `covariance` / `distance` default to the training matrices stored on the
-            effect; passing new ones (over a superset of levels) lets `predict` reuse
-            the same kernel logic for kriging.
-            """
-            covariance = self.covariance if covariance is None else covariance
-            distance = self.distance if distance is None else distance
+        `covariance` / `distance` / `coords` default to the training inputs stored
+        on the effect; passing new ones (over a superset of levels) lets `predict`
+        reuse the same kernel logic for kriging.
+        """
+        covariance = self.covariance if covariance is None else covariance
+        distance = self.distance if distance is None else distance
 
-            match self.right_hand:
+        match self.right_hand:
 
-                case "iid":
-                    return torch.eye(self.L, dtype = self.dtype, device = self.device)
-                
-                case "ar":
-                    ar = torch.exp(self.log_ar)
-                    return torch.exp(-ar * distance)
-                
-                case "str":
-                    return covariance
-                
-                case "het":
-                    h = torch.cat([torch.zeros(1, dtype = self.dtype, device = self.device), self.log_h])
-                    return torch.diag(torch.exp(self.V @ h))
-                
-                case _:
-                    raise ValueError(f"unsupported right hand type: {self.right_hand}")
+            case "iid":
+                return torch.eye(self.L, dtype=self.dtype, device=self.device)
+            
+            case "dist":
+                rho = torch.exp(self.log_rho)
+                return torch.exp(-rho * distance)
+            
+            case "str":
+                return covariance
+            
+            case "het":
+                h = torch.cat([torch.zeros(1, dtype=self.dtype, device=self.device), self.log_h])
+                return torch.diag(torch.exp(self.V @ h))
+            
+            case "eucl":
+                P = self.coords_levels if coords is None else torch.as_tensor(coords, dtype=self.dtype, device=self.device)
+                diff = P[:, None, :] - P[None, :, :]
+                D = torch.sqrt((diff ** 2).sum(-1))
+                return torch.exp(-torch.exp(self.log_rho) * D)
+
+            case "ar_iso":
+                P = self.coords_levels if coords is None else torch.as_tensor(coords, dtype=self.dtype, device=self.device)
+                D = (P[:, None, :] - P[None, :, :]).abs().sum(-1)        # L1
+                return torch.exp(-torch.exp(self.log_rho) * D)
+
+            case "ar_ani":
+                P = self.coords_levels if coords is None else torch.as_tensor(coords, dtype=self.dtype, device=self.device)
+                absdiff = (P[:, None, :] - P[None, :, :]).abs()          # (M, M, axes)
+                rho = torch.exp(self.log_rho)                            # (axes,)
+                return torch.exp(-(absdiff * rho).sum(-1))
+
+            case _:
+                raise ValueError(f"unsupported right hand type: {self.right_hand}")
         
     def varmeth(self) -> Callable:
         """
         Return the unitary function for this effect: a closure that builds this
-        effect's block S ⊗ K. It closes over `self`, so it reads the live
-        parameters (updated in place by the optimizer) and the stored constants.
+        effect's block S ⊗ K.
         """
         def block() -> torch.Tensor:
             S = self.build_S()
@@ -418,11 +614,11 @@ class GaussianComponent:
 
     def build_Sinv(self) -> tuple[torch.Tensor, torch.Tensor]:
         """
-        Return (S^{-1}, logdet S). Structured per left_hand; falls back to a
-        dense regularized inverse when jitter > 0 (jitter breaks the structure).
+        Return (S^{-1}, logdet S). Structured per left_hand; falls back to a dense
+        regularized inverse when jitter > 0 (jitter breaks the structure).
         """
         log_S = self.log_S
-        d = self.k * self.c
+        k, c, d = self.k, self.c, self.d
 
         if self.jitter > 0:
             S = self.build_S()
@@ -481,7 +677,57 @@ class GaussianComponent:
                 # logdet S = Σlog Ψ + Σlog Λ + logdet C
                 logdet_C = 2.0 * torch.sum(torch.log(torch.diagonal(Lc)))
                 logdet = torch.sum(log_Psi) + torch.sum(log_Lambda) + logdet_C
+                return Sinv, logdet
 
+            case "bl_resp":
+                # block-by-block inverse and logdet (k blocks of c x c)
+                blocks = torch.linalg.matrix_exp(log_S + log_S.transpose(-1, -2))
+                invs, logdet = [], log_S.new_zeros(())
+                for b in blocks:
+                    Lb = torch.linalg.cholesky(b)
+                    invs.append(torch.cholesky_inverse(Lb))
+                    logdet = logdet + 2.0 * torch.sum(torch.log(torch.diagonal(Lb)))
+                return torch.block_diag(*invs), logdet
+
+            case "bl_form":
+                blocks = torch.linalg.matrix_exp(log_S + log_S.transpose(-1, -2))
+                invs, logdet = [], log_S.new_zeros(())
+                for b in blocks:
+                    Lb = torch.linalg.cholesky(b)
+                    invs.append(torch.cholesky_inverse(Lb))
+                    logdet = logdet + 2.0 * torch.sum(torch.log(torch.diagonal(Lb)))
+                Sinv_form = torch.block_diag(*invs)
+                perm = self.torch.arange(self.d, device=self.device).reshape(self.c, self.k).T.reshape(-1)()
+                return Sinv_form[perm][:, perm], logdet
+
+            case "kr_resp":
+                # S = diag(alpha) ⊗ Omega  =>  S^-1 = diag(1/alpha) ⊗ Omega^-1
+                Bflat = log_S[: c * c].reshape(c, c)
+                log_alpha = log_S[c * c:]
+                Omega = torch.linalg.matrix_exp(Bflat + Bflat.T)
+                alpha = torch.cat([torch.ones(1, dtype=self.dtype, device=self.device), torch.exp(log_alpha)])
+
+                Lom = torch.linalg.cholesky(Omega)
+                Omega_inv = torch.cholesky_inverse(Lom)
+                logdet_Om = 2.0 * torch.sum(torch.log(torch.diagonal(Lom)))
+
+                Sinv = torch.kron(torch.diag(1.0 / alpha), Omega_inv)
+                logdet = c * torch.sum(torch.log(alpha)) + k * logdet_Om
+                return Sinv, logdet
+
+            case "kr_form":
+                # S = A ⊗ diag(omega)  =>  S^-1 = A^-1 ⊗ diag(1/omega)
+                Bflat = log_S[: k * k].reshape(k, k)
+                log_omega = log_S[k * k:]
+                A = torch.linalg.matrix_exp(Bflat + Bflat.T)
+                omega = torch.cat([torch.ones(1, dtype=self.dtype, device=self.device), torch.exp(log_omega)])
+
+                La = torch.linalg.cholesky(A)
+                A_inv = torch.cholesky_inverse(La)
+                logdet_A = 2.0 * torch.sum(torch.log(torch.diagonal(La)))
+
+                Sinv = torch.kron(A_inv, torch.diag(1.0 / omega))
+                logdet = c * logdet_A + k * torch.sum(torch.log(omega))
                 return Sinv, logdet
 
             case _:
@@ -489,21 +735,20 @@ class GaussianComponent:
 
     def build_Kinv(self) -> tuple[torch.Tensor, torch.Tensor]:
         """
-        Return (K^{-1}, logdet K). For str, both are precomputed once (cached)
-        since K is constant across REML iterations.
+        Return (K^{-1}, logdet K). For str, both are precomputed once (cached);
+        the decay kernels are factored every step (K depends on the trained rate).
         """
         match self.right_hand:
 
             case "iid":
                 return (
-                    torch.eye(self.L, dtype = self.dtype, device = self.device),
-                    torch.zeros((), dtype = self.dtype, device = self.device),
+                    torch.eye(self.L, dtype=self.dtype, device=self.device),
+                    torch.zeros((), dtype=self.dtype, device=self.device),
                 )
             
-            case "ar":
-                # K = exp(-ar D), depends on the trained ar: no choice, factor each step.
-                ar = torch.exp(self.log_ar)
-                K = torch.exp(-ar * self.distance)
+            case "dist" | "eucl" | "ar_iso" | "ar_ani":
+                # K depends on the trained rate(s): factor each step.
+                K = self.build_K()
                 Lk = torch.linalg.cholesky(K)
                 Kinv = torch.cholesky_inverse(Lk)
                 logdet = 2.0 * torch.sum(torch.log(torch.diagonal(Lk)))
@@ -532,9 +777,8 @@ class GaussianComponent:
         """
         Return the closure producing this effect's inverse block and logdet:
             () -> (S^{-1} ⊗ K^{-1},  L·logdet S + d·logdet K)
-        Reads live parameters at call time (in-place optimizer updates).
         """
-        d = self.k * self.c
+        d = self.d
 
         def block_inv() -> tuple[torch.Tensor, torch.Tensor]:
             Sinv, logdet_S = self.build_Sinv()
@@ -547,18 +791,9 @@ class GaussianComponent:
 
     def format_variance(self) -> None:
         """
-        Format the estimated variance structure into a user-facing object.
-
-        The formatted object is stored in `self.variance`.
-
-        Conventions:
-            - left_hand="iid"  -> sigma is a scalar
-            - left_hand="diag" -> sigma is a diagonal covariance matrix
-            - left_hand="full" -> sigma is a full covariance matrix
-            - left_hand="fa"   -> sigma is a full covariance matrix
-
-            - right_hand="het" -> sigma becomes a list:
-                one scalar / matrix per het modality, equal to Sigma * h[i]
+        Format the estimated variance structure into a user-facing object stored
+        in `self.variance`. `metadata["rho"]` is a list in every case (empty for
+        structures with no estimated rate).
         """
         with torch.no_grad():
             S = self.build_S().detach().cpu().numpy()
@@ -570,18 +805,18 @@ class GaussianComponent:
                 case "iid":
                     sigma_base = float(torch.exp(self.log_S).detach().cpu().numpy())
 
-                case "diag" | "full":
+                case "diag" | "full" | "bl_resp" | "bl_form" | "kr_resp" | "kr_form":
                     sigma_base = S
 
                 case "fa":
                     sigma_base = S
 
-                    d = self.k * self.c
+                    d = self.d
                     q = self.n_axes
                     log_S = self.log_S
                     M = log_S[: d * q].reshape(d, q)
-                    log_Lambda = log_S[d * q : d * q + q]
-                    log_Psi = log_S[d * q + q :]
+                    log_Lambda = log_S[d * q: d * q + q]
+                    log_Psi = log_S[d * q + q:]
 
                     # sign convention: make diag(R) >= 0 (reporting only)
                     Q, R = torch.linalg.qr(M)
@@ -627,11 +862,17 @@ class GaussianComponent:
                 case "iid" | "str":
                     sigma = sigma_base
 
-                case "ar":
+                case "dist" | "eucl" | "ar_iso":
                     sigma = sigma_base
+                    metadata = {**metadata, "rho": [float(torch.exp(self.log_rho).detach().cpu().numpy())]}
+
+                case "ar_ani":
+                    sigma = sigma_base
+                    rho = torch.exp(self.log_rho).detach().cpu().numpy()
                     metadata = {
                         **metadata,
-                        "ar": float(torch.exp(self.log_ar).detach().cpu().numpy()),
+                        "rho": [float(x) for x in rho],
+                        "coords": list(self.coords),
                     }
 
                 case "het":
@@ -668,10 +909,11 @@ class Random(GaussianComponent):
         self,
         unit: str,
         formula: str = "1",
-        left_hand: Literal["iid", "diag", "full", "fa"] = "iid",
-        right_hand: Literal["iid", "ar", "str", "het"] = "iid",
+        left_hand: LEFT = "iid",
+        right_hand: RIGHT = "iid",
         covariance: None | np.ndarray = None,
         distance: None | np.ndarray = None,
+        coords: None | list[str] = None,
         matrix_index: None | list = None,
         het_formula: None | str = None,
         n_axes: None | int = None,
@@ -685,6 +927,7 @@ class Random(GaussianComponent):
             right_hand = right_hand,
             covariance = covariance,
             distance = distance,
+            coords = coords,
             matrix_index = matrix_index,
             het_formula = het_formula,
             n_axes = n_axes,
@@ -722,7 +965,10 @@ class Random(GaussianComponent):
         self.make_Z(data)             # -> self.Z, self.colnames, self.c, self.L
         if self.right_hand == "het":
             self.make_V(data)
+        if self.right_hand in _COORD_RIGHT:
+            self.make_coords(data)
         self.n, self.q = self.Z.shape
+        self.d = self.k * self.c
 
         # constant right-hand inputs (the variable parts of K live in build_K).
         # Reorder/subset the user matrix from `matrix_index` to the data levels.
@@ -746,8 +992,8 @@ class Random(GaussianComponent):
             if self.covariance is not None:
                 self.covariance = torch.as_tensor(np.asarray(self.covariance)[ix], dtype=dtype, device=device)
 
-        self.init_varparams()         # -> self.varparams, self.log_S, (self.log_ar)
-        self.uhat = torch.zeros(self.k * self.c * self.L, 1, dtype=dtype, device=device)
+        self.init_varparams()         # -> self.varparams, self.log_S, (self.log_rho)
+        self.uhat = torch.zeros(self.d * self.L, 1, dtype=dtype, device=device)
         return self.Z
 
     def make_Z(
@@ -811,29 +1057,31 @@ class Random(GaussianComponent):
         self.table = pd.DataFrame(rows, columns=["unit", "response", "component", "prediction"])
     
     def predict(
-            self,
-            matrix_index: list,
-            covariance: None | np.ndarray = None,
-            distance: None | np.ndarray = None,
-        ) -> pd.DataFrame:
+        self,
+        matrix_index: list,
+        covariance: None | np.ndarray = None,
+        distance: None | np.ndarray = None,
+        coords: None | np.ndarray = None,
+    ) -> pd.DataFrame:
         """
         Kriging prediction of the random effect at new levels.
 
-        `matrix_index` orders a complete covariance/distance over all levels
-        (training + new). The effect is predicted by conditioning the trained
-        BLUP on the across-level structure:
+        `matrix_index` orders the across-level inputs over all levels (training +
+        new). The effect is predicted by conditioning the trained BLUP:
 
             u_pred = u_train @ K_train^{-1} @ K_{train,pred}
 
-        with u_train the trained BLUP reshaped to (components x train levels).
-        The left-hand factor Sigma cancels in the conditioning, so only the
-        right-hand factor K matters. Returns a long-format DataFrame with one row
-        per (unit, response, component).
+        The left-hand factor S cancels in the conditioning, so only the right-hand
+        factor K matters. The across-level input depends on the structure:
+            - str:  `covariance` over matrix_index,
+            - dist: `distance` over matrix_index,
+            - eucl/ar_iso/ar_ani: `coords` array (len(matrix_index) x axes),
+              aligned to matrix_index.
         """
-        if self.right_hand not in ("str", "ar"):
+        if self.right_hand not in ("str", *_DECAY_RIGHT):
             raise ValueError(
-                "Prediction is only available for a structured ('str') or "
-                "autoregressive ('ar') right-hand term."
+                "Prediction is only available for 'str' or a decay kernel "
+                "('dist', 'eucl', 'ar_iso', 'ar_ani')."
             )
         if not getattr(self, "_fitted", False):
             raise ValueError("The model must be fitted before predicting.")
@@ -843,7 +1091,7 @@ class Random(GaussianComponent):
         if missing:
             raise ValueError(
                 f"training levels missing from matrix_index: {missing}. "
-                "A complete covariance / distance over all levels is required."
+                "A complete input over all levels is required."
             )
 
         pos = {lvl: j for j, lvl in enumerate(matrix_index)}
@@ -858,13 +1106,22 @@ class Random(GaussianComponent):
                 if covariance is None:
                     raise ValueError("`covariance` is required to predict with right_hand='str'.")
                 K_full = self.build_K(
-                    covariance=torch.as_tensor(np.asarray(covariance), dtype=self.dtype, device = self.device)
+                    covariance=torch.as_tensor(np.asarray(covariance), dtype = self.dtype, device = self.device)
                 )
-            else:  # "ar": build_K rebuilds exp(-rho * distance) with the trained rho
+            elif self.right_hand == "dist":
                 if distance is None:
-                    raise ValueError("`distance` is required to predict with right_hand='ar'.")
+                    raise ValueError("`distance` is required to predict with right_hand='dist'.")
                 K_full = self.build_K(
-                    distance=torch.as_tensor(np.asarray(distance), dtype=self.dtype, device = self.device)
+                    distance=torch.as_tensor(np.asarray(distance), dtype = self.dtype, device = self.device)
+                )
+            else:  # eucl / ar_iso / ar_ani
+                if coords is None:
+                    raise ValueError(
+                        "`coords` is required to predict with right_hand in "
+                        "{'eucl', 'ar_iso', 'ar_ani'}."
+                    )
+                K_full = self.build_K(
+                    coords=torch.as_tensor(np.asarray(coords), dtype=self.dtype, device=self.device)
                 )
 
             K_train = K_full[train_pos][:, train_pos]
@@ -887,10 +1144,11 @@ class Residual(GaussianComponent):
 
     def __init__(
         self,
-        left_hand: Literal["iid", "diag", "full", "fa"] = "iid",
-        right_hand: Literal["iid", "ar", "str", "het"] = "iid",
+        left_hand: LEFT = "iid",
+        right_hand: RIGHT = "iid",
         covariance: None | np.ndarray = None,
         distance: None | np.ndarray = None,
+        coords: None | list[str] = None,
         het_formula: None | str = None,
         n_axes: None | int = None,
         init: None | float | np.ndarray = None,
@@ -903,6 +1161,7 @@ class Residual(GaussianComponent):
             right_hand = right_hand,
             covariance = covariance,
             distance = distance,
+            coords=coords,
             matrix_index = None,
             het_formula = het_formula,
             n_axes = n_axes,
@@ -919,7 +1178,7 @@ class Residual(GaussianComponent):
                 Sinv, logdet_S = self.build_Sinv()
                 Kinv, logdet_K = self.build_Kinv()
                 Rinv = torch.kron(Sinv.contiguous(), Kinv.contiguous())
-                logdet_R = self.L * logdet_S + (self.k * self.c) * logdet_K
+                logdet_R = self.L * logdet_S + (self.d) * logdet_K
                 return Rinv, logdet_R
 
             if diagonal:
@@ -958,37 +1217,26 @@ class Residual(GaussianComponent):
 
         self.index = np.arange(len(data))
 
-        self.make_W()             # -> self.Z, self.colnames, self.c, self.L
+        self.make_W()             # -> self.W, self.colnames, self.c, self.L
         if self.right_hand == "het":
             self.make_V(data)
+        if self.right_hand in _COORD_RIGHT:
+            self.make_coords(data)
         self.n, self.q = self.W.shape
 
-        # constant right-hand inputs (the variable parts of K live in build_K).
-        # Reorder/subset the user matrix from `matrix_index` to the data levels.
         if self.distance is not None or self.covariance is not None:
-
             if self.distance is not None:
-                self.distance = torch.as_tensor(
-                    np.asarray(self.distance),
-                    dtype  = self.dtype,
-                    device = self.device,
-                )
-
+                self.distance = torch.as_tensor(np.asarray(self.distance), dtype=self.dtype, device=self.device)
             if self.covariance is not None:
-                self.covariance = torch.as_tensor(
-                    np.asarray(self.covariance),
-                    dtype  = self.dtype,
-                    device = self.device,
-                )
+                self.covariance = torch.as_tensor(np.asarray(self.covariance), dtype=self.dtype, device=self.device)
 
-        self.init_varparams()         # -> self.varparams, self.log_S, (self.log_ar)
+        self.init_varparams()         # -> self.varparams, self.log_S, (self.log_rho)
 
         return self.W
 
     def make_W(self) -> None:
         """
-        W is the identity over the original rows of the DataFrame,
-        to which MixedModel applies missing-data masks.
+        W is the identity over the original rows of the DataFrame.
         """
         self.colnames = ["Intercept"]
         self.c = 1
