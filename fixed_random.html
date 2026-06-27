@@ -248,7 +248,6 @@ window.Quarto = {
   <li><a href="#is-there-a-known-variance-structure" id="toc-is-there-a-known-variance-structure" class="nav-link" data-scroll-target="#is-there-a-known-variance-structure">Is there a known variance structure ?</a></li>
   <li><a href="#do-we-aim-generalization-outside-the-training-dataset" id="toc-do-we-aim-generalization-outside-the-training-dataset" class="nav-link" data-scroll-target="#do-we-aim-generalization-outside-the-training-dataset">Do we aim generalization outside the training dataset ?</a></li>
   </ul></li>
-  <li><a href="#ambivalent-effects" id="toc-ambivalent-effects" class="nav-link" data-scroll-target="#ambivalent-effects">Ambivalent effects</a></li>
   </ul>
 </nav>
     </div>
@@ -309,63 +308,79 @@ window.Quarto = {
 <p>The example below makes the concept tangible, isolating the exact mathematical difference between BLUEs and BLUPs.</p>
 <div class="scroll-cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pyreml <span class="im">import</span> (</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    MixedModel,</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    Random,</span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    larix <span class="im">as</span> df</span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pyreml <span class="im">import</span> MixedModel, Random</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co"># prepare the data: simulate a strongly unbalanced one-way design</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>rng <span class="op">=</span> np.random.default_rng(<span class="dv">1</span>)</span>
 <span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co"># prepare the data and fit the models</span></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>df <span class="op">=</span> df[df[<span class="st">"year"</span>] <span class="op">==</span> <span class="dv">2000</span>].copy()</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>sigma_u, sigma_e <span class="op">=</span> <span class="fl">1.0</span>, <span class="fl">1.0</span>                  <span class="co"># true random-effect and residual SD</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>counts <span class="op">=</span> [<span class="dv">1</span>] <span class="op">*</span> <span class="dv">10</span> <span class="op">+</span> [<span class="dv">2</span>] <span class="op">*</span> <span class="dv">10</span> <span class="op">+</span> [<span class="dv">3</span>] <span class="op">*</span> <span class="dv">10</span>      <span class="co"># 30 blocs, 60 observations, unbalanced</span></span>
 <span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>mod_BLUE <span class="op">=</span> MixedModel.from_dataframe(</span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    data     <span class="op">=</span> df,</span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    response <span class="op">=</span> <span class="st">"height"</span>,</span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    fixed    <span class="op">=</span> <span class="st">"1 + C(BLOC, Sum)"</span>,</span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>).fit()</span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>mod_BLUP <span class="op">=</span> MixedModel.from_dataframe(</span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    data     <span class="op">=</span> df,</span>
-<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    response <span class="op">=</span> <span class="st">"height"</span>,</span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    random <span class="op">=</span> Random(</span>
-<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>        unit <span class="op">=</span> <span class="st">"BLOC"</span></span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    )</span>
-<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>).fit()</span>
-<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a><span class="co"># format the BLUPs</span></span>
-<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>blup_tab <span class="op">=</span> mod_BLUP.random[<span class="dv">0</span>].table.set_index(<span class="st">"unit"</span>)[<span class="st">"prediction"</span>]</span>
-<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>levels <span class="op">=</span> blup_tab.index.tolist()</span>
-<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>BLUP   <span class="op">=</span> blup_tab.to_numpy()</span>
-<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a><span class="co"># format the BLUEs</span></span>
-<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>blue <span class="op">=</span> mod_BLUE.estimates.set_index(<span class="st">"term"</span>)[<span class="st">"estimate"</span>]</span>
-<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>sum_terms  <span class="op">=</span> blue[blue.index.<span class="bu">str</span>.startswith(<span class="st">"C(BLOC, Sum)"</span>)]</span>
-<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>sum_levels <span class="op">=</span> sum_terms.index.<span class="bu">str</span>.extract(<span class="vs">r"</span><span class="ch">\[</span><span class="vs">S</span><span class="ch">\.</span><span class="kw">(</span><span class="dv">.</span><span class="op">+</span><span class="kw">)</span><span class="ch">\]</span><span class="vs">"</span>)[<span class="dv">0</span>].tolist()</span>
-<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>dev <span class="op">=</span> <span class="bu">dict</span>(<span class="bu">zip</span>(sum_levels, sum_terms.to_numpy()))</span>
-<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>(absorbed,) <span class="op">=</span> [lvl <span class="cf">for</span> lvl <span class="kw">in</span> levels <span class="cf">if</span> lvl <span class="kw">not</span> <span class="kw">in</span> dev]</span>
-<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>dev[absorbed] <span class="op">=</span> <span class="op">-</span><span class="bu">sum</span>(dev.values())</span>
-<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>dev_BLUE <span class="op">=</span> np.array([dev[lvl] <span class="cf">for</span> lvl <span class="kw">in</span> levels])</span>
-<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>BLUE <span class="op">=</span> dev_BLUE</span>
-<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a><span class="co"># compute CD</span></span>
-<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>sigma2 <span class="op">=</span> mod_BLUP.random[<span class="dv">0</span>].variance[<span class="st">"sigma"</span>]</span>
-<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>Variance  <span class="op">=</span> np.eye(<span class="bu">len</span>(levels)) <span class="op">*</span> sigma2</span>
-<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>PEV    <span class="op">=</span> mod_BLUP.random[<span class="dv">0</span>].PEV.numpy()</span>
-<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>CD     <span class="op">=</span> (Variance <span class="op">-</span> PEV) <span class="op">@</span> np.linalg.inv(Variance)</span>
-<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a><span class="co"># compute the deregressed BLUP</span></span>
-<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>DEREG <span class="op">=</span> BLUP <span class="op">@</span> np.linalg.pinv(CD)</span>
-<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">8</span>, <span class="fl">3.5</span>))</span>
-<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> ax, x, title <span class="kw">in</span> [(axes[<span class="dv">0</span>], BLUP,  <span class="st">"BLUP"</span>),</span>
-<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a>                     (axes[<span class="dv">1</span>], DEREG <span class="op">-</span> np.mean(DEREG), <span class="st">"deregressed BLUP"</span>)]:</span>
-<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a>    ax.scatter(x, BLUE)</span>
-<span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a>    lims <span class="op">=</span> [<span class="bu">min</span>(x.<span class="bu">min</span>(), BLUE.<span class="bu">min</span>()), <span class="bu">max</span>(x.<span class="bu">max</span>(), BLUE.<span class="bu">max</span>())]</span>
-<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a>    ax.plot(lims, lims, <span class="st">"k--"</span>, lw<span class="op">=</span><span class="dv">1</span>)</span>
-<span id="cb1-56"><a href="#cb1-56" aria-hidden="true" tabindex="-1"></a>    ax.set_xlabel(title)</span>
-<span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a>    ax.set_ylabel(<span class="st">"BLUE"</span>)</span>
-<span id="cb1-58"><a href="#cb1-58" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()<span class="op">;</span> plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>levels <span class="op">=</span> [<span class="ss">f"B</span><span class="sc">{</span>i<span class="sc">:02d}</span><span class="ss">"</span> <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(counts))]</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>true_u <span class="op">=</span> {lvl: rng.normal(<span class="dv">0</span>, sigma_u) <span class="cf">for</span> lvl <span class="kw">in</span> levels}</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>rows <span class="op">=</span> []</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> lvl, n <span class="kw">in</span> <span class="bu">zip</span>(levels, counts):</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> _ <span class="kw">in</span> <span class="bu">range</span>(n):</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>        y <span class="op">=</span> <span class="fl">10.0</span> <span class="op">+</span> true_u[lvl] <span class="op">+</span> rng.normal(<span class="dv">0</span>, sigma_e)</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>        rows.append({<span class="st">"BLOC"</span>: lvl, <span class="st">"height"</span>: y})</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>df <span class="op">=</span> pd.DataFrame(rows)</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="co"># fit the models</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>mod_BLUE <span class="op">=</span> MixedModel.from_dataframe(</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    data     <span class="op">=</span> df,</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    response <span class="op">=</span> <span class="st">"height"</span>,</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    fixed    <span class="op">=</span> <span class="st">"1 + C(BLOC, Sum)"</span>,</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>).fit()</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>mod_BLUP <span class="op">=</span> MixedModel.from_dataframe(</span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>    data     <span class="op">=</span> df,</span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>    response <span class="op">=</span> <span class="st">"height"</span>,</span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>    random <span class="op">=</span> Random(</span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>        unit <span class="op">=</span> <span class="st">"BLOC"</span></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>).fit()</span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a><span class="co"># format the BLUPs</span></span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>blup_tab <span class="op">=</span> mod_BLUP.random[<span class="dv">0</span>].table.set_index(<span class="st">"unit"</span>)[<span class="st">"prediction"</span>]</span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>levels <span class="op">=</span> blup_tab.index.tolist()</span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>BLUP   <span class="op">=</span> blup_tab.to_numpy()</span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a><span class="co"># format the BLUEs</span></span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>blue <span class="op">=</span> mod_BLUE.estimates.set_index(<span class="st">"term"</span>)[<span class="st">"estimate"</span>]</span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>sum_terms  <span class="op">=</span> blue[blue.index.<span class="bu">str</span>.startswith(<span class="st">"C(BLOC, Sum)"</span>)]</span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>sum_levels <span class="op">=</span> sum_terms.index.<span class="bu">str</span>.extract(<span class="vs">r"</span><span class="ch">\[</span><span class="vs">S</span><span class="ch">\.</span><span class="kw">(</span><span class="dv">.</span><span class="op">+</span><span class="kw">)</span><span class="ch">\]</span><span class="vs">"</span>)[<span class="dv">0</span>].tolist()</span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>dev <span class="op">=</span> <span class="bu">dict</span>(<span class="bu">zip</span>(sum_levels, sum_terms.to_numpy()))</span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>(absorbed,) <span class="op">=</span> [lvl <span class="cf">for</span> lvl <span class="kw">in</span> levels <span class="cf">if</span> lvl <span class="kw">not</span> <span class="kw">in</span> dev]</span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>dev[absorbed] <span class="op">=</span> <span class="op">-</span><span class="bu">sum</span>(dev.values())</span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>dev_BLUE <span class="op">=</span> np.array([dev[lvl] <span class="cf">for</span> lvl <span class="kw">in</span> levels])</span>
+<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>BLUE <span class="op">=</span> dev_BLUE</span>
+<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a><span class="co"># compute CD</span></span>
+<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a>sigma2 <span class="op">=</span> mod_BLUP.random[<span class="dv">0</span>].variance[<span class="st">"sigma"</span>]</span>
+<span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a>Variance  <span class="op">=</span> np.eye(<span class="bu">len</span>(levels)) <span class="op">*</span> sigma2</span>
+<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a>PEV    <span class="op">=</span> mod_BLUP.random[<span class="dv">0</span>].PEV.numpy()</span>
+<span id="cb1-56"><a href="#cb1-56" aria-hidden="true" tabindex="-1"></a>CD     <span class="op">=</span> (Variance <span class="op">-</span> PEV) <span class="op">@</span> np.linalg.inv(Variance)</span>
+<span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-58"><a href="#cb1-58" aria-hidden="true" tabindex="-1"></a><span class="co"># compute the deregressed BLUP</span></span>
+<span id="cb1-59"><a href="#cb1-59" aria-hidden="true" tabindex="-1"></a>DEREG <span class="op">=</span> BLUP <span class="op">@</span> np.linalg.pinv(CD)</span>
+<span id="cb1-60"><a href="#cb1-60" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-61"><a href="#cb1-61" aria-hidden="true" tabindex="-1"></a><span class="co"># how well does each recover the latent effect u ?</span></span>
+<span id="cb1-62"><a href="#cb1-62" aria-hidden="true" tabindex="-1"></a>U <span class="op">=</span> np.array([true_u[lvl] <span class="cf">for</span> lvl <span class="kw">in</span> levels])</span>
+<span id="cb1-63"><a href="#cb1-63" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"cor(u, BLUE) = </span><span class="sc">{</span>np<span class="sc">.</span>corrcoef(U, BLUE)[<span class="dv">0</span>, <span class="dv">1</span>]<span class="sc">:.3f}</span><span class="ss">"</span>)</span>
+<span id="cb1-64"><a href="#cb1-64" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"cor(u, BLUP) = </span><span class="sc">{</span>np<span class="sc">.</span>corrcoef(U, BLUP)[<span class="dv">0</span>, <span class="dv">1</span>]<span class="sc">:.3f}</span><span class="ss">"</span>)</span>
+<span id="cb1-65"><a href="#cb1-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-66"><a href="#cb1-66" aria-hidden="true" tabindex="-1"></a>fig, axes <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">8</span>, <span class="fl">3.5</span>))</span>
+<span id="cb1-67"><a href="#cb1-67" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> ax, x, title <span class="kw">in</span> [(axes[<span class="dv">0</span>], BLUP,  <span class="st">"BLUP"</span>),</span>
+<span id="cb1-68"><a href="#cb1-68" aria-hidden="true" tabindex="-1"></a>                     (axes[<span class="dv">1</span>], DEREG <span class="op">-</span> np.mean(DEREG), <span class="st">"deregressed BLUP"</span>)]:</span>
+<span id="cb1-69"><a href="#cb1-69" aria-hidden="true" tabindex="-1"></a>    ax.scatter(x, BLUE)</span>
+<span id="cb1-70"><a href="#cb1-70" aria-hidden="true" tabindex="-1"></a>    lims <span class="op">=</span> [<span class="bu">min</span>(x.<span class="bu">min</span>(), BLUE.<span class="bu">min</span>()), <span class="bu">max</span>(x.<span class="bu">max</span>(), BLUE.<span class="bu">max</span>())]</span>
+<span id="cb1-71"><a href="#cb1-71" aria-hidden="true" tabindex="-1"></a>    ax.plot(lims, lims, <span class="st">"k--"</span>, lw<span class="op">=</span><span class="dv">1</span>)</span>
+<span id="cb1-72"><a href="#cb1-72" aria-hidden="true" tabindex="-1"></a>    ax.set_xlabel(title)</span>
+<span id="cb1-73"><a href="#cb1-73" aria-hidden="true" tabindex="-1"></a>    ax.set_ylabel(<span class="st">"BLUE"</span>)</span>
+<span id="cb1-74"><a href="#cb1-74" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()<span class="op">;</span> plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
@@ -376,17 +391,18 @@ window.Quarto = {
 <li><p>The left panel shows the raw BLUPs against the matching BLUEs:</p>
 <ul>
 <li><p>the amplitude of BLUPs is always lower than the amplitude of BLUEs, preventing them from capturing as much variance in the training set.</p></li>
-<li><p>the rdistance from the BLUPs to the BLUEs is idiosyncratic, and dependent of the individual level of reliability around each BLUP.</p></li>
+<li><p>the distance from the BLUPs to the BLUEs is idiosyncratic, and dependent of the individual level of reliability around each BLUP.</p></li>
 </ul></li>
 <li><p>The right panel shows the deregressed BLUPs against the same BLUEs: once the shrinkage is removed, the points fall back onto an exact identity line. The whole difference between a BLUP and a BLUE is this reliability-driven shrinkage.</p></li>
 </ul>
+<p>In this example, the correlation between BLUEs and the true simulated values is <code>0.687</code> and the correlation between BLUPs and the true simulated values is <code>0.743</code>. Shrinkage can be seen as the regularization commonly used in machine learning, that consists in trading fit to the training set for generalizability, this is illustrated by the higher accuracy of the BLUPs in this example.</p>
 </section>
 <section id="arguments-in-favor-of-a-fixed-effect" class="level2">
 <h2 class="anchored" data-anchor-id="arguments-in-favor-of-a-fixed-effect">Arguments in favor of a fixed effect</h2>
 <section id="can-the-effect-be-seen-as-drawn-from-a-population-of-effects" class="level3">
 <h3 class="anchored" data-anchor-id="can-the-effect-be-seen-as-drawn-from-a-population-of-effects">Can the effect be seen as drawn from a population of effects?</h3>
 <p>This is the first question to ask, because if the levels at hand are not exchangeable members of some larger population, the distributional assumption <span class="math inline">\(\mathbf{a} \sim \mathcal{N}(0,
-\mathbf{\Sigma_a})\)</span> is simply not meaningful. When there is no population to speak of, there is no real choice: the effect has to be fixed.</p>
+\mathbf{G_a})\)</span> is simply not meaningful. When there is no population to speak of, there is no real choice: the effect has to be fixed.</p>
 </section>
 <section id="are-there-enough-levels-to-estimate-a-variance" class="level3">
 <h3 class="anchored" data-anchor-id="are-there-enough-levels-to-estimate-a-variance">Are there enough levels to estimate a variance?</h3>
@@ -395,6 +411,7 @@ window.Quarto = {
 <section id="do-we-want-to-absorb-confounding-coming-from-the-design" class="level3">
 <h3 class="anchored" data-anchor-id="do-we-want-to-absorb-confounding-coming-from-the-design">Do we want to absorb confounding coming from the design?</h3>
 <p>Effects that exist only to control for the structure of the experiment, such as a block, a batch, or any other nuisance factor, are best removed as completely as possible. Treating them as fixed soaks up their contribution entirely (maximizing their partial <span class="math inline">\(R^2\)</span>, as discussed in the <a href="./fixed_random.html#the-blup-intuition">previous section</a>) rather than shrinking it, which protects the effects of focal interest from design-induced confounding ones.</p>
+<p>When the set-up is unbalanced, some of the variance of the focal effects can be confounded and erased by treating design effects as fixed. Using the design effects as fixed can be seen as conservative.</p>
 </section>
 </section>
 <section id="arguments-in-favor-of-a-random-effect" class="level2">
@@ -402,7 +419,7 @@ window.Quarto = {
 <section id="are-the-degrees-of-freedom-available-to-estimate-one-effect-per-level" class="level3">
 <h3 class="anchored" data-anchor-id="are-the-degrees-of-freedom-available-to-estimate-one-effect-per-level">Are the degrees of freedom available to estimate one effect per level ?</h3>
 <p>When the number of levels is large relative to the data, as with an effect specified at the individual level, estimating every level as a free fixed parameter exhausts the degrees of freedom and yields noisy, overfit estimates. A random effect regularises the problem: by tying the levels to a common distribution it spends a single variance parameter instead of one estimate per level, and the shrinkage keeps the estimates stable.</p>
-<p>This is often more a pragmatic argument than a conceptual one, constraining the choice toward picking <em>e.g.</em> design effects as random for the sake of parcimony, even though they would be theoretically optimally selected as random as to get rid of the most of indesirable, confounded variance.</p>
+<p>This is often more a pragmatic argument than a conceptual one, constraining the choice toward picking <em>e.g.</em> design effects as random for the sake of parsimony, even though they would be theoretically optimally selected as random as to get rid of the most of undesirable, confounded variance.</p>
 </section>
 <section id="is-there-a-known-variance-structure" class="level3">
 <h3 class="anchored" data-anchor-id="is-there-a-known-variance-structure">Is there a known variance structure ?</h3>
@@ -411,17 +428,11 @@ window.Quarto = {
 </section>
 <section id="do-we-aim-generalization-outside-the-training-dataset" class="level3">
 <h3 class="anchored" data-anchor-id="do-we-aim-generalization-outside-the-training-dataset">Do we aim generalization outside the training dataset ?</h3>
-<p>As mentionned in the <a href="./fixed_random.html#the-blup-intuition">previous section</a>, the BLUPs are mathematically built as to maximize the generalizability of a prediction. As opposed to a commun misconception, the focal interest for an effect and its generalizability argues in favor of considering it as random.</p>
+<p>As mentioned in the <a href="./fixed_random.html#the-blup-intuition">previous section</a>, and illustrated in this example, the BLUPs are mathematically built as to maximize the generalizability of a prediction. As opposed to a common misconception, the focal interest for an effect and its generalizability argues in favor of considering it as random.</p>
+
+
+
 </section>
-</section>
-<section id="ambivalent-effects" class="level2">
-<h2 class="anchored" data-anchor-id="ambivalent-effects">Ambivalent effects</h2>
-<p>When the arguments above do not point clearly in one direction, the decision can be weighted by comparing the two candidate models on the AIC which balances the fit quality against the number of parameters each formulation spends.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(mod_BLUE.AIC)</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(mod_BLUP.AIC)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-
-
-
 </section>
 
 <div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" data-entry-spacing="0" data-line-spacing="2" role="list">
