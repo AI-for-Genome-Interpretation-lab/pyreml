@@ -16,10 +16,10 @@ $$
 
 where:
 
-- $\mathbf{\Sigma_a}$ is the **left-hand** factor, *i.e.* the covariance *across
+- $\mathbf{\Sigma_a}$ is the left-hand factor, *i.e.* the covariance *across
 the components* of the effect
 
-- $\mathbf{K_a}$ is the **right-hand** factor, *i.e.* the covariance *across its levels*.
+- $\mathbf{K_a}$ is the right-hand factor, *i.e.* the covariance *across its levels*.
 
 The two factors are set independently, through `left_hand` and `right_hand`.
 
@@ -33,9 +33,14 @@ How multiple responses are handled is covered in [Multivariate](multivariate.qmd
 How the `formula` carries a regression or random factors is
 covered in [Random regression and factors](random_regression.qmd).
 
+The index of $\mathbf{\Sigma_a}$ therefore has two sub-axes: the $k$
+responses and the $c$ formula columns; ordered response-outer, formula-inner.
+
 The initial value of $\mathbf{\Sigma_a}$ can
 be set with `init` (a scalar for `iid`, a $(k\,c)\times(k\,c)$ matrix otherwise);
-it defaults to the identity.
+it defaults to the identity. For the block structures `init` is still given as a
+full $(k\,c)\times(k\,c)$ matrix, and the entries that fall outside the retained
+structure are simply ignored.
 
 | `left_hand` | Structure                                                         |
 |-------------|-------------------------------------------------------------------|
@@ -43,6 +48,10 @@ it defaults to the identity.
 | `diag`      | [A diagonal covariance](#diagonal-and-full)                       |
 | `full`      | [A full covariance](#diagonal-and-full)                           |
 | `fa`        | [A factor-analytic approximation](#factor-analytic) of `full`     |
+| `bl_resp`   | [Block-diagonal across responses](#block-diagonal)                |
+| `bl_form`   | [Block-diagonal across formula columns](#block-diagonal)          |
+| `kr_resp`   | [Proportional blocks across responses](#proportional-blocks)      |
+| `kr_form`   | [Proportional blocks across formula columns](#proportional-blocks)|
 
 ### Independent and identically distributed
 
@@ -76,6 +85,56 @@ of axes is set with the `n_axes` argument, a practical default being `n_axes = 2
 decomposition (PCA). This analogy with the PCA can be useful for *post hoc*
 interpretation of the FA model.
 
+### Block-diagonal
+
+A block-diagonal structure makes $\mathbf{\Sigma_a}$ block-diagonal along one of
+its two sub-axes, setting the cross-block covariances to zero. Each block is
+estimated as a full positive-definite covariance (same unconstrained
+parameterization as `full`).
+
+- `bl_resp` blocks by response: $k$ free $c\times c$ covariances, one per
+  response, with no covariance across responses,
+
+$$
+\mathbf{\Sigma_a} = \bigoplus_{r=1}^{k} \mathbf{\Omega}_r,
+\qquad \mathbf{\Omega}_r \in \mathbb{R}^{c\times c}.
+$$
+
+- `bl_form` blocks by formula column: the same construction transposed to the
+  other sub-axis, giving $c$ free $k\times k$ covariances $\mathbf{A}_e$, one per
+  formula column, with no covariance across columns. Because the blocking is over
+  the **patsy** columns, a categorical `formula` produces one block per contrast
+  column, not per written term.
+
+### Proportional blocks
+
+`kr_resp` and `kr_form` are the separable counterparts of
+`bl_resp`/`bl_form`: the same block-diagonal support, but with all blocks
+constrained to be proportional to a single shared covariance. Each is a Kronecker
+product of a full covariance with a diagonal of scaling factors, the two
+structures differing only by which factor — the outer (response) or the inner
+(formula) — carries the full covariance:
+
+- `kr_resp`: $\mathbf{\Sigma_a} = \operatorname{diag}(\boldsymbol{\alpha}) \otimes \mathbf{\Omega}$,
+  with $\mathbf{\Omega}\in\mathbb{R}^{c\times c}$ a single covariance shared by all
+  $k$ responses, each scaled by its own $\alpha_r$;
+
+- `kr_form`: $\mathbf{\Sigma_a} = \mathbf{A} \otimes \operatorname{diag}(\boldsymbol{\omega})$,
+  with $\mathbf{A}\in\mathbb{R}^{k\times k}$ a single across-response covariance
+  shared by all $c$ formula columns, each scaled by its own $\omega_e$.
+
+This matches the response-outer / formula-inner ordering of $\mathbf{\Sigma_a}$:
+the outer Kronecker factor runs over responses, the inner one over formula
+columns. The blocks are then the $\alpha_r\,\mathbf{\Omega}$ of `bl_resp` (resp.
+the $\omega_e\,\mathbf{A}$ of `bl_form`), specialized to be mutually proportional.
+
+Because the full covariance and the scaling factors are jointly defined only up to
+a common scalar (scaling the covariance up and the factors down leaves
+$\mathbf{\Sigma_a}$ unchanged), the scale is anchored by fixing the first scaling
+factor to $1$ ($\alpha_1 = 1$ for `kr_resp`, $\omega_1 = 1$ for `kr_form`),
+exactly as the `Intercept` of `het` (see [heteroscedastic](#heteroscedastic)). The Kronecker form also
+makes the inverse and log-determinant of $\mathbf{\Sigma_a}$ cheap.
+
 ## Right-hand factor: $\mathbf{K_a}$
 
 `right_hand` sets the covariance across levels. A level is a
@@ -84,9 +143,12 @@ $l \times l$.
 
 | `right_hand` | Structure                                                                  |
 |--------------|----------------------------------------------------------------------------|
-| `iid`        | Identity $\mathbf{I}$ — independent, homoscedastic levels (default).        |
-| `ar`         | [Autoregressive kernel](#autoregressive) on a known `distance` matrix.      |
+| `iid`        | Identity $\mathbf{I}$: independent, homoscedastic levels (default).        |
 | `str`        | [A known covariance](#structured) (e.g. a kinship), via `covariance`.       |
+| `dist`       | [Decay over a supplied distance matrix](#supplied-distance), via `distance`.|
+| `eucl`       | [Decay over an internally-computed Euclidean distance](#euclidean-distance) between `coords`. |
+| `ar_iso`     | [Separable autoregressive decay](#separable-autoregressive), isotropic (one rate shared across axes). |
+| `ar_ani`     | [Separable autoregressive decay](#separable-autoregressive), anisotropic (one rate per axis). |
 | `het`        | [Heteroscedastic diagonal](#heteroscedastic), one variance per level resulting of `het_formula` (modalities and/or regressors). |
 
 ### Structured
@@ -99,20 +161,64 @@ so [pyreml]{.pyreml} can align it to the data.
 Common structured covariances used in genetics applications are provided with
 the [kinship helpers](kinships.qmd).
 
-### Autoregressive
+### Decay kernels
 
-`ar` forms the right-hand factor entrywise from a known `distance` matrix
-$\mathbf{E}$,
+`dist`, `eucl`, `ar_iso` and `ar_ani` form a family of correlation kernels whose
+entries decay with a notion of distance between levels,
 
 $$
-(\mathbf{K_a})_{ij} = \exp(-\rho\, E_{ij}),
+(\mathbf{K_a})_{ij} = \exp(-\text{decay}_{ij}),
 $$
 
-with a single decay $\rho > 0$ estimated during the fit. This generalizes an
-autoregressive correlation to arbitrary Euclidean distances (e.g. diagonals in a
-row–column trial). As for `str`, `matrix_index` orders the rows and columns of
-`distance`. The estimated $\rho$ is reused to predict new levels (see
+estimated with strictly positive rate(s) $\rho > 0$, so all correlations are
+positive (no oscillation). The four members differ only in where the distance
+comes from and in which metric drives the decay. In all cases the
+estimated rate(s) are reused to predict new levels (see
 [Prediction](prediction.qmd)).
+
+When the distance is not supplied, the coordinates are passed 
+as a list of column names through `coords`.
+For random effects, each level in the data frame
+must match a single set of coordinates.
+
+#### Supplied distance
+
+`dist` forms the factor entrywise from a known distance matrix $\mathbf{D}$,
+
+$$
+(\mathbf{K_a})_{ij} = \exp(-\rho\, D_{ij}),
+\qquad \rho > 0,
+$$
+
+with a single decay $\rho$ estimated during the fit. The matrix is supplied as a
+numpy array through `distance`, and `matrix_index` orders its rows and columns,
+exactly as for `str`.
+
+#### Euclidean distance
+
+`eucl` internalises the distance computation: instead of a precomputed matrix,
+it reads a set of coordinate columns and forms the Euclidean distance
+between levels,
+
+$$
+(\mathbf{K_a})_{ij} = \exp\!\big(-\rho\, \lVert \mathbf{x}_i - \mathbf{x}_j \rVert\big),
+\qquad \rho > 0.
+$$
+
+#### Separable autoregressive
+
+`ar_iso` and `ar_ani` also read coordinates through `coords`, but build a
+separable kernel — a product of one-dimensional autoregressive decays, one
+per coordinate axis:
+
+$$
+(\mathbf{K_a})_{ij} = \prod_{a} \varphi_a^{\,\lvert x_{i,a} - x_{j,a}\rvert},
+\qquad \varphi_a = \exp(-\rho_a), \ \rho_a > 0.
+$$
+
+- `ar_iso` (isotropic) shares a single rate across all axes ($\rho_a \equiv \rho$).
+- `ar_ani` (anisotropic) estimates one rate $\rho_a$ per axis: each direction
+  has its own decay.
 
 ### Heteroscedastic
 
@@ -179,7 +285,7 @@ choice between a `full` and a `diag` residual across responses is discussed in
 In some cases, $\mathbf{\Sigma_a}$ (or $\mathbf{\Sigma_R}$) may exhibit a perfect correlation of $1$ or $-1$
 which is expected and meaningful. However, such situation makes $\mathbf{G}$ (respectively $\mathbf{R}$) singular.
 For this reason, a `jitter` argument ($\varepsilon$) (0 by default, and *e.g* `jitter = 1e-6` for an actual effect)
-is available for `Random` and `Residual`. It improves the conditionning of $\mathbf{\Sigma_a}$
+is available for `Random` and `Residual`. It improves the conditioning of $\mathbf{\Sigma_a}$
 (respectively $\mathbf{\Sigma_R}$) with a relative and an absolute
 increase of the diagonal:
 
