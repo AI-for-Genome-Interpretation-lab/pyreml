@@ -7,6 +7,7 @@ import pandas as pd
 import patsy
 import torch
 import torch.nn as nn
+import math
 
 from .Optimizer import OptiMix
 from .GaussianComponents import Random, Residual
@@ -246,8 +247,23 @@ class MixedModel:
             residuals = (self.y - self.X @ self.beta).flatten()
             self.residual.format_residuals(residuals, self.W)
 
-            self.compute_AIC()
+            self.compute_AIC(REML = False)
+    
+    def ML_loss(self):
 
+        if self.residual.log_S.numel() != 1:
+            raise ValueError(
+                f"ML_loss expects a scalar residual variance (iid OLS path), "
+                f"got {self.residual.log_S.numel()} elements."
+            )
+        
+        s2  = torch.exp(self.residual.log_S).squeeze()
+        s2_ML = s2 * (self.n - self.p) / self.n  
+        const = self.n * math.log(2*math.pi)
+        logdet_V = self.n * torch.log(s2_ML)
+        quad = self.n
+        return logdet_V + quad + const
+    
     def REML(
         self,
         n_epoch: int = 10_000,
@@ -282,6 +298,7 @@ class MixedModel:
     def REML_loss(self):
 
         r = self.y - self.X @ self.beta
+        const    = (self.n - self.p) * math.log(2 * math.pi)
 
         if self.SMW:
             # ---- Sherman–Morrison–Woodbury: from structured inverses, V never formed ----
@@ -291,7 +308,6 @@ class MixedModel:
                 logdet_V = logdet_R
                 quad     = (r.T @ Rinv @ r).squeeze()
                 k_reml   = torch.logdet(self.X.T @ Rinv @ self.X)
-                loss = logdet_V + quad + k_reml
             
             else:
                 Z = self.Z
@@ -311,7 +327,6 @@ class MixedModel:
                 ZtRiX = Z.T @ RiX
                 XtViX = self.X.T @ RiX - ZtRiX.T @ torch.cholesky_solve(ZtRiX, Lp)
                 k_reml = torch.logdet(XtViX)
-                loss = logdet_V + quad + k_reml
 
         else:
             # ---- Direct: single Cholesky of V = ZGZ' + R ----
@@ -320,13 +335,13 @@ class MixedModel:
             V = R if self.Z is None else self.Z @ G @ self.Z.T + R
 
             Lv = torch.linalg.cholesky(V)
-            rpart = self.y - self.X @ self.beta
-            M = torch.linalg.solve_triangular(Lv, rpart, upper=False)
-            logV = torch.sum(torch.log(torch.diag(Lv)))
-            k_reml = torch.logdet(self.X.T @ torch.cholesky_solve(self.X, Lv))
-            loss = 2 * logV + (M.T @ M).squeeze() + k_reml
+            M  = torch.linalg.solve_triangular(Lv, r, upper=False)
+
+            logdet_V = 2.0 * torch.sum(torch.log(torch.diag(Lv)))
+            quad     = (M.T @ M).squeeze()
+            k_reml   = torch.logdet(self.X.T @ torch.cholesky_solve(self.X, Lv))
         
-        return loss
+        return logdet_V + quad + k_reml + const
 
     def HMME(self):
             """
@@ -409,7 +424,7 @@ class MixedModel:
                 else:
                     self.residuals = residuals
 
-                self.compute_AIC()
+                self.compute_AIC(REML = True)
 
     def format_fixed(self, compute_SE: bool = False):
         """
@@ -461,7 +476,7 @@ class MixedModel:
                 rows, columns=["response", "term", "estimate"]
             )
 
-    def compute_AIC(self):
+    def compute_AIC(self, REML = True):
         """
         -2logL_REML at convergence + parameter counts -> AIC.
         not designed for the low level constructor (the number
@@ -470,16 +485,21 @@ class MixedModel:
 
         if getattr(self, "residual", None) is None:
             return
-
-        with torch.no_grad():
-            self.neg2loglik = float(self.REML_loss().detach())
-
+        
         df_beta = len(self.beta)
-
         randoms = getattr(self, "random", [])
         residual = getattr(self, "residual", None)
         df_var = sum(c.n_params for c in randoms)
         df_var += residual.n_params
         self.n_params = df_beta + df_var
+        
+        with torch.no_grad():
+            if REML:
+                self.neg2loglik = float(self.REML_loss().detach())
+                self.AIC_meth = "REML"
+            else:
+                self.neg2loglik = float(self.ML_loss().detach())
+                self.AIC_meth = "ML"
 
         self.AIC = self.neg2loglik + 2 * self.n_params
+

@@ -16,7 +16,7 @@ model.fit()
 
 This runs the full pipeline, calling this series of methods: 
 
-- `.OLS()`, [Ordinary least square](#ols) (OLS) initialization of $\boldsymbol{\beta}$,
+- `.OLS()`, [Ordinary least square](#ols) (OLS) initialization of $\mathbf{\beta}$,
 
 - `.REML()`, [REML](#reml) estimation of the variance components,
 
@@ -30,14 +30,14 @@ or several responses ; otherwise the fitting process stops at the OLS step.
 The fixed effects are first estimated by ordinary least squares,
 
 $$
-\hat{\boldsymbol{\beta}}_{\text{OLS}} =
+\hat{\mathbf{\beta}}_{\text{OLS}} =
 (\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top\mathbf{y}.
 $$
 
 If the model carries no random effect, an `iid` residual and a single response,
 then the OLS solution is already the answer and training stops here.
 
-Otherwise the OLS estimate initializes $\boldsymbol{\beta}$ before REML.
+Otherwise the OLS estimate initializes $\mathbf{\beta}$ before REML.
 This initialization is always performed by `.fit()` and is strongly recommended
 for lower level uses of [pyreml]{.pyreml}.
 
@@ -61,23 +61,24 @@ with residual variance
 $\mathbf{R} = \mathbf{W}\left(\mathbf{\Sigma_R} \otimes \mathbf{K_R}\right)\mathbf{W}^\top$.
 
 Training estimates the variance parameters carried by the $\mathbf{\Sigma_e}$,
-$\mathbf{K_e}$, $\mathbf{\Sigma_R}$ and $\mathbf{K_R}$ jointly with $\boldsymbol{\beta}$, then obtains
+$\mathbf{K_e}$, $\mathbf{\Sigma_R}$ and $\mathbf{K_R}$ jointly with $\mathbf{\beta}$, then obtains
 the random effects $\mathbf{u}$.
 
-The variance parameters and $\boldsymbol{\beta}$ are estimated by minimizing the
+The variance parameters and $\mathbf{\beta}$ are estimated by minimizing the
 restricted negative log-likelihood [@patterson_recovery_1971; @harville_maximum_1977]:
 
 $$
 -2\ell_{\text{REML}} = \log\lvert\mathbf{V}\rvert
++ (\mathbf{y}-\mathbf{X}\mathbf{\beta})^\top\mathbf{V}^{-1}
+  (\mathbf{y}-\mathbf{X}\mathbf{\beta})
 + \log\lvert\mathbf{X}^\top\mathbf{V}^{-1}\mathbf{X}\rvert
-+ (\mathbf{y}-\mathbf{X}\boldsymbol{\beta})^\top\mathbf{V}^{-1}
-  (\mathbf{y}-\mathbf{X}\boldsymbol{\beta}).
++ (n - p) \log(2\pi).
 $$
 
 The objective is differentiated by automatic differentiation and optimized with
 L-BFGS under a strong-Wolfe line search, with Adam as a fallback for steps
 the line search cannot complete.
-The variance parameters and $\boldsymbol{\beta}$ are optimized jointly.
+The variance parameters and $\mathbf{\beta}$ are optimized jointly.
 
 ## HMME
 
@@ -89,7 +90,7 @@ $$
 \mathbf{X}^\top\mathbf{R}^{-1}\mathbf{X} & \mathbf{X}^\top\mathbf{R}^{-1}\mathbf{Z} \\
 \mathbf{Z}^\top\mathbf{R}^{-1}\mathbf{X} & \mathbf{Z}^\top\mathbf{R}^{-1}\mathbf{Z}+\mathbf{G}^{-1}
 \end{bmatrix}
-\begin{bmatrix} \hat{\boldsymbol{\beta}} \\ \hat{\mathbf{u}} \end{bmatrix}
+\begin{bmatrix} \hat{\mathbf{\beta}} \\ \hat{\mathbf{u}} \end{bmatrix}
 =
 \begin{bmatrix}
 \mathbf{X}^\top\mathbf{R}^{-1}\mathbf{y} \\
@@ -98,12 +99,35 @@ $$
 $$
 
 Their solution gives the best linear unbiased estimator (BLUE) of
-$\boldsymbol{\beta}$ and the best linear unbiased predictor (BLUP) of
+$\mathbf{\beta}$ and the best linear unbiased predictor (BLUP) of
 $\mathbf{u}$, in a single solve.
 
 The same system also yields the error variances of the estimates and predictions.
 See [Prediction](prediction.qmd) for the prediction error variance of
 $\hat{\mathbf{u}}$.
+
+## Akaike information criterion
+
+Once the model is fitted, the Akaike information criterion (AIC) is computed in two different ways depending on
+whether it was performed by `OLS` or `HMME`/`REML`. The AIC method is consigned
+in the `AIC_meth` attribute.
+
+These two AICs should not be compared one with each other. AIC computed post-OLS
+is designed for the exploration of fixed effects with no variance structure, and
+AIC computed post REML/HMME is designed for the investigation of the variance
+structure with a fixed $\mathbf{X}$ (*i.e.* a fixed `formula` in the model
+specification).
+
+AIC post OLS is computed using the likelihood, from the unbiased residual variance $\sigma^2_R$:
+
+$$
+-2\ell_{\text{ML}} = n \log\left( \frac{n-p}{n} \sigma^2_R \right) + n + n \log(2\pi)
+$$
+
+and AIC post REML/HMME is computed using the restricted likelihood ($-2\ell_{\text{REML}}$). 
+
+In both cases, AIC is obtained by the addition of twice the total number of parameters ($\beta$,
+and all independent variance parameters).
 
 ## SMW
 

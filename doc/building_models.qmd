@@ -62,7 +62,8 @@ After `fit()` (see [Training](training.qmd)), the estimates are read off the mod
 | `model.random[i].variance` | Its estimated variance structure. For homogeneity across methods, `sigma` is always a variance ($\Sigma$ or $\sigma^2$) and never a standard deviation $\sigma$. |
 | `model.residual.table`     | Model residuals.                                                    |
 | `model.residual.variance`  | The estimated residual variance.                                    |
-| `model.AIC`                | Akaike information criterion (AIC).                                 |
+| `model.AIC`                | Akaike information criterion (AIC) (see the [dedicated section](training.qmd#akaike_information_criterion))                                 |
+| `model.AIC_meth`           | Method with which the AIC was obtained                                 |
 
 [pyreml]{.pyreml} does not compute p-values for the fixed effects.
 However, as an approximation, the `t` column can be compared to a $\mathcal{N}(0,1)$ distribution.
