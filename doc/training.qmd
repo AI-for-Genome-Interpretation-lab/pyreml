@@ -187,44 +187,6 @@ which only stands under some conditions, including:
 - or if both $\mathbf{\Sigma_R}$ and $\mathbf{K_R}$ are diagonal, as 
 $\mathbf{W}$ is a mere row-column selector.
 
-### Examples of special interest
-
-SMW meaningfulness can be exemplified in these situations:
-
-- with `right_hand = str` for a given effect $\mathbf{a}$;
-the inversion of $\mathbf{K_a}$ is done once for all and cached so that only
-the left hand (possibly a mere scalar $\sigma^2_\mathbf{a}$) needs inversion at each step;
-- with any diagonal covariance (`left_hand` in `{iid, diag}` or `right_hand` in
-`{iid, het}`); the inversion turns an $O(n^3)$ factorization into an
-$O(n)$ elementwise operation;
-- with `left_hand = fa`; the inversion of $\mathbf{\Sigma_a}$ is also done with SMW
-as it is approximated by the same form
-$\mathbf{\Sigma_a} = \mathbf{Q_a}\mathbf{\Lambda_a}\mathbf{Q_a}^\top + \mathbf{\Psi_a}$,
-breaking the problem down even further.
-- the block diagonal structures, that rely on Kronecker products or direct sums,
-can be broke down into smaller problems.
-- with the autoregressive kernels (`ar_iso`, `ar_ani`), not only
-the construction of the inverse of $\mathbf{K}_a$ can be broken down as a Kronecker
-of inverses, but furthermore these elementary inverses have a close form:
-
-$$
-\begin{align}
-\mathbf{K}_a^{-1}
-  &= \bigotimes_k \mathbf{K}_k^{-1},
-  \\
-\mathbf{K}_k^{-1}
-  &= \frac{1}{1-\varphi_k^2}
-     \operatorname{tridiag}
-     \bigl(-\varphi_k,\,1+\varphi_k^2,\,-\varphi_k\bigr),
-\end{align}
-$$
-
-and:
-
-$$
-\log\lvert\mathbf{K}_k\rvert
-  = (L_k-1)\log\bigl(1-\varphi_k^2\bigr).
-$$
 
 ### Implementation of SMW
 
@@ -260,6 +222,57 @@ $\mathbf{V}$ .
     - if `varmeth_inv` only is provided, SMW is forced on;
     - if `varmeth` only is provided, SMW is forced off;
     - If both methods are available, the dimensional rule applies.
+
+### Examples of special interest
+
+SMW meaningfulness can be exemplified in these situations:
+
+- with `right_hand = str` for a given effect $\mathbf{a}$;
+the inversion of $\mathbf{K_a}$ is done once for all and cached so that only
+the left hand (possibly a mere scalar $\sigma^2_\mathbf{a}$) needs inversion at each step;
+- with any diagonal covariance (`left_hand` in `{iid, diag}` and `right_hand` in
+`{iid, het}`); the inversion of this block turns an $O(n^3)$ factorization into an
+$O(n)$ elementwise operation;
+- with `left_hand = fa`; the inversion of $\mathbf{\Sigma_a}$ is also done with SMW
+as it is approximated by the same form
+$\mathbf{\Sigma_a} = \mathbf{Q_a}\mathbf{\Lambda_a}\mathbf{Q_a}^\top + \mathbf{\Psi_a}$,
+breaking the problem down even further.
+- the block diagonal structures, that rely on Kronecker products or direct sums,
+can be broke down into smaller problems.
+- with the autoregressive kernels (`ar_iso`, `ar_ani`), not only
+the construction of the inverse of $\mathbf{K}_a$ can be broken down as a Kronecker
+of inverses, but furthermore these elementary inverses have a close form:
+
+$$
+\begin{align}
+\mathbf{K}_a^{-1}
+  &= \bigotimes_k \mathbf{K}_k^{-1},
+  \\
+\mathbf{K}_k^{-1}
+  &= \frac{1}{1-\varphi_k^2}
+  \begin{pmatrix}
+  1 & -\varphi_k & 0 & \cdots & 0 \\
+  -\varphi_k & 1+\varphi_k^2 & -\varphi_k & \ddots & \vdots \\
+  0 & -\varphi_k & 1+\varphi_k^2 & \ddots & 0 \\
+  \vdots & \ddots & \ddots & \ddots & -\varphi_k \\
+  0 & \cdots & 0 & -\varphi_k & 1
+  \end{pmatrix}.
+\end{align}
+$$
+
+and:
+
+$$
+\log\lvert\mathbf{K}_k\rvert
+  = (L_k-1)\log\bigl(1-\varphi_k^2\bigr).
+$$
+
+Given the dimensional rule, and that $\mathbf{K}_a$ is
+built for the whole grid even if it is sparsed,
+this optimizes the computation in the current dense implementation
+only when there are more observations than the
+number of nodes on the whole grid (several observation per node on the grid,
+and a dense grid).
 
 ## Monitoring
 
