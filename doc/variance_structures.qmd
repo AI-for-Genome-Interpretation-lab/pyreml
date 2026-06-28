@@ -285,6 +285,10 @@ Any structure can be declared on the residual, but not all are identifiable; the
 choice between a `full` and a `diag` residual across responses is discussed in
 [Multivariate](multivariate.qmd).
 
+The residual takes no formula, therefore the block-diagonal and 
+proportional blocks left-hand specifications
+are not allowed for the residual variance structure.
+
 ## Jitter
 
 In some cases, $\mathbf{\Sigma_a}$ (or $\mathbf{\Sigma_R}$) may exhibit a perfect correlation of $1$ or $-1$

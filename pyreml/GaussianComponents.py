@@ -13,6 +13,7 @@ RIGHT = Literal["iid", "str", "het", "dist", "eucl", "ar_iso", "ar_ani"]
 # right-hand families
 _COORD_RIGHT = ("eucl", "ar_iso", "ar_ani")        # read coordinates from the frame
 _DECAY_RIGHT = ("dist", "eucl", "ar_iso", "ar_ani")  # exp(-decay), rate(s) > 0
+_LEFT_RES = Literal["iid", "diag", "full", "fa"]
 
 
 class GaussianComponent:
@@ -1249,7 +1250,7 @@ class Residual(GaussianComponent):
 
     def __init__(
         self,
-        left_hand: LEFT = "iid",
+        left_hand: _LEFT_RES = "iid",
         right_hand: RIGHT = "iid",
         covariance: None | np.ndarray = None,
         distance: None | np.ndarray = None,
@@ -1276,7 +1277,6 @@ class Residual(GaussianComponent):
 
     def varmeth_inv(self) -> Callable:
         def block(W: torch.Tensor | None = None):
-            diagonal = (self.left_hand in ("iid", "diag")) and (self.right_hand in ("iid", "het"))
 
             if W is None:
                 # no masking: R = R_tot = S⊗K, invert and logdet by Kronecker structure
@@ -1286,7 +1286,7 @@ class Residual(GaussianComponent):
                 logdet_R = self.L * logdet_S + (self.d) * logdet_K
                 return Rinv, logdet_R
 
-            if diagonal:
+            if self.Rtrick:
                 # masked but fully diagonal: selection commutes, logdet from the diagonal
                 Sinv, _ = self.build_Sinv()
                 Kinv, _ = self.build_Kinv()
@@ -1300,6 +1300,7 @@ class Residual(GaussianComponent):
             Rinv = torch.cholesky_inverse(L)
             logdet_R = 2.0 * torch.sum(torch.log(torch.diagonal(L)))
             return Rinv, logdet_R
+        
         return block
     
     def design(
@@ -1345,6 +1346,22 @@ class Residual(GaussianComponent):
                 self.covariance = torch.as_tensor(np.asarray(self.covariance), dtype=self.dtype, device=self.device)
 
         self.init_varparams()         # -> self.varparams, self.log_S, (self.log_rho)
+
+        W_is_identity = (
+            self.W.shape[0] == self.W.shape[1]
+            and torch.allclose(self.W, torch.eye(self.W.shape[0], dtype=dtype, device = device))
+        )
+        R_is_diagonal = (
+            self.left_hand in ("iid", "diag")
+            and
+            self.right_hand in ("iid", "het")
+        )
+
+        """  Rtrick:
+        True if R_inv can be computed as W Rtot_inv W'
+        False otherwise
+        """
+        self.Rtrick = W_is_identity or R_is_diagonal
 
         return self.W
 

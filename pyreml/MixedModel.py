@@ -100,11 +100,6 @@ class MixedModel:
         W = torch.as_tensor(W, dtype=dtype, device=device)
         y = torch.as_tensor(y, dtype=dtype, device=device).reshape(-1, 1)
 
-        W_is_identity = (
-            W.shape[0] == W.shape[1]
-            and torch.allclose(W, torch.eye(W.shape[0], dtype=dtype, device = device))
-        )
-
         do_REML = (
             Z is not None
             or len(response) > 1
@@ -122,8 +117,7 @@ class MixedModel:
             return G, R
 
         def varmeth_inv(self):
-            W = None if W_is_identity else self.W
-            Rinv, logdet_R = residual.varmeth_inv()(W)
+            Rinv, logdet_R = residual.varmeth_inv()(self.W)
 
             if not random_blocks_inv:
                 return None, Rinv, None, logdet_R
@@ -150,7 +144,7 @@ class MixedModel:
         mm.residual = residual
         mm.random = [rand for rand in random]
 
-        if not (residual.left_hand in ("iid", "diag") and residual.right_hand in ("iid", "het")):
+        if not mm.residual.Rtrick :
             mm.SMW = False
             
         if SMW is not None:

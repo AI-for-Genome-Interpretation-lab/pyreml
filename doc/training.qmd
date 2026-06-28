@@ -209,14 +209,13 @@ over any other rule.
 - using the high-level `from_dataframe` constructor, if all
 of the following conditions are met then SMW is switched off
 regardless of the dimensional rule:
-    - Several responses are provided;
-    - These responses do not share exactly the same missing values;
+    - $\mathbf{W} \neq \mathbf{I}$, which can arise for instance with several unbalanced option, or when using autoregressive structures.
     - The residual covariance $\mathbf{R}$ is not designed as a diagonal matrix.
 
 Indeed, in this situation
 $\mathbf{R}^{-1} \neq \mathbf{W}\left(\mathbf{\Sigma_R}^{-1} \otimes \mathbf{K_R}^{-1}\right)\mathbf{W}^\top$
 and inverting the $n \times n$ matrix $\mathbf{R}$ is just as expensive as inverting
-$\mathbf{V}$ .
+$\mathbf{V}$.
 
 - with the low-level constructor:
     - if `varmeth_inv` only is provided, SMW is forced on;
