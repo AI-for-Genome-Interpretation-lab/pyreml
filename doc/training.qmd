@@ -201,6 +201,30 @@ $O(n)$ elementwise operation;
 as it is approximated by the same form
 $\mathbf{\Sigma_a} = \mathbf{Q_a}\mathbf{\Lambda_a}\mathbf{Q_a}^\top + \mathbf{\Psi_a}$,
 breaking the problem down even further.
+- the block diagonal structures, that rely on Kronecker products or direct sums,
+can be broke down into smaller problems.
+- with the autoregressive kernels (`ar_iso`, `ar_ani`), not only
+the construction of the inverse of $\mathbf{K}_a$ can be broken down as a Kronecker
+of inverses, but furthermore these elementary inverses have a close form:
+
+$$
+\begin{align}
+\mathbf{K}_a^{-1}
+  &= \bigotimes_k \mathbf{K}_k^{-1},
+  \\
+\mathbf{K}_k^{-1}
+  &= \frac{1}{1-\varphi_k^2}
+     \operatorname{tridiag}
+     \bigl(-\varphi_k,\,1+\varphi_k^2,\,-\varphi_k\bigr),
+\end{align}
+$$
+
+and:
+
+$$
+\log\lvert\mathbf{K}_k\rvert
+  = (L_k-1)\log\bigl(1-\varphi_k^2\bigr).
+$$
 
 ### Implementation of SMW
 

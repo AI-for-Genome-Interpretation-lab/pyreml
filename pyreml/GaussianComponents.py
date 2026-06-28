@@ -63,7 +63,8 @@ class GaussianComponent:
             - dist: exp(-rho * D) over a supplied distance matrix `distance`
             - eucl: exp(-rho * ||dx||_2), distance built internally from `coords`
             - ar_iso / ar_ani: separable autoregressive decay from `coords`,
-                    one shared rate (iso) or one rate per axis (ani)
+                    one shared rate (iso) or one rate per axis (ani); the levels
+                    are taken on the complete integer grid spanned by `coords`.
 
         `covariance` is the known structure matrix for right_hand="str".
         `distance`   is the known distance matrix for right_hand="dist".
@@ -71,6 +72,7 @@ class GaussianComponent:
             coordinate-based kernels (eucl / ar_iso / ar_ani). Each level of
             `unit` must carry a single coordinate (constant within the level) and
             no two levels may share the same coordinate (otherwise K is singular).
+            For ar_iso / ar_ani the coordinates must be integer-valued.
         `matrix_index` lists the levels of `unit` in the order in which they
             appear in the rows/cols of `covariance` / `distance`.
         `het_formula` is the formula for right_hand="het".
@@ -346,7 +348,7 @@ class GaussianComponent:
                 n_right = 1
 
             case "eucl" | "ar_iso":
-                if not hasattr(self, "coords_levels"):
+                if not hasattr(self, "coord_dim"):
                     raise ValueError(
                         "make_coords(data) must be called before init_varparams for "
                         f"right_hand='{self.right_hand}'."
@@ -361,7 +363,7 @@ class GaussianComponent:
                 n_right = 1
 
             case "ar_ani":
-                if not hasattr(self, "coords_levels"):
+                if not hasattr(self, "coord_dim"):
                     raise ValueError(
                         "make_coords(data) must be called before init_varparams for right_hand='ar_ani'."
                     )
@@ -449,34 +451,40 @@ class GaussianComponent:
         self.het_index = rest
         self.n_het = len(rest)
 
-    def make_coords(self, data: pd.DataFrame) -> None:
+    def make_coords(self, data: pd.DataFrame, checkerboard: bool = False) -> None:
         """
-        Read the coordinates for the coordinate-based kernels (eucl / ar_iso /
-        ar_ani) and store them as one position per level.
+        Read the coordinates for the coordinate-based kernels.
 
-        Two constraints are enforced:
-            - intra-level constancy: every row of a given `unit` level must carry
-              the same coordinate,
-            - inter-level uniqueness: no two levels may share a coordinate (else
-              the across-level kernel K would be singular).
+        The level contract is the SAME for both regimes and is checked here:
+            - intra-level constancy: every row of a level carries one coordinate,
+            - inter-level uniqueness: no two levels share a coordinate (else the
+              across-level kernel is singular).
+        A level is a level of `unit` (grouped) or an observation (residual).
 
-        Granularity:
-            - residual (unit=None): one position per observation,
-            - grouped: one position per level of `unit`, aligned to self.index.
+        checkerboard=False (eucl) — the levels stay the observed positions; the
+          across-level factor is dense over them. Sets self.coords_levels
+          ((L, axes) tensor) and self.coord_dim.
 
-        Sets self.coords_levels ((L, axes) tensor) and self.coord_dim.
+        checkerboard=True (ar_iso / ar_ani) — the validated integer positions are
+          embedded in the COMPLETE integer grid they span (one cell per integer
+          position on every axis), so that K factors exactly as a Kronecker
+          product of per-axis AR1 kernels. The level incidence (Z for a grouped
+          effect, W for the residual) is re-laid over the grid cells; cells with
+          no level become legitimate empty columns. Sets self.axis_grids,
+          self.index (grid cells, axis-0-outer / axis-(d-1)-inner), self.L,
+          self.coord_dim and self.level_cell (grid cell of each validated level).
         """
         if self.coords is None:
             raise ValueError("`coords` is required for the coordinate-based kernels.")
 
+        # one coordinate per level, with the shared contract checks
         if self.unit is None:
-            P = data[self.coords].to_numpy(dtype=float)
+            P = data[self.coords].to_numpy(dtype=float)              # per observation
         else:
             g = data.groupby(self.unit, sort=False)[self.coords]
             if (g.nunique() > 1).to_numpy().any():
                 raise ValueError("`coords` must be constant within each level of `unit`.")
-            frame = g.first().reindex(self.index)
-            P = frame.to_numpy(dtype=float)
+            P = g.first().reindex(self.index).to_numpy(dtype=float)  # per unit level
 
         if np.unique(P, axis=0).shape[0] != P.shape[0]:
             raise ValueError(
@@ -485,7 +493,46 @@ class GaussianComponent:
             )
 
         self.coord_dim = P.shape[1]
-        self.coords_levels = torch.as_tensor(P, dtype=self.dtype, device=self.device)
+
+        if not checkerboard:
+            # eucl: the levels remain the observed positions
+            self.coords_levels = torch.as_tensor(P, dtype=self.dtype, device=self.device)
+            return
+
+        # --- ar: complete the integer grid spanned by the validated levels ------
+        Pint = np.rint(P).astype(int)                               # (L_lvl, axes)
+        axes = Pint.shape[1]
+        starts, stops = Pint.min(axis=0), Pint.max(axis=0)
+        self.axis_grids = [
+            torch.arange(int(starts[a]), int(stops[a]) + 1, dtype=self.dtype, device=self.device)
+            for a in range(axes)
+        ]
+        sizes = [int(stops[a] - starts[a] + 1) for a in range(axes)]
+        L_grid = int(np.prod(sizes))
+
+        # grid cells, axis-0-outer / axis-(d-1)-inner (matches the Kronecker order)
+        mesh = np.meshgrid(*[grd.cpu().numpy() for grd in self.axis_grids], indexing="ij")
+        grid_cells = np.stack([m.ravel() for m in mesh], axis=1)    # (L_grid, axes)
+
+        # grid cell of each validated level (row-major over the axis grids)
+        strides = np.array([int(np.prod(sizes[a + 1:])) for a in range(axes)])
+        self.level_cell = ((Pint - starts) * strides).sum(axis=1)  # (L_lvl,)
+
+        # embed the level incidence (Z grouped, W residual) into the grid columns;
+        # uniqueness guarantees at most one level per cell, the rest stay empty.
+        src = self.Z if self.unit is not None else self.W          # (n, c * L_lvl)
+        L_lvl = len(self.level_cell)
+        grid_incidence = np.zeros((src.shape[0], self.c * L_grid))
+        for j in range(self.c):
+            grid_incidence[:, j * L_grid + self.level_cell] = src[:, j * L_lvl:(j + 1) * L_lvl]
+
+        if self.unit is not None:
+            self.Z = grid_incidence
+        else:
+            self.W = grid_incidence
+
+        self.index = grid_cells
+        self.L = L_grid
 
     def build_S(self) -> torch.Tensor:
         """
@@ -524,7 +571,7 @@ class GaussianComponent:
             case "bl_form":
                 blocks = torch.linalg.matrix_exp(log_S + log_S.transpose(-1, -2))  # (c, k, k)
                 S_form = torch.block_diag(*blocks)                                  # formula-outer
-                perm = self.torch.arange(self.d, device=self.device).reshape(self.c, self.k).T.reshape(-1)()
+                perm = torch.arange(self.d, device=self.device).reshape(self.c, self.k).T.reshape(-1)
                 return S_form[perm][:, perm]
 
             case "kr_resp":
@@ -584,16 +631,22 @@ class GaussianComponent:
                 D = torch.sqrt((diff ** 2).sum(-1))
                 return torch.exp(-torch.exp(self.log_rho) * D)
 
-            case "ar_iso":
-                P = self.coords_levels if coords is None else torch.as_tensor(coords, dtype=self.dtype, device=self.device)
-                D = (P[:, None, :] - P[None, :, :]).abs().sum(-1)        # L1
-                return torch.exp(-torch.exp(self.log_rho) * D)
+            case "ar_iso" | "ar_ani":
+                rho = torch.exp(self.log_rho)                # scalar (iso) or (axes,) (ani)
 
-            case "ar_ani":
-                P = self.coords_levels if coords is None else torch.as_tensor(coords, dtype=self.dtype, device=self.device)
-                absdiff = (P[:, None, :] - P[None, :, :]).abs()          # (M, M, axes)
-                rho = torch.exp(self.log_rho)                            # (axes,)
-                return torch.exp(-(absdiff * rho).sum(-1))
+                if coords is not None:
+                    # prediction path: dense separable kernel over the supplied coords
+                    P = torch.as_tensor(coords, dtype=self.dtype, device=self.device)
+                    absdiff = (P[:, None, :] - P[None, :, :]).abs()    # (M, M, axes)
+                    return torch.exp(-(absdiff * rho).sum(-1))         # rho broadcasts (iso/ani)
+
+                # training path: K = ⊗_a exp(-rho_a |dx_a|) over the per-axis grids
+                K = None
+                for a, g in enumerate(self.axis_grids):
+                    rho_a = rho[a] if self.right_hand == "ar_ani" else rho
+                    K_a = torch.exp(-rho_a * (g[:, None] - g[None, :]).abs())
+                    K = K_a if K is None else torch.kron(K, K_a)
+                return K
 
             case _:
                 raise ValueError(f"unsupported right hand type: {self.right_hand}")
@@ -697,7 +750,7 @@ class GaussianComponent:
                     invs.append(torch.cholesky_inverse(Lb))
                     logdet = logdet + 2.0 * torch.sum(torch.log(torch.diagonal(Lb)))
                 Sinv_form = torch.block_diag(*invs)
-                perm = self.torch.arange(self.d, device=self.device).reshape(self.c, self.k).T.reshape(-1)()
+                perm = torch.arange(self.d, device=self.device).reshape(self.c, self.k).T.reshape(-1)
                 return Sinv_form[perm][:, perm], logdet
 
             case "kr_resp":
@@ -736,7 +789,8 @@ class GaussianComponent:
     def build_Kinv(self) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Return (K^{-1}, logdet K). For str, both are precomputed once (cached);
-        the decay kernels are factored every step (K depends on the trained rate).
+        the dense decay kernels are factored every step; the autoregressive
+        kernels use the closed-form per-axis AR(1) inverse combined by Kronecker.
         """
         match self.right_hand:
 
@@ -746,12 +800,51 @@ class GaussianComponent:
                     torch.zeros((), dtype=self.dtype, device=self.device),
                 )
             
-            case "dist" | "eucl" | "ar_iso" | "ar_ani":
-                # K depends on the trained rate(s): factor each step.
+            case "dist" | "eucl":
+                # K depends on the trained rate: factor each step (dense).
                 K = self.build_K()
                 Lk = torch.linalg.cholesky(K)
                 Kinv = torch.cholesky_inverse(Lk)
                 logdet = 2.0 * torch.sum(torch.log(torch.diagonal(Lk)))
+                return Kinv, logdet
+
+            case "ar_iso" | "ar_ani":
+                # Separable grid: K = ⊗_a K_a. Each per-axis AR(1) factor has a
+                # closed-form tridiagonal inverse and log-determinant, so the
+                # across-level inverse needs no factorization:
+                #   K^-1 = ⊗_a K_a^-1,  logdet K = Σ_a (L / L_a) logdet K_a.
+                rho = torch.exp(self.log_rho)
+                sizes = [len(g) for g in self.axis_grids]
+                Kinv = None
+                logdet = self.log_rho.new_zeros(())
+                for a in range(len(self.axis_grids)):
+                    rho_a = rho[a] if self.right_hand == "ar_ani" else rho
+
+                    # Closed-form inverse and log-determinant of a regular AR(1) factor
+                    # K_ij = phi^{|i-j|}, phi = exp(-rho). The inverse is tridiagonal and the
+                    # log-determinant is closed-form, so no factorization is needed:
+                    #     K^{-1} = 1/(1-phi^2) * tridiag(-phi, [1, 1+phi^2, ..., 1+phi^2, 1], -phi)
+                    #     logdet K = (L-1) log(1 - phi^2)
+
+                    L = sizes[a]
+                    phi_a = torch.exp(-rho_a)
+                    if L == 1:
+                        return (torch.ones(1, 1, dtype=self.dtype, device=self.device),
+                                self.log_rho.new_zeros(()))
+                    denom = 1.0 - phi_a * phi_a
+                    edge = (1.0 / denom).reshape(1)
+                    if L == 2:
+                        main = torch.cat([edge, edge])
+                    else:
+                        inner = ((1.0 + phi_a * phi_a) / denom).reshape(1).expand(L - 2)
+                        main = torch.cat([edge, inner, edge])
+                    off = (-phi_a / denom).reshape(1).expand(L - 1)
+                    Kinv_a = torch.diag(main) + torch.diag(off, 1) + torch.diag(off, -1)
+                    logdet_a = (L - 1) * torch.log(denom)
+
+                    logdet = logdet + (self.L // sizes[a]) * logdet_a
+                    Kinv = Kinv_a if Kinv is None else torch.kron(Kinv, Kinv_a)
+                    
                 return Kinv, logdet
             
             case "het":
@@ -864,7 +957,10 @@ class GaussianComponent:
 
                 case "dist" | "eucl" | "ar_iso":
                     sigma = sigma_base
-                    metadata = {**metadata, "rho": [float(torch.exp(self.log_rho).detach().cpu().numpy())]}
+                    metadata = {
+                        **metadata,
+                        "rho": float(torch.exp(self.log_rho).detach().cpu().numpy())
+                    }
 
                 case "ar_ani":
                     sigma = sigma_base
@@ -965,8 +1061,17 @@ class Random(GaussianComponent):
         self.make_Z(data)             # -> self.Z, self.colnames, self.c, self.L
         if self.right_hand == "het":
             self.make_V(data)
-        if self.right_hand in _COORD_RIGHT:
-            self.make_coords(data)
+        if self.right_hand == "eucl":
+            self.make_coords(data, checkerboard=False)
+        elif self.right_hand in ("ar_iso", "ar_ani"):
+            # ar lives on a regular integer grid: check, convert, then fill the grid
+            P = data[self.coords].to_numpy(dtype=float)
+            if not np.allclose(P, np.rint(P)):
+                raise ValueError(
+                    "right_hand in {'ar_iso', 'ar_ani'} requires integer-valued `coords` "
+                    "(a regular grid). Use 'eucl' for arbitrary real coordinates."
+                )
+            self.make_coords(data, checkerboard=True)   # rebuilds self.Z over the grid
         self.n, self.q = self.Z.shape
         self.d = self.k * self.c
 
@@ -1220,8 +1325,16 @@ class Residual(GaussianComponent):
         self.make_W()             # -> self.W, self.colnames, self.c, self.L
         if self.right_hand == "het":
             self.make_V(data)
-        if self.right_hand in _COORD_RIGHT:
-            self.make_coords(data)
+        if self.right_hand == "eucl":
+            self.make_coords(data, checkerboard=False)
+        elif self.right_hand in ("ar_iso", "ar_ani"):
+            P = data[self.coords].to_numpy(dtype=float)
+            if not np.allclose(P, np.rint(P)):
+                raise ValueError(
+                    "right_hand in {'ar_iso', 'ar_ani'} requires integer-valued `coords` "
+                    "(a regular grid). Use 'eucl' for arbitrary real coordinates."
+                )
+            self.make_coords(data, checkerboard=True)   # rebuilds self.W over the grid
         self.n, self.q = self.W.shape
         self.d = self.k * self.c
 
