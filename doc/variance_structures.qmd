@@ -23,7 +23,7 @@ the components* of the effect
 
 The two factors are set independently, through `left_hand` and `right_hand`.
 
-# Left-hand factor: $\mathbf{\Sigma_a}$
+## Left-hand factor: $\mathbf{\Sigma_a}$
 
 `left_hand` sets the covariance across components. A component is a 
 (response, formula element) pair: with $k$ responses and
@@ -53,12 +53,12 @@ structure are simply ignored.
 | `kr_resp`   | [Proportional blocks across responses](#proportional-blocks)      |
 | `kr_form`   | [Proportional blocks across formula columns](#proportional-blocks)|
 
-## Independent and identically distributed
+### Independent and identically distributed
 
 With `iid`, $\mathbf{\Sigma_a}$ collapses to a single scalar: $\sigma_a^2\mathbf{I}$.
 All variances are equal and no covariance is estimated across components.
 
-## Diagonal and full
+### Diagonal and full
 
 `diag` estimates one variance per component, with no covariance between them;
 `full` estimates the entire symmetric covariance, capturing every pairwise
@@ -66,7 +66,7 @@ covariance across components. Both are estimated through an unconstrained
 internal parameterization that keeps $\mathbf{\Sigma_a}$ positive-definite
 throughout the fit.
 
-## Factor-analytic
+### Factor-analytic
 
 When the number of components is large, a `full` covariance becomes expensive
 (it holds $kc(kc+1)/2$ free parameters). The factor-analytic structure
@@ -85,7 +85,7 @@ of axes is set with the `n_axes` argument, a practical default being `n_axes = 2
 decomposition (PCA). This analogy with the PCA can be useful for *post hoc*
 interpretation of the FA model.
 
-## Block-diagonal
+### Block-diagonal
 
 A block-diagonal structure makes $\mathbf{\Sigma_a}$ block-diagonal along one of
 its two sub-axes, setting the cross-block covariances to zero. Each block is
@@ -106,7 +106,7 @@ $$
   the **patsy** columns, a categorical `formula` produces one block per contrast
   column, not per written term.
 
-## Proportional blocks
+### Proportional blocks
 
 `kr_resp` and `kr_form` are the separable counterparts of
 `bl_resp`/`bl_form`: the same block-diagonal support, but with all blocks
@@ -135,7 +135,7 @@ factor to $1$ ($\alpha_1 = 1$ for `kr_resp`, $\omega_1 = 1$ for `kr_form`),
 exactly as the `Intercept` of `het` (see [heteroscedastic](#heteroscedastic)). The Kronecker form also
 makes the inverse and log-determinant of $\mathbf{\Sigma_a}$ cheap.
 
-# Right-hand factor: $\mathbf{K_a}$
+## Right-hand factor: $\mathbf{K_a}$
 
 `right_hand` sets the covariance across levels. A level is a
 distinct value of the grouping variable `unit`; with $l$ levels, $\mathbf{K_a}$ is
@@ -151,7 +151,7 @@ $l \times l$.
 | `ar_ani`     | [Separable autoregressive decay](#separable-autoregressive), anisotropic (one rate per axis). |
 | `het`        | [Heteroscedastic diagonal](#heteroscedastic), one variance per level resulting of `het_formula` (modalities and/or regressors). |
 
-## Structured
+### Structured
 
 `str` plugs in a known covariance over the levels supplied as a [numpy](https://numpy.org/) array
 through `covariance`. Because the matrix is indexed by the user's own labels,
@@ -161,7 +161,7 @@ so [pyreml]{.pyreml} can align it to the data.
 Common structured covariances used in genetics applications are provided with
 the [kinship helpers](kinships.qmd).
 
-## Decay kernels
+### Decay kernels
 
 `dist`, `eucl`, `ar_iso` and `ar_ani` form a family of correlation kernels whose
 entries decay with a notion of distance between levels,
@@ -181,7 +181,7 @@ as a list of column names through `coords`.
 For random effects, each level in the data frame
 must match a single set of coordinates.
 
-### Supplied distance
+#### Supplied distance
 
 `dist` forms the factor entrywise from a known distance matrix $\mathbf{D}$:
 
@@ -194,7 +194,7 @@ with a single decay $\rho$ estimated during the fit. The matrix is supplied as a
 numpy array through `distance`, and `matrix_index` orders its rows and columns,
 exactly as for `str`.
 
-### Euclidean distance
+#### Euclidean distance
 
 `eucl` internalises the distance computation: instead of a precomputed matrix,
 it reads a set of coordinate columns $\mathbf{x}$ and forms the Euclidean distance
@@ -206,7 +206,7 @@ $$
 
 Any float coordinates are allowed for the computation of euclidean distances.
 
-### Separable autoregressive
+#### Separable autoregressive
 
 `ar_iso` and `ar_ani` also read coordinates through `coords`, but build a
 separable kernel — a product of one-dimensional autoregressive decays, one
@@ -223,9 +223,9 @@ $$
 
 Only integer coordinates are allowed for the computation of autoregressive kernels.
 One of the main interests of the autoregressive kernels is to stabilize and
-speed-up the computation using [SMW](training.qmd#smw).
+speed-up the computation using [SMW](training.qmd#examples-of-special-interest).
 
-## Heteroscedastic
+### Heteroscedastic
 
 `het` is a diagonal right-hand factor whose entries are a log-linear function of
 an incidence matrix $\mathcal{V}$ built by **patsy** from `het_formula`:
@@ -262,7 +262,7 @@ left-hand factor, `het` should be understood as scaling the whole
 $\mathbf{\Sigma_a}$ by a per-row factor (through the Kronecker product) rather
 than estimating distinct $\mathbf{\Sigma_a}$'s.
 
-# The residual
+## The residual
 
 The `Residual` reuses the very same $\mathbf{\Sigma_R}$ and $\mathbf{K_R}$
 factors, with one difference: it has no `unit` and no `formula`. Its levels are
@@ -285,7 +285,7 @@ Any structure can be declared on the residual, but not all are identifiable; the
 choice between a `full` and a `diag` residual across responses is discussed in
 [Multivariate](multivariate.qmd).
 
-# Jitter
+## Jitter
 
 In some cases, $\mathbf{\Sigma_a}$ (or $\mathbf{\Sigma_R}$) may exhibit a perfect correlation of $1$ or $-1$
 which is expected and meaningful. However, such situation makes $\mathbf{G}$ (respectively $\mathbf{R}$) singular.
@@ -304,7 +304,7 @@ $$
 \operatorname{diag}(\mathbf{\Sigma_a})
 $$
 
-# Caution specifying covariance structures
+## Caution specifying covariance structures
 
 [pyreml]{.pyreml} philosophy is to provide a simple, flexible and unified framework for
 a large variety of applications. Therefore, no *a priori* constraint is applied on the user

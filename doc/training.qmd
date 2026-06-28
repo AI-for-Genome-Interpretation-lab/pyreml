@@ -244,12 +244,11 @@ the construction of the inverse of $\mathbf{K}_a$ can be broken down as a Kronec
 of inverses, but furthermore these elementary inverses have a close form:
 
 $$
-\begin{align}
 \mathbf{K}_a^{-1}
-  &= \bigotimes_k \mathbf{K}_k^{-1},
-  \\
+  = \bigotimes_k \mathbf{K}_k^{-1},
+\qquad
 \mathbf{K}_k^{-1}
-  &= \frac{1}{1-\varphi_k^2}
+  = \frac{1}{1-\varphi_k^2}
   \begin{pmatrix}
   1 & -\varphi_k & 0 & \cdots & 0 \\
   -\varphi_k & 1+\varphi_k^2 & -\varphi_k & \ddots & \vdots \\
@@ -257,19 +256,11 @@ $$
   \vdots & \ddots & \ddots & \ddots & -\varphi_k \\
   0 & \cdots & 0 & -\varphi_k & 1
   \end{pmatrix}.
-\end{align}
-$$
-
-and:
-
-$$
-\log\lvert\mathbf{K}_k\rvert
-  = (L_k-1)\log\bigl(1-\varphi_k^2\bigr).
 $$
 
 Given the dimensional rule, and that $\mathbf{K}_a$ is
 built for the whole grid even if it is sparsed,
-this optimizes the computation in the current dense implementation
+this actually optimizes the computation in the current dense implementation
 only when there are more observations than the
 number of nodes on the whole grid (several observation per node on the grid,
 and a dense grid).
