@@ -33,74 +33,98 @@ def _dump(obj, name):
     with open(f"{OUT}/doc_{name}.json", "w") as f:
         json.dump(obj, f, indent=2)
 
-
 # %% [markdown]
-# ## spatial : AR random effect + kriging
+# ## spatial : eucl random effect + kriging
 
 # %%
 df = larix.copy()
 df = df[df["year"] == 2000].copy()
-df["ID"] = np.arange(len(df))
-
-coords = df[["X", "Y"]].to_numpy()
-D_train = np.linalg.norm(
-    coords[:, None, :] - coords[None, :, :],
-    axis=-1,
-)
 
 mod = MixedModel.from_dataframe(
     data     = df,
     response = "height",
     fixed    = "1",
     random   = Random(
-        unit         = "ID",
-        right_hand   = "ar",
-        distance     = D_train,
-        matrix_index = df["ID"].tolist(),
+        unit       = ["X", "Y"],
+        right_hand = "eucl",
     ),
 ).fit()
 
+coords = df[["X", "Y"]].to_numpy()
+train_coords = [tuple(c) for c in coords]
+
 
 def _kriging_grid(step):
-    """Build the kriging prediction on a regular grid with the given step."""
-    gx = np.arange(coords[:, 0].min() - 20, coords[:, 0].max() + 20, step)
-    gy = np.arange(coords[:, 1].min() - 20, coords[:, 1].max() + 20, step)
+    gx = np.arange(
+        coords[:, 0].min() - 20,
+        coords[:, 0].max() + 20,
+        step,
+    )
+    gy = np.arange(
+        coords[:, 1].min() - 20,
+        coords[:, 1].max() + 20,
+        step,
+    )
+
     GX, GY = np.meshgrid(gx, gy)
     grid = np.column_stack([GX.ravel(), GY.ravel()])
-    grid_ids = np.arange(len(df), len(df) + len(grid))
-    all_coords = np.vstack([coords, grid])
-    D_full = np.linalg.norm(
-        all_coords[:, None, :] - all_coords[None, :, :],
-        axis=-1,
+
+    train_blup = {
+        (x, y): u
+        for (x, y), u in zip(
+            train_coords,
+            mod.random[0].table["prediction"],
+        )
+    }
+
+    new_cells = [
+        tuple(c)
+        for c in grid
+        if tuple(c) not in train_blup
+    ]
+
+    prediction_df = mod.random[0].predict(
+        matrix_index=train_coords + new_cells
     )
-    pred = mod.random[0].predict(
-        matrix_index = df["ID"].tolist() + grid_ids.tolist(),
-        distance     = D_full,
-    )
-    return gx, gy, GX, grid, pred
+
+    pred_blup = {
+        (row["X"], row["Y"]): row["prediction"]
+        for _, row in prediction_df.iterrows()
+    }
+
+    surface = np.array(
+        [
+            train_blup.get(tuple(c), pred_blup.get(tuple(c)))
+            for c in grid
+        ],
+        dtype=float,
+    ).reshape(GX.shape)
+
+    return gx, gy, GX, grid, prediction_df, surface
 
 
 # coarse grid (step 10): frozen reference -> JSON
-gx, gy, GX, grid, pred = _kriging_grid(step=10)
+gx, gy, GX, grid, prediction_df, surface = _kriging_grid(step=10)
+
+gx, gy, GX, grid, prediction_df, surface = _kriging_grid(step=10)
 
 reference_spatial = {
     "series": "spatial",
     "n_train": int(len(df)),
     "n_grid": int(len(grid)),
     "estimates": _df_records(mod.estimates),
-    "ar": float(mod.random[0].variance["metadata"]["ar"]),
+    "rho": float(mod.random[0].variance["metadata"]["rho"]),
     "var_additive": float(mod.random[0].build_S().detach()),
     "blup": _df_records(mod.random[0].table),
     "residuals": _df_records(mod.residual.table),
-    "prediction": _df_records(pred),
+    "prediction": _df_records(prediction_df),
 }
+
 _dump(reference_spatial, "spatial")
 
 # fine grid (step 1): figure only, not stored
-gx, gy, GX, grid, pred = _kriging_grid(step=1)
-
-surface = pred["prediction"].to_numpy().reshape(GX.shape)
-m = np.abs(surface).max()
+gx, gy, GX, grid, prediction_df, surface = _kriging_grid(step=1)
+m = np.nanmax(np.abs(surface))
 
 plt.imshow(
     surface,
@@ -113,7 +137,8 @@ plt.imshow(
 )
 plt.colorbar(label="prediction")
 plt.scatter(df["X"], df["Y"], c="black", s=8)
-plt.xlabel("X"); plt.ylabel("Y")
+plt.xlabel("X")
+plt.ylabel("Y")
 plt.show()
 
 

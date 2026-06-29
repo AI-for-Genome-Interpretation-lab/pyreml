@@ -12,59 +12,136 @@ larix trial, against rrBLUP references:
 
 Reference sharing (this is what makes the documented coincidences testable):
 
-    spat_dist   <-  dist, str, eucl(2D)        Euclidean 2D kernel
-    spat_1d     <-  eucl(1D), ar_iso(1D), ar_ani(1D)   1D identity
-    spat_iso2d  <-  ar_iso(2D)                 Manhattan (diamond) kernel
-    spat_ani2d  <-  ar_ani(2D)                 anisotropic kernel
+    spat_dist   <-  dist, str, eucl(2D)              Euclidean 2D kernel
+    spat_1d     <-  eucl(1D), ar_iso(1D), ar_ani(1D) 1D identity
+    spat_iso2d  <-  ar_iso(2D)                        Manhattan (diamond) kernel
+    spat_ani2d  <-  ar_ani(2D)                        anisotropic kernel
 
-Data. The 2D / dist / str cases run on the full year-2000 grid, where every
-(X, Y) is unique. The coordinate kernels enforce one coordinate per level and no
-duplicate coordinate across levels, so the 1D cases cannot run on the full grid
-(X repeats down each column). They run instead on a TRANSECT: the most-populated
-Y row, one observation per X. `unit` stays the categorical "ID"; only the data
-narrows to a clean 1D series. The reference generator must build spat_1d on the
-exact same transect.
+In 1D every decay kernel collapses onto the same exponential, so eucl / ar_iso /
+ar_ani all target spat_1d. ar_ani(1D) is redundant with ar_iso(1D) (a single
+axis carries a single rate) but is kept on purpose: it asserts that the
+anisotropic code path degenerates correctly to the isotropic answer.
+
+Identity of a level. With the coordinate kernels (eucl, ar_iso, ar_ani) `unit`
+is no longer a single grouping column but the LIST of coordinate columns: a
+level is a distinct coordinate tuple, enumerated in first-occurrence order. The
+dist / str cases keep the categorical `unit="ID"` plus an explicit
+distance / covariance ordered by `matrix_index`.
+
+Grid vs observed levels. ar_iso / ar_ani complete the full integer grid spanned
+by the coordinates: the model's internal uhat / PEV / index then run over ALL
+grid cells (empty cells included), while the rrBLUP references run over the
+OBSERVED levels only. `level_cell` (set by make_coords) maps each observed level
+to its grid cell, in the same first-occurrence order as the reference; the BLUP
+and PEV assertions collapse the grid down to the observed levels through it.
+eucl carries no grid, so level_cell is absent and the collapse is a no-op.
+
+rho reporting. The fitted rate(s) live in metadata["rho"]. It is a plain scalar
+for the single-rate kernels (dist, eucl, ar_iso) and a list for ar_ani (one rate
+per axis, length 1 in 1D). str estimates no rate and exposes no "rho" key.
 
 Each reference is a pair `spat_{ref}.json` (fit) + `spat_{ref}_pred.json`
-(kriging hold-out). `metadata["rho"]` is a list in every case (empty for `str`).
-
-Nothing here runs until the structures are implemented and the JSON references
-generated; the file is the contract those implementations must satisfy.
+(kriging hold-out). All cases run with the direct solver; every case except the
+two 2D AR structures also runs with Woodbury (completing the full 2D grid makes
+the Woodbury latent system prohibitively large).
 """
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
-import torch
 import pytest
+import torch
 
 from pyreml import MixedModel, Random, larix as DF
+
 
 DATA_DIR = Path(__file__).parent / "data"
 
 
 # --------------------------------------------------------------------------- #
-# Cases. Each case is one variance structure scenario; it is crossed with the
-# woodbury/direct SMW switch by the `mod` fixture.
+# Cases.
 #
-#   token     -> right_hand passed to Random
-#   coords    -> column list for coordinate-based kernels (None for dist/str)
-#   ref       -> reference basename: loads spat_{ref}.json / spat_{ref}_pred.json
-#                ref == "1d" also selects the transect dataset
-#   has_rate  -> whether a decay rate is estimated (str: no)
-#   n_rho     -> expected length of metadata["rho"]
-#   pred      -> which keyword predict() receives: distance | covariance | coords
+#   token        -> right_hand passed to Random
+#   coords       -> coordinate columns for the kernel-based cases; these columns
+#                   ARE the `unit` for eucl / ar_iso / ar_ani. None for dist/str
+#                   (which keep unit="ID").
+#   ref          -> reference basename: spat_{ref}.json / spat_{ref}_pred.json.
+#                   ref == "1d" also selects the transect dataset.
+#   has_rate     -> whether a decay rate is estimated (str: no).
+#   n_rho        -> number of estimated rates (length of the rate vector).
+#   rho_is_list  -> metadata["rho"] is a list (ar_ani) vs a scalar (others).
+#   gridded      -> the kernel completes an integer grid (ar_iso / ar_ani):
+#                   internal uhat/PEV span the grid and must be collapsed.
+#   pred         -> predict() input channel: distance | covariance | coords
+#                   ("coords" means the tuples travel inside matrix_index).
 # --------------------------------------------------------------------------- #
 CASES = [
-    dict(id="dist",      token="dist",   coords=None,      ref="dist",   has_rate=True,  n_rho=1, pred="distance"),
-    dict(id="str",       token="str",    coords=None,      ref="dist",   has_rate=False, n_rho=0, pred="covariance"),
-    dict(id="eucl_2d",   token="eucl",   coords=["X", "Y"], ref="dist",   has_rate=True,  n_rho=1, pred="coords"),
-    dict(id="eucl_1d",   token="eucl",   coords=["X"],      ref="1d",     has_rate=True,  n_rho=1, pred="coords"),
-    dict(id="ar_iso_1d", token="ar_iso", coords=["X"],      ref="1d",     has_rate=True,  n_rho=1, pred="coords"),
-    dict(id="ar_ani_1d", token="ar_ani", coords=["X"],      ref="1d",     has_rate=True,  n_rho=1, pred="coords"),
-    dict(id="ar_iso_2d", token="ar_iso", coords=["X", "Y"], ref="iso2d",  has_rate=True,  n_rho=1, pred="coords"),
-    dict(id="ar_ani_2d", token="ar_ani", coords=["X", "Y"], ref="ani2d",  has_rate=True,  n_rho=2, pred="coords"),
+    dict(
+        id="dist", token="dist", coords=None, ref="dist",
+        has_rate=True, n_rho=1, rho_is_list=False, gridded=False,
+        pred="distance",
+    ),
+    dict(
+        id="str", token="str", coords=None, ref="dist",
+        has_rate=False, n_rho=0, rho_is_list=False, gridded=False,
+        pred="covariance",
+    ),
+    dict(
+        id="eucl_2d", token="eucl", coords=["X", "Y"], ref="dist",
+        has_rate=True, n_rho=1, rho_is_list=False, gridded=False,
+        pred="coords",
+    ),
+    dict(
+        id="eucl_1d", token="eucl", coords=["X"], ref="1d",
+        has_rate=True, n_rho=1, rho_is_list=False, gridded=False,
+        pred="coords",
+    ),
+    dict(
+        id="ar_iso_1d", token="ar_iso", coords=["X"], ref="1d",
+        has_rate=True, n_rho=1, rho_is_list=False, gridded=True,
+        pred="coords",
+    ),
+    dict(
+        id="ar_ani_1d", token="ar_ani", coords=["X"], ref="1d",
+        has_rate=True, n_rho=1, rho_is_list=True, gridded=True,
+        pred="coords",
+    ),
+    dict(
+        id="ar_iso_2d", token="ar_iso", coords=["X", "Y"], ref="iso2d",
+        has_rate=True, n_rho=1, rho_is_list=False, gridded=True,
+        pred="coords",
+    ),
+    dict(
+        id="ar_ani_2d", token="ar_ani", coords=["X", "Y"], ref="ani2d",
+        has_rate=True, n_rho=2, rho_is_list=True, gridded=True,
+        pred="coords",
+    ),
+]
+
+
+@dataclass(frozen=True)
+class Run:
+    """One explicitly permitted case/solver combination."""
+
+    case: dict
+    smw: bool
+
+    @property
+    def id(self) -> str:
+        solver = "woodbury" if self.smw else "direct"
+        return f"{solver}-{self.case['id']}"
+
+
+# All cases run directly. All but the two 2D AR structures also run with Woodbury.
+RUNS = [
+    Run(case=case, smw=True)
+    for case in CASES
+    if case["id"] not in {"ar_iso_2d", "ar_ani_2d"}
+] + [
+    Run(case=case, smw=False)
+    for case in CASES
 ]
 
 
@@ -73,7 +150,7 @@ CASES = [
 # --------------------------------------------------------------------------- #
 def _pairwise_dist(coords: np.ndarray) -> np.ndarray:
     diff = coords[:, None, :] - coords[None, :, :]
-    return np.sqrt((diff ** 2).sum(axis=-1))
+    return np.sqrt((diff**2).sum(axis=-1))
 
 
 def _full(df):
@@ -101,15 +178,30 @@ def _dataset(case):
 
 
 def _holdout(case, data):
-    """Kriging hold-out re-predicted as new levels."""
+    """Kriging hold-out re-predicted as new levels.
+
+    The 1D transect holds out every 4th point. The 2D / dist / str holdout takes
+    blocks B13..B16. NOTE these blocks are observed rows whose coordinates also
+    appear in the training set: with integer labels (dist/str) they are distinct
+    new levels, but with coordinate-tuple labels (eucl/ar) a held-out coordinate
+    that duplicates a training coordinate is NOT a new level. See _holdout_coords.
+    """
     if case["ref"] == "1d":
-        return data.iloc[::4]                          # every 4th transect point
+        return data.iloc[::4]
     return data[data["BLOC"].isin([f"B{i}" for i in range(13, 17)])]
 
 
-@pytest.fixture(params=CASES, ids=[c["id"] for c in CASES])
-def case(request):
+# --------------------------------------------------------------------------- #
+# Fixtures
+# --------------------------------------------------------------------------- #
+@pytest.fixture(params=RUNS, ids=lambda run: run.id)
+def run(request):
     return request.param
+
+
+@pytest.fixture
+def case(run):
+    return run.case
 
 
 @pytest.fixture
@@ -126,51 +218,79 @@ def expected_pred(case):
 
 @pytest.fixture
 def pred_inputs(case):
-    """Augmented train+pred geometry for the kriging hold-out."""
+    """Augmented train+pred geometry for the kriging hold-out.
+
+    For dist / str the train+pred levels are labelled by integers (range(n+m))
+    and the kernel is supplied as an (n+m, n+m) distance / covariance.
+
+    For the coordinate kernels there is no separate label: matrix_index IS the
+    list of coordinate tuples, train then new. Train tuples are reconstructed
+    from `data` in row order, which on this dataset coincides with the model's
+    first-occurrence level order; predict realigns positionally anyway.
+    """
     data = _dataset(case)
     df_pred = _holdout(case, data)
 
     n, m = len(data), len(df_pred)
+
     coords_train = data[["X", "Y"]].to_numpy()
     coords_pred = df_pred[["X", "Y"]].to_numpy()
     coords_full = np.vstack([coords_train, coords_pred])
 
-    return {
+    out = {
         "matrix_index": list(range(n + m)),
-        "coords_full": coords_full,            # (n+m, 2): X then Y
-        "D_full": _pairwise_dist(coords_full),  # Euclidean, for dist/str
+        "coords_full": coords_full,              # (n+m, 2): X then Y
+        "D_full": _pairwise_dist(coords_full),   # Euclidean, for dist/str
         "n": n,
         "m": m,
     }
 
+    if case["coords"] is not None:
+        ncol = len(case["coords"])
+        sel = coords_full[:, :ncol]
+        out["tuples_full"] = [tuple(row) for row in sel]
 
-@pytest.fixture(params=[True, False], ids=["woodbury", "direct"])
-def mod(case, expected, request):
+    return out
+
+
+@pytest.fixture
+def mod(run, expected):
+    case = run.case
     data = _dataset(case)
     token = case["token"]
 
     if token == "dist":
         D = _pairwise_dist(data[["X", "Y"]].to_numpy())
         eff = Random(
-            unit="ID", right_hand="dist",
-            distance=D, matrix_index=data["ID"].tolist(),
+            unit="ID",
+            right_hand="dist",
+            distance=D,
+            matrix_index=data["ID"].tolist(),
         )
+
     elif token == "str":
         D = _pairwise_dist(data[["X", "Y"]].to_numpy())
         K = np.exp(-expected["rho"][0] * D)
         eff = Random(
-            unit="ID", right_hand="str",
-            covariance=K, matrix_index=data["ID"].tolist(),
+            unit="ID",
+            right_hand="str",
+            covariance=K,
+            matrix_index=data["ID"].tolist(),
         )
-    else:  # eucl / ar_iso / ar_ani: coordinates read from the frame
-        eff = Random(unit="ID", right_hand=token, coords=case["coords"])
+
+    else:
+        # eucl / ar_iso / ar_ani: the coordinate columns ARE the unit.
+        eff = Random(
+            unit=case["coords"],
+            right_hand=token,
+        )
 
     return MixedModel.from_dataframe(
         data=data,
         response="height",
         fixed="1",
         random=eff,
-        SMW=request.param,
+        SMW=run.smw,
     ).fit()
 
 
@@ -182,14 +302,26 @@ def _Ve(mod):
     return float(torch.exp(mod.residual.log_S).detach().numpy())
 
 
+def _observed(mod, vec):
+    """Collapse a grid-ordered vector down to the observed levels.
+
+    For the gridded kernels (ar_iso / ar_ani) uhat / diag(PEV) span every grid
+    cell; level_cell maps each observed level (first-occurrence order, matching
+    the reference) to its grid cell. eucl / dist / str carry no grid, so
+    level_cell is absent and the vector is returned untouched.
+    """
+    cell = getattr(mod.random[0], "level_cell", None)
+    return vec if cell is None else vec[np.asarray(cell)]
+
+
 def _blup(mod):
-    # decay kernels: k = c = 1, uhat order is the level order (self.index).
-    return mod.random[0].uhat.detach().numpy().ravel()
+    # Decay kernels: k = c = 1, so uhat is ordered by level only.
+    u = mod.random[0].uhat.detach().numpy().ravel()
+    return _observed(mod, u)
 
 
 # --------------------------------------------------------------------------- #
-# Assertions — one class, parametrized over (case x SMW) via the `mod` fixture.
-# Tolerances mirror the original AR/STR campaign; tighten per-case if needed.
+# Assertions — one class, parametrized over the explicitly permitted RUNS.
 # --------------------------------------------------------------------------- #
 class TestSpatial:
 
@@ -197,13 +329,21 @@ class TestSpatial:
         assert mod.opti_REML.converged is True
 
     def test_rho(self, mod, case, expected):
+        meta = mod.random[0].variance["metadata"]
+
         if not case["has_rate"]:
-            actual = mod.random[0].variance["metadata"]["rho"]
-            assert list(actual) == []          # str: empty rate list
+            assert "rho" not in meta
             return
-        actual = mod.random[0].variance["metadata"]["rho"]
-        assert len(actual) == case["n_rho"]    # rho is a list, coords order
-        np.testing.assert_allclose(actual, expected["rho"], rtol=2e-4)
+
+        actual = meta["rho"]
+
+        if case["rho_is_list"]:
+            assert isinstance(actual, list)
+            assert len(actual) == case["n_rho"]
+            np.testing.assert_allclose(actual, expected["rho"], rtol=2e-4)
+        else:
+            assert not isinstance(actual, list)
+            np.testing.assert_allclose(actual, expected["rho"][0], rtol=2e-4)
 
     def test_Vu(self, mod, expected):
         np.testing.assert_allclose(_Vu(mod), expected["Vu"], rtol=2e-4)
@@ -223,21 +363,31 @@ class TestSpatial:
 
     def test_pev_diag(self, mod, expected):
         pev = mod.random[0].PEV.detach().numpy()
-        np.testing.assert_allclose(np.diag(pev), expected["pev_diag"], rtol=1e-3, atol=1e-6)
+        diag = _observed(mod, np.diag(pev))
+        np.testing.assert_allclose(diag, expected["pev_diag"], rtol=1e-3, atol=1e-6)
 
     def test_predict(self, mod, case, pred_inputs, expected, expected_pred):
-        mi = pred_inputs["matrix_index"]
         kind = case["pred"]
 
         if kind == "distance":
-            out = mod.random[0].predict(matrix_index=mi, distance=pred_inputs["D_full"])
+            out = mod.random[0].predict(
+                matrix_index=pred_inputs["matrix_index"],
+                distance=pred_inputs["D_full"],
+            )
+
         elif kind == "covariance":
             K_full = np.exp(-expected["rho"][0] * pred_inputs["D_full"])
-            out = mod.random[0].predict(matrix_index=mi, covariance=K_full)
-        else:  # coords
-            ncol = len(case["coords"])
-            coords = pred_inputs["coords_full"][:, :ncol]
-            out = mod.random[0].predict(matrix_index=mi, coords=coords)
+            out = mod.random[0].predict(
+                matrix_index=pred_inputs["matrix_index"],
+                covariance=K_full,
+            )
+
+        else:
+            # coordinate kernels: the tuples ARE the level labels and travel
+            # inside matrix_index; predict rebuilds the kernel from them.
+            out = mod.random[0].predict(
+                matrix_index=pred_inputs["tuples_full"],
+            )
 
         actual = out["prediction"].to_numpy()
         np.testing.assert_allclose(actual, expected_pred["blup_pred"], atol=1e-3)

@@ -10,20 +10,53 @@ from rpy2.robjects.packages import importr
 from rpy2.robjects.conversion import localconverter
 from scipy.optimize import minimize_scalar, minimize
 
-from pyreml import larix as df
+from pyreml import larix as DF
 
 rrBLUP = importr("rrBLUP")
 
-df = df[df["year"] == 2000].copy()
-df["ID"] = np.arange(len(df))
 
-y = df["height"].to_numpy()
-n = len(y)
-Xmat = np.ones((n, 1))
+# --------------------------------------------------------------------------- #
+# Hold-out coordinate offset.
+#
+# The fit always runs on the FULL dataset, so every observed coordinate is a
+# training level. To exercise kriging at genuinely NEW levels we re-predict the
+# held-out rows at their coordinates shifted by a fixed offset: this lands them
+# off the integer grid (and off the transect), guaranteeing they are new levels
+# rather than duplicates of training coordinates. This matters for the
+# coordinate kernels (eucl / ar), where the coordinate tuple IS the level label:
+# a held-out coordinate equal to a training one would not be a new level at all.
+# The dense prediction kernel handles non-integer coordinates, so the AR cases
+# stay valid. The TEST must apply the very same offset when it reconstructs the
+# prediction coordinates, or the references won't line up.
+# --------------------------------------------------------------------------- #
+PRED_OFFSET = 0.5
 
-# hold-out re-predicted as "new" levels (same blocks as the original campaign)
-df_pred = df[df["BLOC"].isin([f"B{i}" for i in range(13, 17)])].copy()
-m = len(df_pred)
+
+# --------------------------------------------------------------------------- #
+# Datasets — shared verbatim with the test (test_spatial.py). The model and the
+# reference must see the exact same rows in the exact same order.
+# --------------------------------------------------------------------------- #
+def _full(df):
+    """Full year-2000 grid; one level per row, unique (X, Y)."""
+    df = df[df["year"] == 2000].copy()
+    df["ID"] = np.arange(len(df))
+    return df
+
+
+def _transect(df):
+    """1D series along X at the most-populated Y row, one observation per X."""
+    df = _full(df)
+    y0 = df["Y"].value_counts().idxmax()
+    t = df[df["Y"] == y0].drop_duplicates(subset="X", keep="first").copy()
+    t["ID"] = np.arange(len(t))
+    return t
+
+
+def _holdout(ref, data):
+    """Held-out rows re-predicted as new levels (coordinates offset downstream)."""
+    if ref == "1d":
+        return data.iloc[::4]
+    return data[data["BLOC"].isin([f"B{i}" for i in range(13, 17)])]
 
 
 # --------------------------------------------------------------------------- #
@@ -57,12 +90,10 @@ def separable_ani_K(P, rhos):
 # --------------------------------------------------------------------------- #
 # Level collapse — repeated coordinates (the 1D case along X) share a single
 # level, carried by an incidence Z; distinct coordinates (the 2D grid) give
-# Z = I in row order. Levels are kept in FIRST-OCCURRENCE order, which for the
-# 2D grid coincides with the ID/row order of the original spatial.json.
-#
-# /!\ This order is the contract with the model: the design's `self.index` for
-#     a coordinate effect must enumerate levels the same way, or `blup` / `pev`
-#     will compare across mismatched orderings.
+# Z = I in row order. Levels are kept in FIRST-OCCURRENCE order, which is the
+# contract with the model: the design's `self.index` for a coordinate effect
+# enumerates levels the same way, or blup / pev compare across mismatched
+# orderings.
 # --------------------------------------------------------------------------- #
 def collapse(P):
     keys = pd.Series(list(map(tuple, P)))
@@ -74,9 +105,10 @@ def collapse(P):
 
 
 # --------------------------------------------------------------------------- #
-# rrBLUP wrappers
+# rrBLUP wrappers — y and X are passed explicitly so each reference can run on
+# its own dataset (the full grid or the transect).
 # --------------------------------------------------------------------------- #
-def _mixed_solve(Z, K, X=Xmat, se=False):
+def _mixed_solve(Z, K, y, X, se=False):
     with localconverter(ro.default_converter + numpy2ri.converter):
         y_r = ro.conversion.py2rpy(y)
         Z_r = ro.conversion.py2rpy(Z)
@@ -85,13 +117,13 @@ def _mixed_solve(Z, K, X=Xmat, se=False):
     return rrBLUP.mixed_solve(y=y_r, Z=Z_r, K=K_r, X=X_r, method="REML", SE=se)
 
 
-def _profile_rho(kernel, P_lev, Z, n_rho, bounds=(1e-6, 10.0)):
+def _profile_rho(kernel, P_lev, Z, y, X, n_rho, bounds=(1e-6, 10.0)):
     """External REML profiling of the decay rate(s) on the rrBLUP log-likelihood."""
     def neg_LL(rho_vec):
         rho_vec = np.atleast_1d(rho_vec).astype(float)
         if np.any(rho_vec <= 0):
             return 1e10
-        fit = _mixed_solve(Z, kernel(P_lev, rho_vec))
+        fit = _mixed_solve(Z, kernel(P_lev, rho_vec), y, X)
         return -float(fit.rx2("LL")[0])
 
     if n_rho == 1:
@@ -104,20 +136,27 @@ def _profile_rho(kernel, P_lev, Z, n_rho, bounds=(1e-6, 10.0)):
 
 # --------------------------------------------------------------------------- #
 # One call generates a full reference: profile -> fit (SE) -> kriging hold-out,
-# and dumps spat_{name}.json + spat_{name}_pred.json. Returns a dict with
-# everything the prediction map needs (levels, incidence, kernel, rate).
+# and dumps spat_{name}.json + spat_{name}_pred.json. Returns a dict carrying
+# everything the prediction map needs (dataset, levels, incidence, kernel, rate).
 # --------------------------------------------------------------------------- #
-def make_reference(name, cols, kernel, n_rho):
-    P_train = df[cols].to_numpy(dtype=float)
+def make_reference(name, ref, cols, kernel, n_rho):
+    data = _transect(DF) if ref == "1d" else _full(DF)
+    holdout = _holdout(ref, data)
+
+    y = data["height"].to_numpy()
+    n = len(y)
+    X = np.ones((n, 1))
+
+    P_train = data[cols].to_numpy(dtype=float)
     P_lev, Z = collapse(P_train)
     L = len(P_lev)
 
     # --- profile the rate(s) -------------------------------------------------
-    rho = _profile_rho(kernel, P_lev, Z, n_rho)
+    rho = _profile_rho(kernel, P_lev, Z, y, X, n_rho)
     K = kernel(P_lev, rho)
 
     # --- fit with SE for Vu / Ve / beta / BLUP / PEV -------------------------
-    fit = _mixed_solve(Z, K, se=True)
+    fit = _mixed_solve(Z, K, y, X, se=True)
     Vu = float(fit.rx2("Vu")[0])
     Ve = float(fit.rx2("Ve")[0])
     beta = float(np.asarray(fit.rx2("beta")).ravel()[0])
@@ -127,7 +166,7 @@ def make_reference(name, cols, kernel, n_rho):
 
     with open(f"../data/spat_{name}.json", "w") as f:
         json.dump({
-            "rho": rho,                       # list in every case
+            "rho": rho,                       # list in the JSON in every case
             "Vu": Vu,
             "Ve": Ve,
             "beta": beta,
@@ -136,22 +175,25 @@ def make_reference(name, cols, kernel, n_rho):
             "pev_diag": pev_diag,
         }, f, indent=2)
 
-    # --- kriging hold-out: m pred rows appended as new levels ----------------
-    # Train levels stay collapsed (L); each pred row is its own new level (m),
-    # exactly as the model's predict conditions L train levels -> m new ones.
-    P_pred = df_pred[cols].to_numpy(dtype=float)
+    # --- kriging hold-out: m pred rows appended as NEW levels ----------------
+    # Train levels stay collapsed (L); each held-out row is re-predicted at its
+    # OFFSET coordinate, a genuine new level (see PRED_OFFSET). This conditions
+    # L train levels -> m new ones, exactly as the model's predict does.
+    P_pred = holdout[cols].to_numpy(dtype=float) + PRED_OFFSET
+    m = len(P_pred)
     P_full = np.vstack([P_lev, P_pred])
     K_full = kernel(P_full, rho)
-    Z_aug = np.hstack([Z, np.zeros((n, m))])          # (n, L + m)
+    Z_aug = np.hstack([Z, np.zeros((n, m))])          # (n, L + m); pred carry no data
 
-    fit2 = _mixed_solve(Z_aug, K_full)
+    fit2 = _mixed_solve(Z_aug, K_full, y, X)
     blup_pred = np.asarray(fit2.rx2("u")).ravel()[L:].tolist()
 
     with open(f"../data/spat_{name}_pred.json", "w") as f:
         json.dump({"n_train": L, "n_pred": m, "blup_pred": blup_pred}, f, indent=2)
 
     print(f"spat_{name}: rho={rho}  Vu={Vu:.4g}  Ve={Ve:.4g}  L={L}  m={m}")
-    return dict(name=name, cols=cols, kernel=kernel, rho=rho, P_lev=P_lev, Z=Z, L=L)
+    return dict(name=name, data=data, y=y, X=X, n=n,
+                cols=cols, kernel=kernel, rho=rho, P_lev=P_lev, Z=Z, L=L)
 
 
 # --------------------------------------------------------------------------- #
@@ -162,10 +204,16 @@ def make_reference(name, cols, kernel, n_rho):
 # raster shows vertical bands — an immediate visual check of the structure.
 # --------------------------------------------------------------------------- #
 def prediction_map(ref, res=60):
+    data, y, X, n = ref["data"], ref["y"], ref["X"], ref["n"]
     cols, kernel, rho = ref["cols"], ref["kernel"], ref["rho"]
     P_lev, Z, L = ref["P_lev"], ref["Z"], ref["L"]
 
-    xs, ys = df["X"].to_numpy(), df["Y"].to_numpy()
+    # The raster always spans the FULL field, even when the model is trained on
+    # a sub-design (the 1D transect): only the training levels P_lev drive the
+    # kernel, the rest of the field is purely predicted. For the 1D reference
+    # the prediction depends on X only -> vertical bands across the whole height.
+    field = _full(DF)
+    xs, ys = field["X"].to_numpy(), field["Y"].to_numpy()
     gx = np.linspace(xs.min(), xs.max(), res)
     gy = np.linspace(ys.min(), ys.max(), res)
     GX, GY = np.meshgrid(gx, gy)                       # (res, res), 'xy'
@@ -178,7 +226,7 @@ def prediction_map(ref, res=60):
     # full kernel over train levels + grid, solved with the observations
     K_full = kernel(np.vstack([P_lev, P_grid]), rho)
     Z_aug = np.hstack([Z, np.zeros((n, n_grid))])      # grid carries no data
-    fit = _mixed_solve(Z_aug, K_full)
+    fit = _mixed_solve(Z_aug, K_full, y, X)
     u_grid = np.asarray(fit.rx2("u")).ravel()[L:].reshape(res, res)
 
     plt.figure(figsize=(5, 4))
@@ -202,18 +250,18 @@ def prediction_map(ref, res=60):
 # Shared by `dist`, `str` and `eucl`(2D). Circular contours.
 
 # %%
-ref = make_reference("dist", ["X", "Y"], euclidean_K, n_rho=1)
+ref = make_reference("dist", "dist", ["X", "Y"], euclidean_K, n_rho=1)
 prediction_map(ref)
 
 
 # %% [markdown]
-# ## `spat_1d` — 1D exponential (along X)
+# ## `spat_1d` — 1D exponential (along X), on the transect
 # Shared by `eucl`(1D), `ar_iso`(1D), `ar_ani`(1D): the documented 1D identity.
-# Repeated X values collapse onto shared levels through the incidence Z.
-# The prediction depends on X only -> vertical bands.
+# Runs on the transect (most-populated Y row, one obs per X), exactly as the
+# test. The prediction depends on X only -> vertical bands.
 
 # %%
-ref = make_reference("1d", ["X"], euclidean_K, n_rho=1)
+ref = make_reference("1d", "1d", ["X"], euclidean_K, n_rho=1)
 prediction_map(ref)
 
 
@@ -222,7 +270,7 @@ prediction_map(ref)
 # One shared rate over both axes: Manhattan (L1) decay, diamond contours.
 
 # %%
-ref = make_reference("iso2d", ["X", "Y"], manhattan_iso_K, n_rho=1)
+ref = make_reference("iso2d", "iso2d", ["X", "Y"], manhattan_iso_K, n_rho=1)
 prediction_map(ref)
 
 
@@ -231,5 +279,5 @@ prediction_map(ref)
 # One rate per axis: elliptical (axis-aligned) contours. Profiled in 2D.
 
 # %%
-ref = make_reference("ani2d", ["X", "Y"], separable_ani_K, n_rho=2)
+ref = make_reference("ani2d", "ani2d", ["X", "Y"], separable_ani_K, n_rho=2)
 prediction_map(ref)

@@ -11,7 +11,7 @@ LEFT = Literal["iid", "diag", "full", "fa", "bl_resp", "bl_form", "kr_resp", "kr
 RIGHT = Literal["iid", "str", "het", "dist", "eucl", "ar_iso", "ar_ani"]
 
 # right-hand families
-_COORD_RIGHT = ("eucl", "ar_iso", "ar_ani")        # read coordinates from the frame
+_COORD_RIGHT = ("eucl", "ar_iso", "ar_ani")          # coordinate columns drive the kernel
 _DECAY_RIGHT = ("dist", "eucl", "ar_iso", "ar_ani")  # exp(-decay), rate(s) > 0
 _LEFT_RES = Literal["iid", "diag", "full", "fa"]
 
@@ -20,13 +20,12 @@ class GaussianComponent:
 
     def __init__(
         self,
-        unit: str | None,
+        unit: str | list[str] | None,
         formula: str = "1",
         left_hand: LEFT = "iid",
         right_hand: RIGHT = "iid",
         covariance: None | np.ndarray = None,
         distance: None | np.ndarray = None,
-        coords: None | list[str] = None,
         matrix_index: None | list = None,
         het_formula: None | str = None,
         n_axes: None | int = None,
@@ -35,61 +34,56 @@ class GaussianComponent:
     ):
         """
         The variance of a random effect is defined as u ~ N(0, S ⊗ K)
- 
+
         S is the left-hand factor: the covariance ACROSS the components of the
         effect. A component is a (response, formula-element) pair, so S has
         dimension (k * c) x (k * c) with k the number of responses and c the number
         of columns of `formula`.
- 
+
         K is the right-hand factor: the covariance ACROSS the levels.
- 
-        `unit` is the grouping COLUMN of the DataFrame (e.g. "genotype"); its
-        distinct values are the levels of the effect.
- 
+
+        `unit` identifies the levels of the effect:
+            - for the ordinary kernels it is a single grouping COLUMN of the
+              DataFrame (e.g. "genotype"); its distinct values are the levels;
+            - for the coordinate kernels (eucl / ar_iso / ar_ani) it is the LIST
+              of coordinate columns (a single column name is promoted to a
+              one-element list); a level is then a distinct coordinate tuple,
+              enumerated in first-occurrence order. The residual has no `unit`
+              and receives these columns through `coords` instead.
+
         Supported types for S (`left_hand`), with d = k * c:
             - iid:  S = s² * I_d, a single scalar variance (default)
             - diag: a diagonal covariance matrix
             - full: a full covariance matrix
             - fa:   factor-analytic approximation of the full structure
             - bl_resp / bl_form: block-diagonal across responses / formula columns
-                    (k blocks c×c, resp. c blocks k×k), each a full covariance
-            - kr_resp / kr_form: the separable (proportional-block) counterparts,
-                    S = diag(alpha) ⊗ Omega (resp. A ⊗ diag(omega)); the first
-                    scaling factor is anchored to 1.
+            - kr_resp / kr_form: the separable (proportional-block) counterparts
 
         Supported types for K (`right_hand`):
             - iid:  identity matrix, independent levels (default)
             - str:  known structure matrix, e.g. a kinship (see `covariance`)
             - het:  diagonal, log-linear in `het_formula`
             - dist: exp(-rho * D) over a supplied distance matrix `distance`
-            - eucl: exp(-rho * ||dx||_2), distance built internally from `coords`
-            - ar_iso / ar_ani: separable autoregressive decay from `coords`,
-                    one shared rate (iso) or one rate per axis (ani); the levels
-                    are taken on the complete integer grid spanned by `coords`.
+            - eucl: exp(-rho * ||dx||_2), distance built internally from the
+                    coordinate columns
+            - ar_iso / ar_ani: separable autoregressive decay from the coordinate
+                    columns, one shared rate (iso) or one rate per axis (ani); the
+                    levels are taken on the complete integer grid they span.
 
         `covariance` is the known structure matrix for right_hand="str".
         `distance`   is the known distance matrix for right_hand="dist".
-        `coords` lists the DataFrame columns holding the coordinates for the
-            coordinate-based kernels (eucl / ar_iso / ar_ani). Each level of
-            `unit` must carry a single coordinate (constant within the level) and
-            no two levels may share the same coordinate (otherwise K is singular).
-            For ar_iso / ar_ani the coordinates must be integer-valued.
         `matrix_index` lists the levels of `unit` in the order in which they
             appear in the rows/cols of `covariance` / `distance`.
         `het_formula` is the formula for right_hand="het".
         `n_axes` is the number of factorial axes for left_hand="fa".
-        `init` is the initial value of S. For the matrix structures it is a
-            (k*c) x (k*c) array; entries outside the retained block / Kronecker
-            structure are ignored. For left_hand="iid" it is a scalar.
+        `init` is the initial value of S.
         """
 
-        self.unit = unit
         self.formula = formula
         self.left_hand = left_hand
         self.right_hand = right_hand
         self.covariance = covariance
         self.distance = distance
-        self.coords = coords
         self.matrix_index = matrix_index
         self.het_formula = het_formula
         self.n_axes = n_axes
@@ -110,30 +104,19 @@ class GaussianComponent:
         elif self.covariance is not None:
             raise ValueError("`covariance` must be None when right_hand != 'str'.")
 
-        # check coords (eucl / ar_iso / ar_ani)
-        if self.right_hand in _COORD_RIGHT:
-            if self.coords is None:
-                raise ValueError(
-                    "`coords` is required when right_hand in {'eucl', 'ar_iso', 'ar_ani'}."
-                )
-        elif self.coords is not None:
-            raise ValueError(
-                "`coords` must be None unless right_hand in {'eucl', 'ar_iso', 'ar_ani'}."
-            )
-
         # check het
         if self.right_hand == "het":
             if self.het_formula is None:
                 raise ValueError("`het_formula` is required when `right_hand='het'`.")
         elif self.het_formula is not None:
             raise ValueError("`het_formula` must be None when right_hand != 'het'.")
-        
+
         if self.right_hand == "het" and self.left_hand != "iid":
             warnings.warn(
                 "Using right_hand='het' with left_hand != 'iid' is an unusual configuration.",
                 stacklevel=2,
             )
-        
+
         # check fa
         if self.left_hand == "fa":
             if self.n_axes is None:
@@ -142,6 +125,43 @@ class GaussianComponent:
                 )
         elif self.n_axes is not None:
             raise ValueError("`n_axes` must be None when left_hand != 'fa'.")
+
+        # Residuals set this to True (Residual.__init__). It is the single source
+        # of truth for "this effect runs over the observations, not over levels of
+        # `unit`", which `unit is None` no longer captures: a coordinate residual
+        # carries its coordinate columns in `unit`.
+        self.is_residual = getattr(self, "is_residual", False)
+
+        # --- normalize `unit` / coordinate columns ---------------------------
+        # The coordinate kernels read their coordinate COLUMNS from `unit`: a
+        # grouped effect lists them directly (a single name is promoted to a
+        # one-element list), and the residual forwards its `coords` argument as
+        # `unit`. Outside the coordinate kernels `unit` is a single grouping
+        # column (or None for the residual).
+        if self.right_hand in _COORD_RIGHT:
+            if unit is None:
+                raise ValueError(
+                    "coordinate kernels (eucl/ar_iso/ar_ani) require the coordinate "
+                    "columns: pass them through `unit` (Random) or `coords` (Residual)."
+                )
+            self._coord_cols = [unit] if isinstance(unit, str) else list(unit)
+            self.unit = self._coord_cols
+        else:
+            if not (unit is None or isinstance(unit, str)):
+                raise ValueError(
+                    "`unit` must be a single column name (or None); a list of columns "
+                    "is only accepted by the coordinate kernels."
+                )
+            self.unit = unit
+            self._coord_cols = None
+
+        # readable effect label (str / "residual" / "(X, Y)")
+        if self.is_residual:
+            self.effect_label = "residual"
+        elif isinstance(self.unit, str):
+            self.effect_label = self.unit
+        else:
+            self.effect_label = "(" + ", ".join(map(str, self.unit)) + ")"
 
     def init_varparams(self) -> None:
         """
@@ -155,9 +175,7 @@ class GaussianComponent:
             - bl_resp: log_S a (k, c, c) stack, each block matrix_exp(B + B.T)
             - bl_form: log_S a (c, k, k) stack, blocks laid formula-outer then permuted
             - kr_resp: log_S = [Omega_flat (c*c), log_alpha (k-1)]
-                       S = diag([1, exp(log_alpha)]) ⊗ matrix_exp(B + B.T)
             - kr_form: log_S = [A_flat (k*k), log_omega (c-1)]
-                       S = matrix_exp(B + B.T) ⊗ diag([1, exp(log_omega)])
 
         Right-hand factor K:
             - iid / str: no trainable parameter
@@ -243,8 +261,8 @@ class GaussianComponent:
 
                 flat0 = torch.cat([M0.reshape(-1), log_Lambda0, log_Psi0])
                 self.log_S = nn.Parameter(flat0)
-                # loadings (d*q) + specificity Psi (d), 
-                # minus the rotational indeterminacy of 
+                # loadings (d*q) + specificity Psi (d),
+                # minus the rotational indeterminacy of
                 # the q factors: dim O(q) = q(q-1)/2 directions
                 n_left = d * q + d - q * (q - 1) // 2
 
@@ -323,7 +341,7 @@ class GaussianComponent:
                 raise ValueError(f"unsupported left hand type: {self.left_hand}")
 
         self.varparams.append({
-            "effect": self.unit if self.unit is not None else "residual",
+            "effect": self.effect_label,
             "element": "S",
             "tensor": self.log_S,
             "index": self.components,
@@ -341,7 +359,7 @@ class GaussianComponent:
                     raise ValueError("a distance matrix `distance` must be provided for right_hand='dist'")
                 self.log_rho = nn.Parameter(torch.zeros((), dtype=self.dtype, device=self.device))
                 self.varparams.append({
-                    "effect": self.unit if self.unit is not None else "residual",
+                    "effect": self.effect_label,
                     "element": "rho",
                     "tensor": self.log_rho,
                     "structure": "dist",
@@ -356,7 +374,7 @@ class GaussianComponent:
                     )
                 self.log_rho = nn.Parameter(torch.zeros((), dtype=self.dtype, device=self.device))
                 self.varparams.append({
-                    "effect": self.unit if self.unit is not None else "residual",
+                    "effect": self.effect_label,
                     "element": "rho",
                     "tensor": self.log_rho,
                     "structure": self.right_hand,
@@ -370,10 +388,10 @@ class GaussianComponent:
                     )
                 self.log_rho = nn.Parameter(torch.zeros(self.coord_dim, dtype=self.dtype, device=self.device))
                 self.varparams.append({
-                    "effect": self.unit if self.unit is not None else "residual",
+                    "effect": self.effect_label,
                     "element": "rho",
                     "tensor": self.log_rho,
-                    "index": list(self.coords),
+                    "index": list(self._coord_cols),
                     "structure": "ar_ani",
                 })
                 n_right = self.coord_dim
@@ -391,7 +409,7 @@ class GaussianComponent:
                     )
                 self.log_h = nn.Parameter(torch.zeros(self.n_het, dtype = self.dtype, device = self.device))
                 self.varparams.append({
-                    "effect": self.unit if self.unit is not None else "residual",
+                    "effect": self.effect_label,
                     "element": "het",
                     "tensor": self.log_h,
                     "index": self.het_index,
@@ -413,21 +431,20 @@ class GaussianComponent:
         V = dmatrix(het_formula). The Intercept column anchors the scale: its
         coefficient is fixed to 0 (multiplier exp(0)=1, carried by the left-hand
         factor S), so only the remaining columns get a trainable log-coefficient.
-        The Intercept is located by NAME and moved to column 0, so build_K can
-        prepend a single fixed 0 regardless of where patsy placed it.
 
         Granularity:
             - residual (unit=None): one row per observation,
             - grouped: one row per level of `unit`, taken at the first occurrence
-            of each level and aligned to self.index.
+              of each level and aligned to self.index.
 
+        het is never a coordinate kernel, so `unit` here is a single column.
         Sets self.V (Intercept first), self.het_index (non-intercept column names),
         self.n_het (p - 1 trainable coefficients).
         """
         if self.het_formula is None:
             raise ValueError("`het_formula` is required for right_hand='het'.")
 
-        if self.unit is None:
+        if self.is_residual:
             frame = data
         else:
             frame = data.groupby(self.unit, sort=False).first().reindex(self.index)
@@ -454,54 +471,50 @@ class GaussianComponent:
 
     def make_coords(self, data: pd.DataFrame, checkerboard: bool = False) -> None:
         """
-        Read the coordinates for the coordinate-based kernels.
+        Read the coordinate positions for the coordinate-based kernels and set
+        the across-level geometry.
 
-        The level contract is the SAME for both regimes and is checked here:
-            - intra-level constancy: every row of a level carries one coordinate,
-            - inter-level uniqueness: no two levels share a coordinate (else the
-              across-level kernel is singular).
-        A level is a level of `unit` (grouped) or an observation (residual).
+        The positions come from:
+            - grouped effects (Random): the levels ARE the distinct coordinate
+              tuples, already enumerated by make_Z into self.index. Uniqueness is
+              structural (one tuple per level), so no check is needed.
+            - the residual: one coordinate per observation, read from the frame;
+              observations are the levels, so distinct coordinates are required
+              (duplicates make the across-observation kernel singular).
 
         checkerboard=False (eucl) — the levels stay the observed positions; the
-          across-level factor is dense over them. Sets self.coords_levels
-          ((L, axes) tensor) and self.coord_dim.
+          across-level factor is dense over them. Sets self.coords_levels and
+          self.coord_dim.
 
-        checkerboard=True (ar_iso / ar_ani) — the validated integer positions are
-          embedded in the COMPLETE integer grid they span (one cell per integer
-          position on every axis), so that K factors exactly as a Kronecker
-          product of per-axis AR1 kernels. The level incidence (Z for a grouped
-          effect, W for the residual) is re-laid over the grid cells; cells with
-          no level become legitimate empty columns. Sets self.axis_grids,
-          self.index (grid cells, axis-0-outer / axis-(d-1)-inner), self.L,
-          self.coord_dim and self.level_cell (grid cell of each validated level).
+        checkerboard=True (ar_iso / ar_ani) — the integer positions are embedded
+          in the COMPLETE integer grid they span, so K factors exactly as a
+          Kronecker product of per-axis AR1 kernels. The level incidence (Z for a
+          grouped effect, W for the residual) is re-laid over the grid cells.
+          Sets self.axis_grids, self.index (grid cells, axis-0-outer), self.L,
+          self.level_cell (grid cell of each observed level) while keeping
+          self.coords_levels as the OBSERVED positions (for prediction).
         """
-        if self.coords is None:
-            raise ValueError("`coords` is required for the coordinate-based kernels.")
-
-        # one coordinate per level, with the shared contract checks
-        if self.unit is None:
-            P = data[self.coords].to_numpy(dtype=float)              # per observation
+        if self.is_residual:
+            # residual: one coordinate per observation; observations are levels
+            P = data[self._coord_cols].to_numpy(dtype=float)
+            if np.unique(P, axis=0).shape[0] != P.shape[0]:
+                raise ValueError(
+                    "a coordinate residual requires distinct coordinates per "
+                    "observation: duplicates make the kernel singular."
+                )
         else:
-            g = data.groupby(self.unit, sort=False)[self.coords]
-            if (g.nunique() > 1).to_numpy().any():
-                raise ValueError("`coords` must be constant within each level of `unit`.")
-            P = g.first().reindex(self.index).to_numpy(dtype=float)  # per unit level
-
-        if np.unique(P, axis=0).shape[0] != P.shape[0]:
-            raise ValueError(
-                "`coords` must be unique across levels: duplicated coordinates make "
-                "the across-level kernel singular."
-            )
+            # grouped: the levels are the distinct coordinate tuples (self.index)
+            P = np.asarray(self.index, dtype=float)
 
         self.coord_dim = P.shape[1]
+        self.coords_levels = torch.as_tensor(P, dtype=self.dtype, device=self.device)
 
         if not checkerboard:
             # eucl: the levels remain the observed positions
-            self.coords_levels = torch.as_tensor(P, dtype=self.dtype, device=self.device)
             return
 
-        # --- ar: complete the integer grid spanned by the validated levels ------
-        Pint = np.rint(P).astype(int)                               # (L_lvl, axes)
+        # --- ar: complete the integer grid spanned by the observed positions ----
+        Pint = np.rint(P).astype(int)                               # (L_obs, axes)
         axes = Pint.shape[1]
         starts, stops = Pint.min(axis=0), Pint.max(axis=0)
         self.axis_grids = [
@@ -515,22 +528,22 @@ class GaussianComponent:
         mesh = np.meshgrid(*[grd.cpu().numpy() for grd in self.axis_grids], indexing="ij")
         grid_cells = np.stack([m.ravel() for m in mesh], axis=1)    # (L_grid, axes)
 
-        # grid cell of each validated level (row-major over the axis grids)
+        # grid cell of each observed level (row-major over the axis grids)
         strides = np.array([int(np.prod(sizes[a + 1:])) for a in range(axes)])
-        self.level_cell = ((Pint - starts) * strides).sum(axis=1)  # (L_lvl,)
+        self.level_cell = ((Pint - starts) * strides).sum(axis=1)  # (L_obs,)
 
         # embed the level incidence (Z grouped, W residual) into the grid columns;
         # uniqueness guarantees at most one level per cell, the rest stay empty.
-        src = self.Z if self.unit is not None else self.W          # (n, c * L_lvl)
-        L_lvl = len(self.level_cell)
+        src = self.W if self.is_residual else self.Z          # (n, c * L_obs)
+        L_obs = len(self.level_cell)
         grid_incidence = np.zeros((src.shape[0], self.c * L_grid))
         for j in range(self.c):
-            grid_incidence[:, j * L_grid + self.level_cell] = src[:, j * L_lvl:(j + 1) * L_lvl]
+            grid_incidence[:, j * L_grid + self.level_cell] = src[:, j * L_obs:(j + 1) * L_obs]
 
-        if self.unit is not None:
-            self.Z = grid_incidence
-        else:
+        if self.is_residual:
             self.W = grid_incidence
+        else:
+            self.Z = grid_incidence
 
         self.index = grid_cells
         self.L = L_grid
@@ -886,8 +899,9 @@ class GaussianComponent:
     def format_variance(self) -> None:
         """
         Format the estimated variance structure into a user-facing object stored
-        in `self.variance`. `metadata["rho"]` is a list in every case (empty for
-        structures with no estimated rate).
+        in `self.variance`. `metadata["rho"]` is a scalar for the single-rate
+        kernels (dist, eucl, ar_iso) and a list for ar_ani (one rate per axis);
+        absent for the structures with no estimated rate.
         """
         with torch.no_grad():
             S = self.build_S().detach().cpu().numpy()
@@ -948,7 +962,7 @@ class GaussianComponent:
             if fa_meta is not None:
                 metadata["fa"] = fa_meta
 
-            effect = self.unit if self.unit is not None else "residual"
+            effect = self.effect_label
 
             # --- right-hand factor ----------------------------------------------
             match self.right_hand:
@@ -969,7 +983,7 @@ class GaussianComponent:
                     metadata = {
                         **metadata,
                         "rho": [float(x) for x in rho],
-                        "coords": list(self.coords),
+                        "coords": list(self._coord_cols),
                     }
 
                 case "het":
@@ -1004,13 +1018,12 @@ class Random(GaussianComponent):
 
     def __init__(
         self,
-        unit: str,
+        unit: str | list[str],
         formula: str = "1",
         left_hand: LEFT = "iid",
         right_hand: RIGHT = "iid",
         covariance: None | np.ndarray = None,
         distance: None | np.ndarray = None,
-        coords: None | list[str] = None,
         matrix_index: None | list = None,
         het_formula: None | str = None,
         n_axes: None | int = None,
@@ -1024,7 +1037,6 @@ class Random(GaussianComponent):
             right_hand = right_hand,
             covariance = covariance,
             distance = distance,
-            coords = coords,
             matrix_index = matrix_index,
             het_formula = het_formula,
             n_axes = n_axes,
@@ -1036,40 +1048,39 @@ class Random(GaussianComponent):
         self,
         data: pd.DataFrame,
         responses: list[str],
-        dtype = torch.float,
+        dtype = torch.double,
         device = "cpu",
     ) -> np.ndarray:
         """
         Confront the random effect to the actual data: read the dimensions,
         store the constant right-hand inputs, instantiate the parameters, and
-        return the (single response) incidence matrix Z. The response replication
-        (block-diagonal over responses) is performed by MixedModel.from_dataframe.
+        return the (single response) incidence matrix Z.
 
-        Dimensions read here:
-        - k: number of responses
-        - c: number of formula components (columns of `formula`)
-        - L: number of levels of `unit`, or number of original rows for residuals
-        - n: number of rows (observations) before masking
-        - q: number of columns of Z, i.e. c * L
+        make_Z sets self.index: the sorted unique values of `unit` for ordinary
+        kernels, or the distinct coordinate tuples (first-occurrence order) for
+        the coordinate kernels. For ar_iso / ar_ani, make_coords then completes
+        the integer grid and overwrites self.index with the grid cells, keeping
+        the observed positions in self._obs_levels for prediction.
         """
         self.device = device
         self.dtype = dtype
         self.responses = list(responses)
         self.k = len(self.responses)
 
-        self.index = np.sort(data[self.unit].unique())  # the levels
+        self.make_Z(data)             # -> self.colnames, self.c, self.index, self.Z, self.L
 
-        self.make_Z(data)             # -> self.Z, self.colnames, self.c, self.L
+        if self._coord_cols is not None:
+            # observed coordinate tuples (kept across the grid completion)
+            self._obs_levels = np.asarray(self.index, dtype=float)
+
         if self.right_hand == "het":
             self.make_V(data)
-        if self.right_hand == "eucl":
+        elif self.right_hand == "eucl":
             self.make_coords(data, checkerboard=False)
         elif self.right_hand in ("ar_iso", "ar_ani"):
-            # ar lives on a regular integer grid: check, convert, then fill the grid
-            P = data[self.coords].to_numpy(dtype=float)
-            if not np.allclose(P, np.rint(P)):
+            if not np.allclose(self._obs_levels, np.rint(self._obs_levels)):
                 raise ValueError(
-                    "right_hand in {'ar_iso', 'ar_ani'} requires integer-valued `coords` "
+                    "right_hand in {'ar_iso', 'ar_ani'} requires integer-valued coordinates "
                     "(a regular grid). Use 'eucl' for arbitrary real coordinates."
                 )
             self.make_coords(data, checkerboard=True)   # rebuilds self.Z over the grid
@@ -1114,28 +1125,41 @@ class Random(GaussianComponent):
             [ e0·l0, e0·l1, ..., e0·l(L-1), e1·l0, ... ]
 
         so that, once MixedModel block-diagonalizes Z over responses (response-outer),
-        the random vector u is ordered response -> element -> level. This matches
-        kron(S, K) with S ordered (response-outer, element-inner) and K over the
-        levels.
+        the random vector u is ordered response -> element -> level.
 
-        For residual structures (`unit=None`), Z is the identity over the
-        original rows of the DataFrame. MixedModel applies missing-data masks.
+        The level of each row is its `unit` value (ordinary kernels) or its
+        coordinate tuple (coordinate kernels). For the coordinate kernels the
+        levels are the distinct tuples in first-occurrence order; ordinary kernels
+        keep the sorted-unique order. Sets self.colnames, self.c, self.index,
+        self.L, self.Z.
         """
-
         Z_df = patsy.dmatrix(self.formula, data=data, return_type="dataframe")
         self.colnames = list(Z_df.columns)   # patsy element names
         Z_base = Z_df.to_numpy()
 
         n, c = Z_base.shape
         self.c = c
-        self.L = len(self.index)
 
-        self.Z = np.zeros((n, c * self.L))
-        unit_array = data[self.unit].to_numpy()
-        for i, level in enumerate(self.index):
-            mask = unit_array == level
-            for j in range(c):
-                self.Z[mask, j * self.L + i] = Z_base[mask, j]
+        if self._coord_cols is not None:
+            # levels = distinct coordinate tuples, first-occurrence order
+            keys = pd.Series(list(map(tuple, data[self._coord_cols].to_numpy())))
+            codes, uniques = pd.factorize(keys)
+            self.index = np.array([list(t) for t in uniques], dtype=float)   # (L, axes)
+            L = len(uniques)
+        else:
+            # levels = sorted unique unit values
+            self.index = np.sort(data[self.unit].unique())
+            L = len(self.index)
+            pos = {lvl: i for i, lvl in enumerate(self.index)}
+            codes = np.fromiter(
+                (pos[v] for v in data[self.unit].to_numpy()), dtype=int, count=n
+            )
+
+        self.L = L
+        rows = np.arange(n)
+        self.Z = np.zeros((n, c * L))
+        for j in range(c):
+            self.Z[rows, j * L + codes] = Z_base[:, j]
 
     def format_pred(
         self,
@@ -1145,29 +1169,50 @@ class Random(GaussianComponent):
         """
         Receive this effect's uhat slice (and optionally its PEV sub-matrix),
         copy it into the immutable per-effect uhat, and build the labelled table.
-        Row order is response-outer, component-mid, unit-inner.
+        Row order is response-outer, component-mid, level-inner.
+
+        For the coordinate kernels the levels are labelled by the coordinate
+        columns; for ar_iso / ar_ani these levels span the FULL grid (empty cells
+        included), which is what `uhat` carries. Ordinary kernels label the rows
+        by `unit`.
         """
         self.uhat.copy_(uhat.detach().reshape(self.uhat.shape))
         self.PEV = pev
         self._fitted = True
 
         vals = self.uhat.cpu().numpy().ravel()
-        levels = self.index.tolist()
-        rows = []
-        idx = 0
-        for resp in self.responses:
-            for comp in self.colnames:
-                for lvl in levels:
-                    rows.append((lvl, resp, comp, float(vals[idx])))
-                    idx += 1
-        self.table = pd.DataFrame(rows, columns=["unit", "response", "component", "prediction"])
-    
+
+        if self._coord_cols is not None:
+            coord_cols = list(self._coord_cols)
+            levels = [tuple(row) for row in np.asarray(self.index)]
+            rows = []
+            idx = 0
+            for resp in self.responses:
+                for comp in self.colnames:
+                    for lvl in levels:
+                        rows.append((*lvl, resp, comp, float(vals[idx])))
+                        idx += 1
+            self.table = pd.DataFrame(
+                rows, columns=[*coord_cols, "response", "component", "prediction"]
+            )
+        else:
+            levels = self.index.tolist()
+            rows = []
+            idx = 0
+            for resp in self.responses:
+                for comp in self.colnames:
+                    for lvl in levels:
+                        rows.append((lvl, resp, comp, float(vals[idx])))
+                        idx += 1
+            self.table = pd.DataFrame(
+                rows, columns=["unit", "response", "component", "prediction"]
+            )
+
     def predict(
         self,
         matrix_index: list,
         covariance: None | np.ndarray = None,
         distance: None | np.ndarray = None,
-        coords: None | np.ndarray = None,
     ) -> pd.DataFrame:
         """
         Kriging prediction of the random effect at new levels.
@@ -1175,14 +1220,18 @@ class Random(GaussianComponent):
         `matrix_index` orders the across-level inputs over all levels (training +
         new). The effect is predicted by conditioning the trained BLUP:
 
-            u_pred = u_train @ K_train^{-1} @ K_{train,pred}
+            u_pred = K_pred @ K_train^{-1} @ u_train
 
-        The left-hand factor S cancels in the conditioning, so only the right-hand
-        factor K matters. The across-level input depends on the structure:
+        The left-hand factor S cancels, so only the right-hand factor K matters.
+        The across-level input depends on the structure:
             - str:  `covariance` over matrix_index,
             - dist: `distance` over matrix_index,
-            - eucl/ar_iso/ar_ani: `coords` array (len(matrix_index) x axes),
-              aligned to matrix_index.
+            - eucl / ar_iso / ar_ani: `matrix_index` IS the list of coordinate
+              tuples (training then new); the kernel is rebuilt from them.
+
+        For ar_iso / ar_ani the conditioning runs over the OBSERVED levels (not
+        the internal grid): `uhat` is collapsed to the observed cells through
+        `level_cell` before conditioning.
         """
         if self.right_hand not in ("str", *_DECAY_RIGHT):
             raise ValueError(
@@ -1192,59 +1241,75 @@ class Random(GaussianComponent):
         if not getattr(self, "_fitted", False):
             raise ValueError("The model must be fitted before predicting.")
 
-        train_levels = self.index.tolist()
-        missing = [lvl for lvl in train_levels if lvl not in set(matrix_index)]
-        if missing:
-            raise ValueError(
-                f"training levels missing from matrix_index: {missing}. "
-                "A complete input over all levels is required."
-            )
-
-        pos = {lvl: j for j, lvl in enumerate(matrix_index)}
-        train_pos = [pos[lvl] for lvl in train_levels]
-        pred_levels = [lvl for lvl in matrix_index if lvl not in set(train_levels)]
-        pred_pos = [pos[lvl] for lvl in pred_levels]
+        coord_regime = self._coord_cols is not None
 
         with torch.no_grad():
 
-            # Full across-level factor K over matrix_index, via build_K's kernel.
-            if self.right_hand == "str":
-                if covariance is None:
-                    raise ValueError("`covariance` is required to predict with right_hand='str'.")
+            if coord_regime:
+                # matrix_index is the list of coordinate tuples (train + new)
+                mi = [tuple(float(v) for v in x) for x in matrix_index]
+                train_levels = [tuple(float(v) for v in r) for r in self._obs_levels]
+                coords_arr = np.asarray(matrix_index, dtype=float)
                 K_full = self.build_K(
-                    covariance=torch.as_tensor(np.asarray(covariance), dtype = self.dtype, device = self.device)
+                    coords=torch.as_tensor(coords_arr, dtype=self.dtype, device=self.device)
                 )
-            elif self.right_hand == "dist":
-                if distance is None:
-                    raise ValueError("`distance` is required to predict with right_hand='dist'.")
-                K_full = self.build_K(
-                    distance=torch.as_tensor(np.asarray(distance), dtype = self.dtype, device = self.device)
-                )
-            else:  # eucl / ar_iso / ar_ani
-                if coords is None:
-                    raise ValueError(
-                        "`coords` is required to predict with right_hand in "
-                        "{'eucl', 'ar_iso', 'ar_ani'}."
+            else:
+                mi = list(matrix_index)
+                train_levels = self.index.tolist()
+                if self.right_hand == "str":
+                    if covariance is None:
+                        raise ValueError("`covariance` is required to predict with right_hand='str'.")
+                    K_full = self.build_K(
+                        covariance=torch.as_tensor(np.asarray(covariance), dtype=self.dtype, device=self.device)
                     )
-                K_full = self.build_K(
-                    coords=torch.as_tensor(np.asarray(coords), dtype=self.dtype, device=self.device)
+                else:  # dist
+                    if distance is None:
+                        raise ValueError("`distance` is required to predict with right_hand='dist'.")
+                    K_full = self.build_K(
+                        distance=torch.as_tensor(np.asarray(distance), dtype=self.dtype, device=self.device)
+                    )
+
+            train_set = set(train_levels)
+            missing = [lvl for lvl in train_levels if lvl not in set(mi)]
+            if missing:
+                raise ValueError(
+                    f"training levels missing from matrix_index: {missing}. "
+                    "A complete input over all levels is required."
                 )
+
+            pos = {lvl: j for j, lvl in enumerate(mi)}
+            train_pos = [pos[lvl] for lvl in train_levels]
+            pred_levels = [lvl for lvl in mi if lvl not in train_set]
+            pred_pos = [pos[lvl] for lvl in pred_levels]
 
             K_train = K_full[train_pos][:, train_pos]
             K_pred = K_full[pred_pos][:, train_pos]
 
-            # u_train: (components, train levels)
-            # Per component: a_pred = K_pred @ K_train^-1 @ a_train
-            u_train = self.uhat.reshape(self.k * self.c, self.L) 
+            # u over the OBSERVED levels (collapse the grid for ar)
+            u_full = self.uhat.reshape(self.k * self.c, self.L)
+            if coord_regime and hasattr(self, "level_cell"):
+                u_train = u_full[:, self.level_cell]
+            else:
+                u_train = u_full
 
             u_pred = (K_pred @ torch.linalg.solve(K_train, u_train.T)).T.cpu().numpy()
 
-            rows = [
-                (lvl, resp, comp, u_pred[i, j])
-                for j, lvl in enumerate(pred_levels)
-                for i, (resp, comp) in enumerate(self.components)
-            ]
-            return pd.DataFrame(rows, columns=["unit", "response", "component", "prediction"])
+            if coord_regime:
+                cols = [*self._coord_cols, "response", "component", "prediction"]
+                rows = [
+                    (*lvl, resp, comp, u_pred[i, j])
+                    for j, lvl in enumerate(pred_levels)
+                    for i, (resp, comp) in enumerate(self.components)
+                ]
+            else:
+                cols = ["unit", "response", "component", "prediction"]
+                rows = [
+                    (lvl, resp, comp, u_pred[i, j])
+                    for j, lvl in enumerate(pred_levels)
+                    for i, (resp, comp) in enumerate(self.components)
+                ]
+            return pd.DataFrame(rows, columns=cols)
+
 
 class Residual(GaussianComponent):
 
@@ -1260,14 +1325,16 @@ class Residual(GaussianComponent):
         init: None | float | np.ndarray = None,
         jitter: float = 0,
     ):
+        # set before super().__init__: the base reads it to route the
+        # observation-level (vs unit-level) coordinate logic and the label.
+        self.is_residual = True
         super().__init__(
-            unit = None,
+            unit = coords,
             formula ="1",
             left_hand = left_hand,
             right_hand = right_hand,
             covariance = covariance,
             distance = distance,
-            coords=coords,
             matrix_index = None,
             het_formula = het_formula,
             n_axes = n_axes,
@@ -1307,14 +1374,16 @@ class Residual(GaussianComponent):
         self,
         data: pd.DataFrame,
         responses: list[str],
-        dtype = torch.float,
+        dtype = torch.double,
         device = "cpu",
     ) -> np.ndarray:
         """
         Confront the residual to the actual data: read the dimensions,
         store the constant right-hand inputs, instantiate the parameters, and
-        return the (single response) incidence matrix W. The response replication
-        (block-diagonal over responses) is performed by MixedModel.from_dataframe.
+        return the (single response) incidence matrix W.
+
+        The residual has no `unit`; for the coordinate kernels it reads the
+        coordinate columns from `coords`, one coordinate per observation.
         """
         self.device = device
         self.dtype = dtype
@@ -1326,16 +1395,17 @@ class Residual(GaussianComponent):
         self.make_W()             # -> self.W, self.colnames, self.c, self.L
         if self.right_hand == "het":
             self.make_V(data)
-        if self.right_hand == "eucl":
+        elif self.right_hand == "eucl":
             self.make_coords(data, checkerboard=False)
         elif self.right_hand in ("ar_iso", "ar_ani"):
-            P = data[self.coords].to_numpy(dtype=float)
+            P = data[self._coord_cols].to_numpy(dtype=float)
             if not np.allclose(P, np.rint(P)):
                 raise ValueError(
-                    "right_hand in {'ar_iso', 'ar_ani'} requires integer-valued `coords` "
+                    "right_hand in {'ar_iso', 'ar_ani'} requires integer-valued coordinates "
                     "(a regular grid). Use 'eucl' for arbitrary real coordinates."
                 )
             self.make_coords(data, checkerboard=True)   # rebuilds self.W over the grid
+        
         self.n, self.q = self.W.shape
         self.d = self.k * self.c
 

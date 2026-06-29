@@ -131,9 +131,11 @@ exactly as the `Intercept` of `het` (see [heteroscedastic](#heteroscedastic)).
 
 ## Right-hand factor: $\mathbf{K_a}$
 
-`right_hand` sets the covariance across levels. A level is a
-distinct value of the grouping variable `unit`; with $l$ levels, $\mathbf{K_a}$ is
-$l \times l$.
+`right_hand` sets the covariance across levels. A level is a distinct value of
+the grouping variable `unit`; with $l$ levels, $\mathbf{K_a}$ is $l \times l$.
+For the coordinate-based kernels (`eucl`, `ar_iso`, `ar_ani`), `unit` is given
+as a list of coordinate columns and a level is a distinct coordinate tuple.
+
 
 | `right_hand` | Structure                                                                  |
 |--------------|----------------------------------------------------------------------------|
@@ -170,10 +172,11 @@ comes from and in which metric drives the decay. In all cases the
 estimated rate(s) are reused to predict new levels (see
 [Prediction](prediction.qmd)).
 
-When the distance is not supplied, the coordinates are passed 
-as a list of column names through `coords`.
-For random effects, each level in the data frame
-must match a single set of coordinates.
+When the distance is not supplied, the coordinates are read directly from
+`unit`: instead of a single grouping column, `unit` is passed as the list of
+coordinate columns, and each distinct coordinate tuple is a level. The residual
+has no `unit`; it receives these columns through `coords` instead (see
+[the residual](#the-residual)).
 
 #### Supplied distance
 
@@ -191,7 +194,7 @@ exactly as for `str`.
 #### Euclidean distance
 
 `eucl` internalises the distance computation: instead of a precomputed matrix,
-it reads a set of coordinate columns $\mathbf{x}$ and forms the Euclidean distance
+it reads a set of coordinate columns $\mathbf{x}$ listed in `unit` and forms the Euclidean distance
 between levels:
 
 $$
@@ -202,7 +205,7 @@ Any float coordinates are allowed for the computation of euclidean distances.
 
 #### Separable autoregressive
 
-`ar_iso` and `ar_ani` also read coordinates through `coords`, but build a
+`ar_iso` and `ar_ani` also read coordinates listed in `unit`, but build a
 separable kernel — a product of one-dimensional autoregressive decays, one
 per coordinate axis:
 
@@ -277,13 +280,20 @@ $$
 \mathbf{R} = \mathbf{W}\,\mathbf{R}_{tot}\,\mathbf{W}^\top.
 $$
 
-Any structure can be declared on the residual, but not all are identifiable; the
+Most structures can be declared on the residual, but not all are identifiable; the
 choice between a `full` and a `diag` residual across responses is discussed in
 [Multivariate](multivariate.qmd).
 
-The residual takes no formula, therefore the block-diagonal and 
-proportional blocks left-hand specifications
+The residual takes no formula, therefore the block-diagonal (`bl_form`, `bl_resp`) and 
+proportional blocks (`kr_form`, `kr_resp`) left-hand specifications
 are not allowed for the residual variance structure.
+
+To use a `eucl`, `ar_iso` or `ar_ani` right-hand specification, the residual
+requires a `coords` argument: the residual has no `unit` to carry the
+coordinate columns, so it receives them directly through `coords`. The
+autoregressive kernels (`ar_iso`, `ar_ani`) are allowed but discouraged on the
+residual, where they can be costly; consider carrying such structure with an
+extra random effect rather than burdening the residual.
 
 ## Jitter
 

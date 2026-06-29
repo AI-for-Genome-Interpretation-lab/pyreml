@@ -32,10 +32,15 @@ class MixedModel:
         random = [] if random is None else (random if isinstance(random, list) else [random])
 
         ## Filter NAs
-        missing = [r.unit for r in random if r.unit not in data.columns]
+        missing = [
+            c
+            for r in random
+            for c in ([r.unit] if isinstance(r.unit, str) else list(r.unit))
+            if c not in data.columns
+        ]
         if missing:
             raise ValueError(f"random grouping variables not found in data: {missing}")
-
+        
         keep = data.index
         for formula in [fixed] + [r.formula for r in random]:
             usable = patsy.dmatrix(
@@ -46,7 +51,11 @@ class MixedModel:
             any_response = data[response].notna().any(axis=1)
             keep = keep[keep.isin(data.index[any_response])]
 
-        unit_cols = [r.unit for r in random]
+        unit_cols = [
+            c
+            for r in random
+            for c in ([r.unit] if isinstance(r.unit, str) else list(r.unit))
+        ]
         if unit_cols:
             keep = keep[keep.isin(data.dropna(subset=unit_cols).index)]
 
