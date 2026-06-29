@@ -123,17 +123,11 @@ structures differing only by which factor — the outer (response) or the inner
   with $\mathbf{A}\in\mathbb{R}^{k\times k}$ a single across-response covariance
   shared by all $c$ formula columns, each scaled by its own $\omega_e$.
 
-This matches the response-outer / formula-inner ordering of $\mathbf{\Sigma_a}$:
-the outer Kronecker factor runs over responses, the inner one over formula
-columns. The blocks are then the $\alpha_r\,\mathbf{\Omega}$ of `bl_resp` (resp.
-the $\omega_e\,\mathbf{A}$ of `bl_form`), specialized to be mutually proportional.
-
 Because the full covariance and the scaling factors are jointly defined only up to
 a common scalar (scaling the covariance up and the factors down leaves
 $\mathbf{\Sigma_a}$ unchanged), the scale is anchored by fixing the first scaling
-factor to $1$ ($\alpha_1 = 1$ for `kr_resp`, $\omega_1 = 1$ for `kr_form`),
-exactly as the `Intercept` of `het` (see [heteroscedastic](#heteroscedastic)). The Kronecker form also
-makes the inverse and log-determinant of $\mathbf{\Sigma_a}$ cheap.
+factor ($\alpha_1$ or $\omega_1$) to $1$,
+exactly as the `Intercept` of `het` (see [heteroscedastic](#heteroscedastic)).
 
 ## Right-hand factor: $\mathbf{K_a}$
 
@@ -223,7 +217,9 @@ $$
 
 Only integer coordinates are allowed for the computation of autoregressive kernels.
 One of the main interests of the autoregressive kernels is to stabilize and
-speed-up the computation using [SMW](training.qmd#examples-of-special-interest).
+speed-up the computation using [SMW](training.qmd#examples-of-special-interest)
+under some configurations. For consistency with the other decay methods, the fitted
+$\rho_k$ are returned instead of $\varphi_k$.
 
 ### Heteroscedastic
 

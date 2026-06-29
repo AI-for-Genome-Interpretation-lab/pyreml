@@ -1349,7 +1349,7 @@ class Residual(GaussianComponent):
 
         W_is_identity = (
             self.W.shape[0] == self.W.shape[1]
-            and torch.allclose(self.W, torch.eye(self.W.shape[0], dtype=dtype, device = device))
+            and np.allclose(self.W, np.eye(self.W.shape[0]))
         )
         R_is_diagonal = (
             self.left_hand in ("iid", "diag")
