@@ -3,11 +3,14 @@
 #
 # Produces the references consumed by `test_spatial.py`:
 #
-#     spat_dist    <-  dist, str, eucl(2D)        Euclidean 2D kernel
-#     spat_iso   <-  ar_iso(2D)                 Manhattan (diamond) kernel
-#     spat_ani   <-  ar_ani(2D)                 anisotropic kernel
+#     spat_dist    <-  dist, str, eucl     Euclidean kernel
+#     spat_iso     <-  ar_iso              Manhattan (diamond) kernel
+#     spat_ani     <-  ar_ani              anisotropic kernel
 #
-# The 1D case is deliberately ABSENT: its REML optimum is degenerate.
+# Runs on a contrasted-but-close bloc subset (SUBSET_BLOCS) chosen so the AR
+# kernels sit in an identifiable regime (rho * spacing moderate, neither flat
+# nor diagonal).
+
 # %%
 import json
 
@@ -20,17 +23,42 @@ from rpy2.robjects.packages import importr
 from rpy2.robjects.conversion import localconverter
 from scipy.optimize import minimize_scalar, minimize
 
-import torch
-from pyreml import MixedModel, Random, larix as DF
+from pyreml import larix as DF
 
 rrBLUP = importr("rrBLUP")
 
-# Hold-out coordinate offset. The fit runs on the FULL dataset, so every observed
+# Subset of blocs: contrasted but geographically close, so the AR kernels are
+# identifiable. MUST be kept identical to SUBSET_BLOCS / PRED_OFFSET / _grid /
+# _holdout in test_spatial.py: the model and the reference must see the exact
+# same rows in the exact same order.
+SUBSET_BLOCS = ["B3", "B13"]
+
+# Hold-out coordinate offset. The fit runs on the whole subset, so every observed
 # coordinate is a training level. To exercise kriging at genuinely NEW levels the
 # held-out rows are re-predicted at their coordinates shifted by this offset:
 # off the integer grid, guaranteeing new levels rather than duplicates. The TEST
 # applies the very same offset when it reconstructs the prediction coordinates.
 PRED_OFFSET = 0.5
+
+
+# %% [markdown]
+# ## Bloc map
+# Plots the full trial to pick contrasted-but-close blocs by eye.
+
+# %%
+fig, ax = plt.subplots(figsize=(12, 8))
+
+for _, row in DF.iterrows():
+    ax.text(row["X"], row["Y"], str(row["BLOC"]), ha="center", va="center")
+
+ax.set_xlim(DF["X"].min(), DF["X"].max())
+ax.set_ylim(DF["Y"].min(), DF["Y"].max())
+ax.set_xlabel("X")
+ax.set_ylabel("Y")
+ax.set_title("Position des blocs")
+ax.grid(True)
+plt.tight_layout()
+plt.show()
 
 
 # %% [markdown]
@@ -40,24 +68,18 @@ PRED_OFFSET = 0.5
 # in each reference cell instead.
 
 # %%
-def _full(df):
-    """Full year-2000 grid; one level per row, unique (X, Y)."""
-    df = df[df["year"] == 2000].copy()
+def _grid(df):
+    """Year-2000 grid restricted to SUBSET_BLOCS; one level per row, unique (X, Y)."""
+    df = df.loc[(df["year"] == 2000) & df["BLOC"].isin(SUBSET_BLOCS)].copy()
     df["ID"] = np.arange(len(df))
     return df
 
 
-def _transect(df):
-    """1D series along X at the most-populated Y row, one observation per X.
-
-    Used ONLY by the 1D-degeneracy demonstration cell; no 1D reference is
-    produced from it.
-    """
-    df = _full(df)
-    y0 = df["Y"].value_counts().idxmax()
-    t = df[df["Y"] == y0].drop_duplicates(subset="X", keep="first").copy()
-    t["ID"] = np.arange(len(t))
-    return t
+def _holdout(data):
+    """Kriging hold-out: every 3rd row, re-predicted as NEW levels via PRED_OFFSET.
+    Deterministic and independent of the bloc choice, so it stays valid as the
+    subset is tuned."""
+    return data.iloc[::3]
 
 
 def euclidean_K(P, rhos):
@@ -103,7 +125,7 @@ def _mixed_solve(Z, K, y, X, se=False):
 def prediction_map(name, data, y, X, n, cols, kernel, rho, P_lev, Z, L, res=60):
     """Krige the random effect over the whole field and overlay observations.
     Only the training levels P_lev drive the kernel; the rest is purely predicted."""
-    field = _full(DF)
+    field = _grid(DF)
     xs, ys = field["X"].to_numpy(), field["Y"].to_numpy()
     gx = np.linspace(xs.min(), xs.max(), res)
     gy = np.linspace(ys.min(), ys.max(), res)
@@ -135,12 +157,12 @@ def prediction_map(name, data, y, X, n, cols, kernel, rho, P_lev, Z, L, res=60):
 
 
 # %% [markdown]
-# ## `spat_dist` — Euclidean 2D
-# Shared by `dist`, `str` and `eucl`(2D). Circular contours, single rate.
+# ## `spat_dist` — Euclidean
+# Shared by `dist`, `str` and `eucl`. Circular contours, single rate.
 
 # %%
-data = _full(DF)
-holdout = data[data["BLOC"].isin([f"B{i}" for i in range(13, 17)])]
+data = _grid(DF)
+holdout = _holdout(data)
 cols = ["X", "Y"]
 kernel = euclidean_K
 
@@ -198,8 +220,8 @@ prediction_map("dist", data, y, X, n, cols, kernel, rho, P_lev, Z, L)
 # One shared rate over both axes: Manhattan (L1) decay, diamond contours.
 
 # %%
-data = _full(DF)
-holdout = data[data["BLOC"].isin([f"B{i}" for i in range(13, 17)])]
+data = _grid(DF)
+holdout = _holdout(data)
 cols = ["X", "Y"]
 kernel = manhattan_iso_K
 
@@ -252,11 +274,11 @@ prediction_map("iso", data, y, X, n, cols, kernel, rho, P_lev, Z, L)
 
 # %% [markdown]
 # ## `spat_ani` — separable AR, anisotropic
-# One rate per axis: elliptical (axis-aligned) contours. Profiled in 2D.
+# One rate per axis: elliptical (axis-aligned) contours.
 
 # %%
-data = _full(DF)
-holdout = data[data["BLOC"].isin([f"B{i}" for i in range(13, 17)])]
+data = _grid(DF)
+holdout = _holdout(data)
 cols = ["X", "Y"]
 kernel = separable_ani_K
 
@@ -268,7 +290,7 @@ P_train = data[cols].to_numpy(dtype=float)
 P_lev, Z = collapse(P_train)
 L = len(P_lev)
 
-# --- profile one rate per axis (Nelder-Mead in 2D) --------------------------
+# --- profile one rate per axis (Nelder-Mead) --------------------------------
 def neg_LL(rho_vec):
     rho_vec = np.atleast_1d(rho_vec).astype(float)
     if np.any(rho_vec <= 0):
