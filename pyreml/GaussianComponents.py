@@ -593,14 +593,14 @@ class GaussianComponent:
                 log_alpha = log_S[c * c:]
                 Omega = torch.linalg.matrix_exp(Bflat + Bflat.T)
                 alpha = torch.cat([torch.ones(1, dtype=self.dtype, device=self.device), torch.exp(log_alpha)])
-                return torch.kron(torch.diag(alpha), Omega)
+                return torch.kron(torch.diag(alpha).contiguous(), Omega.contiguous())
 
             case "kr_form":
                 Bflat = log_S[: k * k].reshape(k, k)
                 log_omega = log_S[k * k:]
                 Alpha = torch.linalg.matrix_exp(Bflat + Bflat.T)
                 omega = torch.cat([torch.ones(1, dtype=self.dtype, device=self.device), torch.exp(log_omega)])
-                return torch.kron(Alpha, torch.diag(omega))
+                return torch.kron(Alpha.contiguous(), torch.diag(omega).contiguous())
 
             case _:
                 raise NotImplementedError(f"left_hand='{self.left_hand}' is not implemented.")
@@ -659,7 +659,7 @@ class GaussianComponent:
                 for a, g in enumerate(self.axis_grids):
                     rho_a = rho[a] if self.right_hand == "ar_ani" else rho
                     K_a = torch.exp(-rho_a * (g[:, None] - g[None, :]).abs())
-                    K = K_a if K is None else torch.kron(K, K_a)
+                    K = K_a if K is None else torch.kron(K.contiguous(), K_a.contiguous())
                 return K
 
             case _:
@@ -778,7 +778,7 @@ class GaussianComponent:
                 Omega_inv = torch.cholesky_inverse(Lom)
                 logdet_Om = 2.0 * torch.sum(torch.log(torch.diagonal(Lom)))
 
-                Sinv = torch.kron(torch.diag(1.0 / alpha), Omega_inv)
+                Sinv = torch.kron(torch.diag(1.0 / alpha).contiguous(), Omega_inv.contiguous())
                 logdet = c * torch.sum(torch.log(alpha)) + k * logdet_Om
                 return Sinv, logdet
 
@@ -793,7 +793,7 @@ class GaussianComponent:
                 A_inv = torch.cholesky_inverse(La)
                 logdet_A = 2.0 * torch.sum(torch.log(torch.diagonal(La)))
 
-                Sinv = torch.kron(A_inv, torch.diag(1.0 / omega))
+                Sinv = torch.kron(A_inv.contiguous(), torch.diag(1.0 / omega).contiguous())
                 logdet = c * logdet_A + k * torch.sum(torch.log(omega))
                 return Sinv, logdet
 
@@ -857,7 +857,7 @@ class GaussianComponent:
                     logdet_a = (L - 1) * torch.log(denom)
 
                     logdet = logdet + (self.L // sizes[a]) * logdet_a
-                    Kinv = Kinv_a if Kinv is None else torch.kron(Kinv, Kinv_a)
+                    Kinv = Kinv_a if Kinv is None else torch.kron(Kinv.contiguous(), Kinv_a.contiguous())
                     
                 return Kinv, logdet
             
