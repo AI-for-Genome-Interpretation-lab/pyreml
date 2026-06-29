@@ -357,7 +357,7 @@ class MixedModel:
             """
 
             with torch.no_grad():
-                if self.SMW:
+                if callable(self.varmeth_inv):
                     Ginv, Rinv, _, _ = self.varmeth_inv()
                 else:
                     G, R = self.varmeth()
@@ -386,6 +386,7 @@ class MixedModel:
                     )
                 
                 # Factor LH once (symmetric PD): reuse for the solve and the inverse.
+                LH = 0.5 * (LH + LH.T)
                 Lchol = torch.linalg.cholesky(LH)
                     
                 sol = torch.cholesky_solve(RH, Lchol)
