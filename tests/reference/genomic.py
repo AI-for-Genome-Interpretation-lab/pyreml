@@ -551,6 +551,5 @@ reference_blkr = {
     "u_true": u.tolist(),                # (n, 4), component order
     "df_cols": _df_records(df_cols),
 }
-with open("../data/randomreg_blkr.json", "w") as f:
+with open("../data/genomic_blkr.json", "w") as f:
     json.dump(reference_blkr, f)
-print("\nsaved ../data/randomreg_blkr.json")

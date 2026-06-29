@@ -906,15 +906,48 @@ class GaussianComponent:
         with torch.no_grad():
             S = self.build_S().detach().cpu().numpy()
 
-            fa_meta = None
+            metadata = {
+                "labels": [
+                    {"response": resp, "component": comp}
+                    for resp, comp in self.components
+                ],
+            }
 
             # --- left-hand Sigma ------------------------------------------------
             match self.left_hand:
                 case "iid":
                     sigma_base = float(torch.exp(self.log_S).detach().cpu().numpy())
 
-                case "diag" | "full" | "bl_resp" | "bl_form" | "kr_resp" | "kr_form":
+                case "diag" | "full" | "bl_resp" | "bl_form" :
                     sigma_base = S
+
+                case "kr_resp":
+                    # S = diag([1, exp(log_alpha)]) ⊗ Omega ; one alpha per non-reference response
+                    sigma_base = S
+                    log_alpha = self.log_S[self.c * self.c:]
+                    alpha_vec = torch.exp(log_alpha).detach().cpu().numpy()
+                    metadata["kr"] = {
+                        "axis": "response",
+                        "reference": self.responses[0],
+                        "ratios": [
+                            {"response": resp, "alpha": float(a)}
+                            for resp, a in zip(self.responses[1:], alpha_vec)
+                        ],
+                    }
+
+                case "kr_form":
+                    # S = A ⊗ diag([1, exp(log_omega)]) ; one omega per non-reference formula element
+                    sigma_base = S
+                    log_omega = self.log_S[self.k * self.k:]
+                    omega_vec = torch.exp(log_omega).detach().cpu().numpy()
+                    metadata["kr"] = {
+                        "axis": "formula",
+                        "reference": self.colnames[0],
+                        "ratios": [
+                            {"formula_element": elem, "omega": float(w)}
+                            for elem, w in zip(self.colnames[1:], omega_vec)
+                        ],
+                    }
 
                 case "fa":
                     sigma_base = S
@@ -940,7 +973,7 @@ class GaussianComponent:
                     Lambda = Lambda[order]
                     Q = Q[:, order]
 
-                    fa_meta = {
+                    metadata["fa"] = {
                         "n_axes": int(q),
                         "Q": Q.detach().cpu().numpy(),
                         "Lambda": Lambda.detach().cpu().numpy(),
@@ -949,18 +982,6 @@ class GaussianComponent:
 
                 case _:
                     raise ValueError(f"unsupported left hand type: {self.left_hand}")
-
-            labels = [
-                {"response": resp, "component": comp}
-                for resp, comp in self.components
-            ]
-
-            metadata = {
-                "labels": labels,
-            }
-
-            if fa_meta is not None:
-                metadata["fa"] = fa_meta
 
             effect = self.effect_label
 
