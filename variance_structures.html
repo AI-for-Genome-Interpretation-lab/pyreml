@@ -205,11 +205,13 @@ window.Quarto = {
   <li><a href="#independent-and-identically-distributed" id="toc-independent-and-identically-distributed" class="nav-link" data-scroll-target="#independent-and-identically-distributed">Independent and identically distributed</a></li>
   <li><a href="#diagonal-and-full" id="toc-diagonal-and-full" class="nav-link" data-scroll-target="#diagonal-and-full">Diagonal and full</a></li>
   <li><a href="#factor-analytic" id="toc-factor-analytic" class="nav-link" data-scroll-target="#factor-analytic">Factor-analytic</a></li>
+  <li><a href="#block-diagonal" id="toc-block-diagonal" class="nav-link" data-scroll-target="#block-diagonal">Block-diagonal</a></li>
+  <li><a href="#proportional-blocks" id="toc-proportional-blocks" class="nav-link" data-scroll-target="#proportional-blocks">Proportional blocks</a></li>
   </ul></li>
   <li><a href="#right-hand-factor-mathbfk_a" id="toc-right-hand-factor-mathbfk_a" class="nav-link" data-scroll-target="#right-hand-factor-mathbfk_a">Right-hand factor: <span class="math inline">\(\mathbf{K_a}\)</span></a>
   <ul class="collapse">
   <li><a href="#structured" id="toc-structured" class="nav-link" data-scroll-target="#structured">Structured</a></li>
-  <li><a href="#autoregressive" id="toc-autoregressive" class="nav-link" data-scroll-target="#autoregressive">Autoregressive</a></li>
+  <li><a href="#decay-kernels" id="toc-decay-kernels" class="nav-link" data-scroll-target="#decay-kernels">Decay kernels</a></li>
   <li><a href="#heteroscedastic" id="toc-heteroscedastic" class="nav-link" data-scroll-target="#heteroscedastic">Heteroscedastic</a></li>
   </ul></li>
   <li><a href="#the-residual" id="toc-the-residual" class="nav-link" data-scroll-target="#the-residual">The residual</a></li>
@@ -249,14 +251,15 @@ window.Quarto = {
 \]</span></p>
 <p>where:</p>
 <ul>
-<li><p><span class="math inline">\(\mathbf{\Sigma_a}\)</span> is the <strong>left-hand</strong> factor, <em>i.e.</em> the covariance <em>across the components</em> of the effect</p></li>
-<li><p><span class="math inline">\(\mathbf{K_a}\)</span> is the <strong>right-hand</strong> factor, <em>i.e.</em> the covariance <em>across its levels</em>.</p></li>
+<li><p><span class="math inline">\(\mathbf{\Sigma_a}\)</span> is the left-hand factor, <em>i.e.</em> the covariance <em>across the components</em> of the effect</p></li>
+<li><p><span class="math inline">\(\mathbf{K_a}\)</span> is the right-hand factor, <em>i.e.</em> the covariance <em>across its levels</em>.</p></li>
 </ul>
 <p>The two factors are set independently, through <code>left_hand</code> and <code>right_hand</code>.</p>
 <section id="left-hand-factor-mathbfsigma_a" class="level2">
 <h2 class="anchored" data-anchor-id="left-hand-factor-mathbfsigma_a">Left-hand factor: <span class="math inline">\(\mathbf{\Sigma_a}\)</span></h2>
-<p><code>left_hand</code> sets the covariance across components. A component is a (response, formula element) pair: with <span class="math inline">\(k\)</span> responses and <span class="math inline">\(c\)</span> columns produced by the effect’s <a href="https://pypi.org/project/patsy/">patsy</a> <code>formula</code>, <span class="math inline">\(\mathbf{\Sigma_a}\)</span> is <span class="math inline">\((k\,c) \times (k\,c)\)</span>. How multiple responses are handled is covered in <a href="./multivariate.html">Multivariate</a>. How the <code>formula</code> carries a regression or random factors is covered in <a href="./random_regression.html">Random regression and factors</a>.</p>
-<p>The initial value of <span class="math inline">\(\mathbf{\Sigma_a}\)</span> can be set with <code>init</code> (a scalar for <code>iid</code>, a <span class="math inline">\((k\,c)\times(k\,c)\)</span> matrix otherwise); it defaults to the identity.</p>
+<p><code>left_hand</code> sets the covariance across components. A component is a (response, formula element) pair: with <span class="math inline">\(k\)</span> responses and <span class="math inline">\(c\)</span> columns produced by the effect’s <a href="https://pypi.org/project/patsy/">patsy</a> <code>formula</code>, <span class="math inline">\(\mathbf{\Sigma_a}\)</span> is <span class="math inline">\((k\,c) \times (k\,c)\)</span>. How multiple responses are handled is covered in the <a href="./multivariate.html">multivariate</a>. How the <code>formula</code> carries a regression or random factors is covered in <a href="./random_regression.html">random regression and factors</a>.</p>
+<p>The index of <span class="math inline">\(\mathbf{\Sigma_a}\)</span> therefore has two sub-axes: the <span class="math inline">\(k\)</span> responses and the <span class="math inline">\(c\)</span> formula columns; ordered response-outer, formula-inner.</p>
+<p>The initial value of <span class="math inline">\(\mathbf{\Sigma_a}\)</span> can be set with <code>init</code> (a scalar for <code>iid</code>, a <span class="math inline">\((k\,c)\times(k\,c)\)</span> matrix otherwise); it defaults to the identity. For the block structures <code>init</code> is still given as a full <span class="math inline">\((k\,c)\times(k\,c)\)</span> matrix, and the entries that fall outside the retained structure are simply ignored.</p>
 <table class="caption-top table">
 <thead>
 <tr class="header">
@@ -281,6 +284,22 @@ window.Quarto = {
 <td><code>fa</code></td>
 <td><a href="#factor-analytic">A factor-analytic approximation</a> of <code>full</code></td>
 </tr>
+<tr class="odd">
+<td><code>bl_resp</code></td>
+<td><a href="#block-diagonal">Block-diagonal across responses</a></td>
+</tr>
+<tr class="even">
+<td><code>bl_form</code></td>
+<td><a href="#block-diagonal">Block-diagonal across formula columns</a></td>
+</tr>
+<tr class="odd">
+<td><code>kr_resp</code></td>
+<td><a href="#proportional-blocks">Proportional blocks across responses</a></td>
+</tr>
+<tr class="even">
+<td><code>kr_form</code></td>
+<td><a href="#proportional-blocks">Proportional blocks across formula columns</a></td>
+</tr>
 </tbody>
 </table>
 <section id="independent-and-identically-distributed" class="level3">
@@ -301,10 +320,33 @@ window.Quarto = {
 <p>with <code>n_axes</code> <span class="math inline">\(\ll kc\)</span> orthonormal axes gathered in <span class="math inline">\(\mathbf{Q_a}\)</span> (scaled by the eigenvalues <span class="math inline">\(\mathbf{\Lambda_a}\)</span>) and a diagonal specificity <span class="math inline">\(\mathbf{\Psi_a}\)</span> that restores variance consistency after the low-rank approximation. The number of axes is set with the <code>n_axes</code> argument, a practical default being <code>n_axes = 2</code>. The <span class="math inline">\(\mathbf{Q_a}
 \mathbf{\Lambda_a}\mathbf{Q_a}^\top\)</span> form is reminiscent of a principal-component decomposition (PCA). This analogy with the PCA can be useful for <em>post hoc</em> interpretation of the FA model.</p>
 </section>
+<section id="block-diagonal" class="level3">
+<h3 class="anchored" data-anchor-id="block-diagonal">Block-diagonal</h3>
+<p>A block-diagonal structure makes <span class="math inline">\(\mathbf{\Sigma_a}\)</span> block-diagonal along one of its two sub-axes, setting the cross-block covariances to zero. Each block is estimated as a full positive-definite covariance (same unconstrained parameterization as <code>full</code>).</p>
+<ul>
+<li><code>bl_resp</code> blocks by response: <span class="math inline">\(k\)</span> free <span class="math inline">\(c\times c\)</span> covariances, one per response, with no covariance across responses,</li>
+</ul>
+<p><span class="math display">\[
+\mathbf{\Sigma_a} = \bigoplus_{r} \mathbf{\Omega}_r,
+\qquad \mathbf{\Omega}_r \in \mathbb{R}^{c\times c}.
+\]</span></p>
+<ul>
+<li><code>bl_form</code> blocks by formula column: the same construction transposed to the other sub-axis, giving <span class="math inline">\(c\)</span> free <span class="math inline">\(k\times k\)</span> covariances <span class="math inline">\(\mathbf{A}_e\)</span>, one per formula column, with no covariance across columns. Because the blocking is over the <strong>patsy</strong> columns, a categorical <code>formula</code> produces one block per contrast column, not per written term.</li>
+</ul>
+</section>
+<section id="proportional-blocks" class="level3">
+<h3 class="anchored" data-anchor-id="proportional-blocks">Proportional blocks</h3>
+<p><code>kr_resp</code> and <code>kr_form</code> are the separable counterparts of <code>bl_resp</code>/<code>bl_form</code>: the same block-diagonal support, but with all blocks constrained to be proportional to a single shared covariance. Each is a Kronecker product of a full covariance with a diagonal of scaling factors, the two structures differing only by which factor — the outer (response) or the inner (formula) — carries the full covariance:</p>
+<ul>
+<li><p><code>kr_resp</code>: <span class="math inline">\(\mathbf{\Sigma_a} = \operatorname{diag}(\boldsymbol{\alpha}) \otimes \mathbf{\Omega}\)</span>, with <span class="math inline">\(\mathbf{\Omega}\in\mathbb{R}^{c\times c}\)</span> a single covariance shared by all <span class="math inline">\(k\)</span> responses, each scaled by its own <span class="math inline">\(\alpha_r\)</span>;</p></li>
+<li><p><code>kr_form</code>: <span class="math inline">\(\mathbf{\Sigma_a} = \mathbf{A} \otimes \operatorname{diag}(\boldsymbol{\omega})\)</span>, with <span class="math inline">\(\mathbf{A}\in\mathbb{R}^{k\times k}\)</span> a single across-response covariance shared by all <span class="math inline">\(c\)</span> formula columns, each scaled by its own <span class="math inline">\(\omega_e\)</span>.</p></li>
+</ul>
+<p>Because the full covariance and the scaling factors are jointly defined only up to a common scalar (scaling the covariance up and the factors down leaves <span class="math inline">\(\mathbf{\Sigma_a}\)</span> unchanged), the scale is anchored by fixing the first scaling factor (<span class="math inline">\(\alpha_1\)</span> or <span class="math inline">\(\omega_1\)</span>) to <span class="math inline">\(1\)</span>, exactly as the <code>Intercept</code> of <code>het</code> (see <a href="#heteroscedastic">heteroscedastic</a>).</p>
+</section>
 </section>
 <section id="right-hand-factor-mathbfk_a" class="level2">
 <h2 class="anchored" data-anchor-id="right-hand-factor-mathbfk_a">Right-hand factor: <span class="math inline">\(\mathbf{K_a}\)</span></h2>
-<p><code>right_hand</code> sets the covariance across levels. A level is a distinct value of the grouping variable <code>unit</code>; with <span class="math inline">\(l\)</span> levels, <span class="math inline">\(\mathbf{K_a}\)</span> is <span class="math inline">\(l \times l\)</span>.</p>
+<p><code>right_hand</code> sets the covariance across levels. A level is a distinct value of the grouping variable <code>unit</code>; with <span class="math inline">\(l\)</span> levels, <span class="math inline">\(\mathbf{K_a}\)</span> is <span class="math inline">\(l \times l\)</span>. For the coordinate-based kernels (<code>eucl</code>, <code>ar_iso</code>, <code>ar_ani</code>), <code>unit</code> is given as a list of coordinate columns and a level is a distinct coordinate tuple.</p>
 <table class="caption-top table">
 <thead>
 <tr class="header">
@@ -315,17 +357,29 @@ window.Quarto = {
 <tbody>
 <tr class="odd">
 <td><code>iid</code></td>
-<td>Identity <span class="math inline">\(\mathbf{I}\)</span> — independent, homoscedastic levels (default).</td>
+<td>Identity <span class="math inline">\(\mathbf{I}\)</span>: independent, homoscedastic levels (default).</td>
 </tr>
 <tr class="even">
-<td><code>ar</code></td>
-<td><a href="#autoregressive">Autoregressive kernel</a> on a known <code>distance</code> matrix.</td>
-</tr>
-<tr class="odd">
 <td><code>str</code></td>
 <td><a href="#structured">A known covariance</a> (e.g.&nbsp;a kinship), via <code>covariance</code>.</td>
 </tr>
+<tr class="odd">
+<td><code>dist</code></td>
+<td><a href="#supplied-distance">Decay over a supplied distance matrix</a>, via <code>distance</code>.</td>
+</tr>
 <tr class="even">
+<td><code>eucl</code></td>
+<td><a href="#euclidean-distance">Decay over an internally-computed Euclidean distance</a> between <code>coords</code>.</td>
+</tr>
+<tr class="odd">
+<td><code>ar_iso</code></td>
+<td><a href="#separable-autoregressive">Separable autoregressive decay</a>, isotropic (one rate shared across axes).</td>
+</tr>
+<tr class="even">
+<td><code>ar_ani</code></td>
+<td><a href="#separable-autoregressive">Separable autoregressive decay</a>, anisotropic (one rate per axis).</td>
+</tr>
+<tr class="odd">
 <td><code>het</code></td>
 <td><a href="#heteroscedastic">Heteroscedastic diagonal</a>, one variance per level resulting of <code>het_formula</code> (modalities and/or regressors).</td>
 </tr>
@@ -336,13 +390,44 @@ window.Quarto = {
 <p><code>str</code> plugs in a known covariance over the levels supplied as a <a href="https://numpy.org/">numpy</a> array through <code>covariance</code>. Because the matrix is indexed by the user’s own labels, <code>matrix_index</code> lists its levels in the order of its rows and columns, so <span class="pyreml">pyreml</span> can align it to the data.</p>
 <p>Common structured covariances used in genetics applications are provided with the <a href="./kinships.html">kinship helpers</a>.</p>
 </section>
-<section id="autoregressive" class="level3">
-<h3 class="anchored" data-anchor-id="autoregressive">Autoregressive</h3>
-<p><code>ar</code> forms the right-hand factor entrywise from a known <code>distance</code> matrix <span class="math inline">\(\mathbf{E}\)</span>,</p>
+<section id="decay-kernels" class="level3">
+<h3 class="anchored" data-anchor-id="decay-kernels">Decay kernels</h3>
+<p><code>dist</code>, <code>eucl</code>, <code>ar_iso</code> and <code>ar_ani</code> form a family of correlation kernels whose entries decay with a notion of distance between levels,</p>
 <p><span class="math display">\[
-(\mathbf{K_a})_{ij} = \exp(-\rho\, E_{ij}),
+(\mathbf{K_a})_{ij} = \exp(-\text{decay}_{ij}),
 \]</span></p>
-<p>with a single decay <span class="math inline">\(\rho &gt; 0\)</span> estimated during the fit. This generalizes an autoregressive correlation to arbitrary Euclidean distances (e.g.&nbsp;diagonals in a row–column trial). As for <code>str</code>, <code>matrix_index</code> orders the rows and columns of <code>distance</code>. The estimated <span class="math inline">\(\rho\)</span> is reused to predict new levels (see <a href="./prediction.html">Prediction</a>).</p>
+<p>estimated with strictly positive rate(s) <span class="math inline">\(\rho &gt; 0\)</span>, so all correlations are positive (no oscillation). The four members differ only in where the distance comes from and in which metric drives the decay. In all cases the estimated rate(s) are reused to predict new levels (see <a href="./prediction.html">prediction</a>).</p>
+<p>When the distance is not supplied, the coordinates are read directly from <code>unit</code>: instead of a single grouping column, <code>unit</code> is passed as the list of coordinate columns, and each distinct coordinate tuple is a level. The residual has no <code>unit</code>; it receives these columns through <code>coords</code> instead (see <a href="#the-residual">the residual</a>).</p>
+<section id="supplied-distance" class="level4">
+<h4 class="anchored" data-anchor-id="supplied-distance">Supplied distance</h4>
+<p><code>dist</code> forms the factor entrywise from a known distance matrix <span class="math inline">\(\mathbf{D}\)</span>:</p>
+<p><span class="math display">\[
+(\mathbf{K_a})_{ij} = \exp(-\rho\, (\mathbf{D})_{ij}),
+\qquad \rho &gt; 0.
+\]</span></p>
+<p>with a single decay <span class="math inline">\(\rho\)</span> estimated during the fit. The matrix is supplied as a numpy array through <code>distance</code>, and <code>matrix_index</code> orders its rows and columns, exactly as for <code>str</code>.</p>
+</section>
+<section id="euclidean-distance" class="level4">
+<h4 class="anchored" data-anchor-id="euclidean-distance">Euclidean distance</h4>
+<p><code>eucl</code> internalises the distance computation: instead of a precomputed matrix, it reads a set of coordinate columns <span class="math inline">\(\mathbf{x}\)</span> listed in <code>unit</code> and forms the Euclidean distance between levels:</p>
+<p><span class="math display">\[
+(\mathbf{D})_{ij} = \lVert \mathbf{x}_i - \mathbf{x}_j \rVert.
+\]</span></p>
+<p>Any float coordinates are allowed for the computation of euclidean distances.</p>
+</section>
+<section id="separable-autoregressive" class="level4">
+<h4 class="anchored" data-anchor-id="separable-autoregressive">Separable autoregressive</h4>
+<p><code>ar_iso</code> and <code>ar_ani</code> also read coordinates listed in <code>unit</code>, but build a separable kernel — a product of one-dimensional autoregressive decays, one per coordinate axis:</p>
+<p><span class="math display">\[
+\mathbf{K_a} = \bigotimes_k \varphi_k^{\,\lvert x_i - x_j \rvert},
+\qquad \varphi_k = e^{-\rho_k} \in (0, 1),
+\]</span></p>
+<ul>
+<li><code>ar_iso</code> (isotropic) shares a single rate across all axes (<span class="math inline">\(\rho_k \equiv \rho\)</span>).</li>
+<li><code>ar_ani</code> (anisotropic) estimates one rate <span class="math inline">\(\rho_k\)</span> per axis: each direction has its own decay.</li>
+</ul>
+<p>Only integer coordinates are allowed for the computation of autoregressive kernels. One of the main interests of the autoregressive kernels is to stabilize and speed-up the computation using <a href="./training.html#examples-of-special-interest">SMW</a> under some configurations. For consistency with the other decay methods, the fitted <span class="math inline">\(\rho_k\)</span> are returned instead of <span class="math inline">\(\varphi_k\)</span>.</p>
+</section>
 </section>
 <section id="heteroscedastic" class="level3">
 <h3 class="anchored" data-anchor-id="heteroscedastic">Heteroscedastic</h3>
@@ -370,11 +455,13 @@ window.Quarto = {
 <p><span class="math display">\[
 \mathbf{R} = \mathbf{W}\,\mathbf{R}_{tot}\,\mathbf{W}^\top.
 \]</span></p>
-<p>Any structure can be declared on the residual, but not all are identifiable; the choice between a <code>full</code> and a <code>diag</code> residual across responses is discussed in <a href="./multivariate.html">Multivariate</a>.</p>
+<p>Most structures can be declared on the residual, but not all are identifiable; the choice between a <code>full</code> and a <code>diag</code> residual across responses is discussed in <a href="./multivariate.html">multivariate</a>.</p>
+<p>The residual takes no formula, therefore the block-diagonal (<code>bl_form</code>, <code>bl_resp</code>) and proportional blocks (<code>kr_form</code>, <code>kr_resp</code>) left-hand specifications are not allowed for the residual variance structure.</p>
+<p>To use a <code>eucl</code>, <code>ar_iso</code> or <code>ar_ani</code> right-hand specification, the residual requires a <code>coords</code> argument: the residual has no <code>unit</code> to carry the coordinate columns, so it receives them directly through <code>coords</code>. The autoregressive kernels (<code>ar_iso</code>, <code>ar_ani</code>) are allowed but discouraged on the residual, where they can be costly; consider carrying such structure with an extra random effect rather than burdening the residual.</p>
 </section>
 <section id="jitter" class="level2">
 <h2 class="anchored" data-anchor-id="jitter">Jitter</h2>
-<p>In some cases, <span class="math inline">\(\mathbf{\Sigma_a}\)</span> (or <span class="math inline">\(\mathbf{\Sigma_R}\)</span>) may exhibit a perfect correlation of <span class="math inline">\(1\)</span> or <span class="math inline">\(-1\)</span> which is expected and meaningful. However, such situation makes <span class="math inline">\(\mathbf{G}\)</span> (respectively <span class="math inline">\(\mathbf{R}\)</span>) singular. For this reason, a <code>jitter</code> argument (<span class="math inline">\(\varepsilon\)</span>) (0 by default, and <em>e.g</em> <code>jitter = 1e-6</code> for an actual effect) is available for <code>Random</code> and <code>Residual</code>. It improves the conditionning of <span class="math inline">\(\mathbf{\Sigma_a}\)</span> (respectively <span class="math inline">\(\mathbf{\Sigma_R}\)</span>) with a relative and an absolute increase of the diagonal:</p>
+<p>In some cases, <span class="math inline">\(\mathbf{\Sigma_a}\)</span> (or <span class="math inline">\(\mathbf{\Sigma_R}\)</span>) may exhibit a perfect correlation of <span class="math inline">\(1\)</span> or <span class="math inline">\(-1\)</span> which is expected and meaningful. However, such situation makes <span class="math inline">\(\mathbf{G}\)</span> (respectively <span class="math inline">\(\mathbf{R}\)</span>) singular. For this reason, a <code>jitter</code> argument (<span class="math inline">\(\varepsilon\)</span>) (0 by default, and <em>e.g</em> <code>jitter = 1e-6</code> for an actual effect) is available for <code>Random</code> and <code>Residual</code>. It improves the conditioning of <span class="math inline">\(\mathbf{\Sigma_a}\)</span> (respectively <span class="math inline">\(\mathbf{\Sigma_R}\)</span>) with a relative and an absolute increase of the diagonal:</p>
 <p><span class="math display">\[
 \mathbf{\Sigma_a} \approx
 \mathbf{\Sigma_a}

@@ -258,13 +258,13 @@ window.Quarto = {
 <h2 class="anchored" data-anchor-id="the-model">The model</h2>
 <p><span class="pyreml">pyreml</span> fits the linear mixed model:</p>
 <p><span class="math display">\[
-\mathbf{y} = \mathbf{X}\boldsymbol{\beta} + \mathbf{Z}\mathbf{u} + \mathbf{e},
+\mathbf{y} = \mathbf{X}\boldsymbol{\beta} + \mathbf{Z}\mathbf{u} + \mathbf{r},
 \qquad
 \mathbf{u} \sim \mathcal{N}(\mathbf{0}, \mathbf{G}),
 \qquad
-\mathbf{e} \sim \mathcal{N}(\mathbf{0}, \mathbf{R}),
+\mathbf{r} \sim \mathcal{N}(\mathbf{0}, \mathbf{R}),
 \]</span></p>
-<p>where <span class="math inline">\(\mathbf{X}\)</span> and <span class="math inline">\(\mathbf{Z}\)</span> are the incidence matrices of the fixed effects <span class="math inline">\(\boldsymbol{\beta}\)</span> and the random effects <span class="math inline">\(\mathbf{u}\)</span>, and <span class="math inline">\(\mathbf{G}\)</span> and <span class="math inline">\(\mathbf{R}\)</span> are the covariances of <span class="math inline">\(\mathbf{u}\)</span> and <span class="math inline">\(\mathbf{e}\)</span>. These two covariances are assembled from the structures declared by the user (see <a href="./variance_structures.html">Variance structures</a>).</p>
+<p>where <span class="math inline">\(\mathbf{X}\)</span> and <span class="math inline">\(\mathbf{Z}\)</span> are the incidence matrices of the fixed effects <span class="math inline">\(\boldsymbol{\beta}\)</span> and the random effects <span class="math inline">\(\mathbf{u}\)</span>, and <span class="math inline">\(\mathbf{G}\)</span> and <span class="math inline">\(\mathbf{R}\)</span> are the covariances of <span class="math inline">\(\mathbf{u}\)</span> and <span class="math inline">\(\mathbf{r}\)</span>. These two covariances are assembled from the structures declared by the user (see <a href="./variance_structures.html">Variance structures</a>).</p>
 </section>
 <section id="example" class="level2">
 <h2 class="anchored" data-anchor-id="example">Example</h2>

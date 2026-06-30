@@ -247,29 +247,36 @@ window.Quarto = {
 <p>After fitting, <span class="pyreml">pyreml</span> can predict random effects at levels of <code>unit</code> that were not observed in the training data, for instance spatial interpolation or genomic prediction. This is available for effects whose right-hand factor relates the levels to one another:</p>
 <table class="caption-top table">
 <colgroup>
-<col style="width: 18%">
-<col style="width: 81%">
+<col style="width: 31%">
+<col style="width: 68%">
 </colgroup>
 <thead>
 <tr class="header">
 <th><code>right_hand</code></th>
-<th>Prediction input</th>
+<th>Prediction input over all levels (train + new)</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
 <td><code>str</code></td>
-<td>A known covariance over training and prediction levels.</td>
+<td>A known covariance, through <code>covariance</code>.</td>
 </tr>
 <tr class="even">
-<td><code>ar</code></td>
-<td>A known distance over training and prediction levels.</td>
+<td><code>dist</code></td>
+<td>A known distance, through <code>distance</code>.</td>
+</tr>
+<tr class="odd">
+<td><code>eucl</code> / <code>ar_iso</code> / <code>ar_ani</code></td>
+<td>The coordinate tuples, through <code>matrix_index</code>.</td>
 </tr>
 </tbody>
 </table>
+<p>For the coordinate kernels the coordinates are the level labels, so they are carried by <code>matrix_index</code> itself; for <code>str</code> and <code>dist</code> the matrix is supplied separately and <code>matrix_index</code> only orders its rows and columns.</p>
+<p>Residuals can never be predicted, even when using a covariance structure or kernel. Consider including such structure with an extra random effect instead.</p>
 <section id="prediction-on-the-fly" class="level2">
 <h2 class="anchored" data-anchor-id="prediction-on-the-fly">Prediction on-the-fly</h2>
 <p>The random effects can be directly obtained from <a href="./training.html#hmme">Henderson’s equations</a> with the new levels included as <em>dummy</em> individuals: carrying no observation, they are tied to the observed levels solely through their correlation to the observed ones expressed in <span class="math inline">\(\mathbf{K_a}\)</span>.</p>
+<p>For the <code>ar_iso</code> and <code>ar_ani</code>, the whole grid is always predicted on-the-fly.</p>
 </section>
 <section id="prediction-error-variance" class="level2">
 <h2 class="anchored" data-anchor-id="prediction-error-variance">Prediction error variance</h2>
@@ -294,72 +301,124 @@ window.Quarto = {
 \hat{\mathbf{a}}_{\text{train}},
 \]</span></p>
 <p>with <span class="math inline">\(\hat{\mathbf{a}}_{\text{pred}}\)</span> the pure prediction of unobserved levels, <span class="math inline">\(\hat{\mathbf{a}}_{\text{train}}\)</span> the prediction of the observed levels (usually predicted at the HMME step), and <span class="math inline">\(\mathbf{K}_{\text{pred}}\)</span> the covariance between the observed and non-observed levels.</p>
-<p>For <code>str</code>, <span class="math inline">\(\mathbf{K_a}\)</span> is read from the supplied covariance; for <code>ar</code>, it is rebuilt from the supplied distance with the estimated decay, <span class="math inline">\((\mathbf{K_a})_{ij} = \exp(-\hat{\rho}\, E_{ij})\)</span>.</p>
-<p>Prediction by kriging is operated at the random effect level, using <code>predict</code>:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>preds <span class="op">=</span> model.random[<span class="dv">0</span>].predict(</span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    matrix_index <span class="op">=</span> full_index,   <span class="co"># all levels: train + pred</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    covariance   <span class="op">=</span> K_full,       <span class="co"># or: distance = D_full for "ar"</span></span>
+<ul>
+<li>with <code>str</code>, <span class="math inline">\(\mathbf{K_a}\)</span> is directly read from the supplied covariance structure;</li>
+</ul>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode py code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>preds <span class="op">=</span> model.random[<span class="dv">0</span>].predict(</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    matrix_index <span class="op">=</span> full_index,   <span class="co"># all levels: train + new</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    covariance   <span class="op">=</span> K_full,</span>
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><code>matrix_index</code> orders a complete covariance (or distance) over all levels, training and new; <code>predict</code> returns a long-format DataFrame with one row per (unit, response, component).</p>
+<ul>
+<li>with <code>dist</code> it is rebuilt from the supplied distance <span class="math inline">\(\mathbf{D}\)</span> with the estimated decay <span class="math inline">\(\hat{\rho}\)</span>: <span class="math inline">\((\mathbf{K_a})_{ij} = \exp(-\hat{\rho}\, (\mathbf{D})_{ij})\)</span>;</li>
+</ul>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode py code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>preds <span class="op">=</span> model.random[<span class="dv">0</span>].predict(</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    matrix_index <span class="op">=</span> full_index,   <span class="co"># all levels: train + new</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    distance <span class="op">=</span> D_full,</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<ul>
+<li>with the coordinate kernels <code>eucl</code>, <code>ar_iso</code> and <code>ar_ani</code>, it is rebuilt from the coordinate tuples with the estimated rate(s), reusing the same Euclidean or autoregressive decay as in the fit.</li>
+</ul>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode py code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>preds <span class="op">=</span> model.random[<span class="dv">0</span>].predict(</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    matrix_index <span class="op">=</span> full_index,   <span class="co"># all levels: train + new</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><code>matrix_index</code> lists all levels, training and new; <code>predict</code> returns a long-format DataFrame with one row per (unit, response, component). When <code>unit</code> is a list of coordinate columns, those columns label the rows in place of a single <code>unit</code>.</p>
 </section>
 <section id="illustration" class="level2">
 <h2 class="anchored" data-anchor-id="illustration">Illustration</h2>
 <p>Let’s realize the spatial analysis of the <code>larix</code> illustrative dataset using the kriging prediction module.</p>
 <div class="scroll-cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode py code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pyreml <span class="im">import</span> MixedModel, Random, larix <span class="im">as</span> df</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co">## prepare data</span></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>df <span class="op">=</span> df[df[<span class="st">"year"</span>] <span class="op">==</span> <span class="dv">2000</span>].copy()</span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>df[<span class="st">"ID"</span>] <span class="op">=</span> np.arange(<span class="bu">len</span>(df))</span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co">## prepare distance matrix</span></span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>coords  <span class="op">=</span> df[[<span class="st">"X"</span>, <span class="st">"Y"</span>]].to_numpy()</span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>D_train <span class="op">=</span> np.linalg.norm(</span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    coords[:, <span class="va">None</span>, :] <span class="op">-</span> coords[<span class="va">None</span>, :, :],</span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    axis<span class="op">=-</span><span class="dv">1</span></span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="co"># fit the model</span></span>
-<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>mod <span class="op">=</span> MixedModel.from_dataframe(</span>
-<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    data     <span class="op">=</span> df,</span>
-<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    response <span class="op">=</span> <span class="st">"height"</span>,</span>
-<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    fixed    <span class="op">=</span> <span class="st">"1"</span>,</span>
-<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    random   <span class="op">=</span> Random(</span>
-<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>        unit         <span class="op">=</span> <span class="st">"ID"</span>,</span>
-<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>        right_hand   <span class="op">=</span> <span class="st">"ar"</span>,</span>
-<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>        distance     <span class="op">=</span> D_train,</span>
-<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>        matrix_index <span class="op">=</span> df[<span class="st">"ID"</span>].tolist(),</span>
-<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>    ),</span>
-<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>).fit()</span>
-<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a><span class="co"># prepare kriging distance matrix</span></span>
-<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>gx <span class="op">=</span> np.arange(coords[:, <span class="dv">0</span>].<span class="bu">min</span>()<span class="op">-</span><span class="dv">20</span>, coords[:, <span class="dv">0</span>].<span class="bu">max</span>()<span class="op">+</span><span class="dv">20</span>)</span>
-<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>gy <span class="op">=</span> np.arange(coords[:, <span class="dv">1</span>].<span class="bu">min</span>()<span class="op">-</span><span class="dv">10</span>, coords[:, <span class="dv">1</span>].<span class="bu">max</span>()<span class="op">+</span><span class="dv">10</span>)</span>
-<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>GX, GY   <span class="op">=</span> np.meshgrid(gx, gy)</span>
-<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>grid     <span class="op">=</span> np.column_stack([GX.ravel(), GY.ravel()])</span>
-<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>grid_ids <span class="op">=</span> np.arange(<span class="bu">len</span>(df), <span class="bu">len</span>(df) <span class="op">+</span> <span class="bu">len</span>(grid))</span>
-<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>all_coords <span class="op">=</span> np.vstack([coords, grid])</span>
-<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>D_full <span class="op">=</span> np.linalg.norm(all_coords[:, <span class="va">None</span>, :] <span class="op">-</span> all_coords[<span class="va">None</span>, :, :], axis<span class="op">=-</span><span class="dv">1</span>)</span>
-<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a><span class="co"># predict by kriging</span></span>
-<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>pred <span class="op">=</span> mod.random[<span class="dv">0</span>].predict(</span>
-<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>    matrix_index <span class="op">=</span> df[<span class="st">"ID"</span>].tolist() <span class="op">+</span> grid_ids.tolist(),</span>
-<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>    distance     <span class="op">=</span> D_full,</span>
-<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a><span class="co"># plot the results</span></span>
-<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a>surface <span class="op">=</span> pred[<span class="st">"prediction"</span>].to_numpy().reshape(GX.shape)</span>
-<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a>m <span class="op">=</span> np.<span class="bu">abs</span>(surface).<span class="bu">max</span>()</span>
-<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a>plt.imshow(surface, origin<span class="op">=</span><span class="st">"lower"</span>,</span>
-<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a>           extent<span class="op">=</span>[gx.<span class="bu">min</span>(), gx.<span class="bu">max</span>(), gy.<span class="bu">min</span>(), gy.<span class="bu">max</span>()],</span>
-<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a>           aspect<span class="op">=</span><span class="st">"equal"</span>, cmap<span class="op">=</span><span class="st">"RdBu_r"</span>, vmin<span class="op">=-</span>m, vmax<span class="op">=</span>m)                   </span>
-<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a>plt.colorbar(label<span class="op">=</span><span class="st">"prediction"</span>)</span>
-<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a>plt.scatter(df[<span class="st">"X"</span>], df[<span class="st">"Y"</span>], c<span class="op">=</span><span class="st">"black"</span>, s<span class="op">=</span><span class="dv">8</span>)</span>
-<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"X"</span>)<span class="op">;</span> plt.ylabel(<span class="st">"Y"</span>)</span>
-<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a>plt.show()                 </span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode py code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pyreml <span class="im">import</span> MixedModel, Random, larix <span class="im">as</span> df</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="co"># prepare data</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>df <span class="op">=</span> df[df[<span class="st">"year"</span>] <span class="op">==</span> <span class="dv">2000</span>].copy()</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="co"># fit the model: coordinates are read directly from `unit`</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>mod <span class="op">=</span> MixedModel.from_dataframe(</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    data<span class="op">=</span>df,</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    response<span class="op">=</span><span class="st">"height"</span>,</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    fixed<span class="op">=</span><span class="st">"1"</span>,</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    random<span class="op">=</span>Random(</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>        unit<span class="op">=</span>[<span class="st">"X"</span>, <span class="st">"Y"</span>],</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>        right_hand<span class="op">=</span><span class="st">"eucl"</span>,</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    ),</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>).fit()</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a><span class="co"># build the prediction grid</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>coords <span class="op">=</span> df[[<span class="st">"X"</span>, <span class="st">"Y"</span>]].to_numpy()</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>gx <span class="op">=</span> np.arange(</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>    coords[:, <span class="dv">0</span>].<span class="bu">min</span>() <span class="op">-</span> <span class="dv">20</span>,</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>    coords[:, <span class="dv">0</span>].<span class="bu">max</span>() <span class="op">+</span> <span class="dv">20</span>,</span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>gy <span class="op">=</span> np.arange(</span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>    coords[:, <span class="dv">1</span>].<span class="bu">min</span>() <span class="op">-</span> <span class="dv">10</span>,</span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>    coords[:, <span class="dv">1</span>].<span class="bu">max</span>() <span class="op">+</span> <span class="dv">10</span>,</span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>GX, GY <span class="op">=</span> np.meshgrid(gx, gy)</span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a>grid <span class="op">=</span> np.column_stack([GX.ravel(), GY.ravel()])</span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a><span class="co"># coordinate tuples used as matrix indices</span></span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a>train_coords <span class="op">=</span> [<span class="bu">tuple</span>(c) <span class="cf">for</span> c <span class="kw">in</span> coords]</span>
+<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a>grid_coords <span class="op">=</span> [<span class="bu">tuple</span>(c) <span class="cf">for</span> c <span class="kw">in</span> grid]</span>
+<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a><span class="co"># fitted BLUPs at the observed coordinates</span></span>
+<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a>train_blup <span class="op">=</span> {</span>
+<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a>    coord: prediction</span>
+<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> coord, prediction <span class="kw">in</span> <span class="bu">zip</span>(</span>
+<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a>        train_coords,</span>
+<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a>        mod.random[<span class="dv">0</span>].table[<span class="st">"prediction"</span>],</span>
+<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-47"><a href="#cb4-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-48"><a href="#cb4-48" aria-hidden="true" tabindex="-1"></a><span class="co"># predict only genuinely new coordinates</span></span>
+<span id="cb4-49"><a href="#cb4-49" aria-hidden="true" tabindex="-1"></a>new_coords <span class="op">=</span> [</span>
+<span id="cb4-50"><a href="#cb4-50" aria-hidden="true" tabindex="-1"></a>    coord</span>
+<span id="cb4-51"><a href="#cb4-51" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> coord <span class="kw">in</span> grid_coords</span>
+<span id="cb4-52"><a href="#cb4-52" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> coord <span class="kw">not</span> <span class="kw">in</span> train_blup</span>
+<span id="cb4-53"><a href="#cb4-53" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb4-54"><a href="#cb4-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-55"><a href="#cb4-55" aria-hidden="true" tabindex="-1"></a>prediction_df <span class="op">=</span> mod.random[<span class="dv">0</span>].predict(</span>
+<span id="cb4-56"><a href="#cb4-56" aria-hidden="true" tabindex="-1"></a>    matrix_index<span class="op">=</span>train_coords <span class="op">+</span> new_coords,</span>
+<span id="cb4-57"><a href="#cb4-57" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb4-58"><a href="#cb4-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-59"><a href="#cb4-59" aria-hidden="true" tabindex="-1"></a><span class="co"># predicted values indexed by coordinate</span></span>
+<span id="cb4-60"><a href="#cb4-60" aria-hidden="true" tabindex="-1"></a>predicted_blup <span class="op">=</span> {</span>
+<span id="cb4-61"><a href="#cb4-61" aria-hidden="true" tabindex="-1"></a>    (row[<span class="st">"X"</span>], row[<span class="st">"Y"</span>]): row[<span class="st">"prediction"</span>]</span>
+<span id="cb4-62"><a href="#cb4-62" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> _, row <span class="kw">in</span> prediction_df.iterrows()</span>
+<span id="cb4-63"><a href="#cb4-63" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-64"><a href="#cb4-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-65"><a href="#cb4-65" aria-hidden="true" tabindex="-1"></a><span class="co"># observed cells use their fitted BLUP;</span></span>
+<span id="cb4-66"><a href="#cb4-66" aria-hidden="true" tabindex="-1"></a><span class="co"># unobserved cells use the kriging prediction</span></span>
+<span id="cb4-67"><a href="#cb4-67" aria-hidden="true" tabindex="-1"></a>surface <span class="op">=</span> np.array(</span>
+<span id="cb4-68"><a href="#cb4-68" aria-hidden="true" tabindex="-1"></a>    [</span>
+<span id="cb4-69"><a href="#cb4-69" aria-hidden="true" tabindex="-1"></a>        train_blup.get(coord, predicted_blup.get(coord))</span>
+<span id="cb4-70"><a href="#cb4-70" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> coord <span class="kw">in</span> grid_coords</span>
+<span id="cb4-71"><a href="#cb4-71" aria-hidden="true" tabindex="-1"></a>    ],</span>
+<span id="cb4-72"><a href="#cb4-72" aria-hidden="true" tabindex="-1"></a>    dtype<span class="op">=</span><span class="bu">float</span>,</span>
+<span id="cb4-73"><a href="#cb4-73" aria-hidden="true" tabindex="-1"></a>).reshape(GX.shape)</span>
+<span id="cb4-74"><a href="#cb4-74" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-75"><a href="#cb4-75" aria-hidden="true" tabindex="-1"></a><span class="co"># plot the results</span></span>
+<span id="cb4-76"><a href="#cb4-76" aria-hidden="true" tabindex="-1"></a>m <span class="op">=</span> np.nanmax(np.<span class="bu">abs</span>(surface))</span>
+<span id="cb4-77"><a href="#cb4-77" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-78"><a href="#cb4-78" aria-hidden="true" tabindex="-1"></a>plt.imshow(</span>
+<span id="cb4-79"><a href="#cb4-79" aria-hidden="true" tabindex="-1"></a>    surface,</span>
+<span id="cb4-80"><a href="#cb4-80" aria-hidden="true" tabindex="-1"></a>    origin<span class="op">=</span><span class="st">"lower"</span>,</span>
+<span id="cb4-81"><a href="#cb4-81" aria-hidden="true" tabindex="-1"></a>    extent<span class="op">=</span>[gx.<span class="bu">min</span>(), gx.<span class="bu">max</span>(), gy.<span class="bu">min</span>(), gy.<span class="bu">max</span>()],</span>
+<span id="cb4-82"><a href="#cb4-82" aria-hidden="true" tabindex="-1"></a>    aspect<span class="op">=</span><span class="st">"equal"</span>,</span>
+<span id="cb4-83"><a href="#cb4-83" aria-hidden="true" tabindex="-1"></a>    cmap<span class="op">=</span><span class="st">"RdBu_r"</span>,</span>
+<span id="cb4-84"><a href="#cb4-84" aria-hidden="true" tabindex="-1"></a>    vmin<span class="op">=-</span>m,</span>
+<span id="cb4-85"><a href="#cb4-85" aria-hidden="true" tabindex="-1"></a>    vmax<span class="op">=</span>m,</span>
+<span id="cb4-86"><a href="#cb4-86" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb4-87"><a href="#cb4-87" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-88"><a href="#cb4-88" aria-hidden="true" tabindex="-1"></a>plt.colorbar(label<span class="op">=</span><span class="st">"prediction"</span>)</span>
+<span id="cb4-89"><a href="#cb4-89" aria-hidden="true" tabindex="-1"></a>plt.scatter(df[<span class="st">"X"</span>], df[<span class="st">"Y"</span>], c<span class="op">=</span><span class="st">"black"</span>, s<span class="op">=</span><span class="dv">8</span>)</span>
+<span id="cb4-90"><a href="#cb4-90" aria-hidden="true" tabindex="-1"></a>plt.xlabel(<span class="st">"X"</span>)</span>
+<span id="cb4-91"><a href="#cb4-91" aria-hidden="true" tabindex="-1"></a>plt.ylabel(<span class="st">"Y"</span>)</span>
+<span id="cb4-92"><a href="#cb4-92" aria-hidden="true" tabindex="-1"></a>plt.show()         </span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>This models the spatial effect throughout the whole experimental design:</p>
 <div class="quarto-figure quarto-figure-center">

@@ -239,11 +239,12 @@ window.Quarto = {
   <li><a href="#ols" id="toc-ols" class="nav-link" data-scroll-target="#ols">OLS</a></li>
   <li><a href="#reml" id="toc-reml" class="nav-link" data-scroll-target="#reml">REML</a></li>
   <li><a href="#hmme" id="toc-hmme" class="nav-link" data-scroll-target="#hmme">HMME</a></li>
+  <li><a href="#akaike-information-criterion" id="toc-akaike-information-criterion" class="nav-link" data-scroll-target="#akaike-information-criterion">Akaike information criterion</a></li>
   <li><a href="#smw" id="toc-smw" class="nav-link" data-scroll-target="#smw">SMW</a>
   <ul class="collapse">
   <li><a href="#interest-of-smw-for-reml" id="toc-interest-of-smw-for-reml" class="nav-link" data-scroll-target="#interest-of-smw-for-reml">Interest of SMW for REML</a></li>
-  <li><a href="#examples-of-special-interest" id="toc-examples-of-special-interest" class="nav-link" data-scroll-target="#examples-of-special-interest">Examples of special interest</a></li>
   <li><a href="#implementation-of-smw" id="toc-implementation-of-smw" class="nav-link" data-scroll-target="#implementation-of-smw">Implementation of SMW</a></li>
+  <li><a href="#examples-of-special-interest" id="toc-examples-of-special-interest" class="nav-link" data-scroll-target="#examples-of-special-interest">Examples of special interest</a></li>
   </ul></li>
   <li><a href="#monitoring" id="toc-monitoring" class="nav-link" data-scroll-target="#monitoring">Monitoring</a></li>
   </ul>
@@ -278,7 +279,7 @@ window.Quarto = {
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>model.fit()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>This runs the full pipeline, calling this series of methods:</p>
 <ul>
-<li><p><code>.OLS()</code>, <a href="#ols">Ordinary least square</a> (OLS) initialization of <span class="math inline">\(\boldsymbol{\beta}\)</span>,</p></li>
+<li><p><code>.OLS()</code>, <a href="#ols">Ordinary least square</a> (OLS) initialization of <span class="math inline">\(\mathbf{\beta}\)</span>,</p></li>
 <li><p><code>.REML()</code>, <a href="#reml">REML</a> estimation of the variance components,</p></li>
 <li><p><code>.HMME()</code>, <a href="#hmme">Henderson’s mixed model equations</a> (HMME) for the random-effect predictions.</p></li>
 </ul>
@@ -288,11 +289,11 @@ window.Quarto = {
 <h2 class="anchored" data-anchor-id="ols">OLS</h2>
 <p>The fixed effects are first estimated by ordinary least squares,</p>
 <p><span class="math display">\[
-\hat{\boldsymbol{\beta}}_{\text{OLS}} =
+\hat{\mathbf{\beta}}_{\text{OLS}} =
 (\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top\mathbf{y}.
 \]</span></p>
 <p>If the model carries no random effect, an <code>iid</code> residual and a single response, then the OLS solution is already the answer and training stops here.</p>
-<p>Otherwise the OLS estimate initializes <span class="math inline">\(\boldsymbol{\beta}\)</span> before REML. This initialization is always performed by <code>.fit()</code> and is strongly recommended for lower level uses of <span class="pyreml">pyreml</span>.</p>
+<p>Otherwise the OLS estimate initializes <span class="math inline">\(\mathbf{\beta}\)</span> before REML. This initialization is always performed by <code>.fit()</code> and is strongly recommended for lower level uses of <span class="pyreml">pyreml</span>.</p>
 </section>
 <section id="reml" class="level2">
 <h2 class="anchored" data-anchor-id="reml">REML</h2>
@@ -305,15 +306,16 @@ window.Quarto = {
 \mathbf{V} = \mathbf{Z}\mathbf{G}\mathbf{Z}^\top + \mathbf{R},
 \]</span></p>
 <p>with residual variance <span class="math inline">\(\mathbf{R} = \mathbf{W}\left(\mathbf{\Sigma_R} \otimes \mathbf{K_R}\right)\mathbf{W}^\top\)</span>.</p>
-<p>Training estimates the variance parameters carried by the <span class="math inline">\(\mathbf{\Sigma_e}\)</span>, <span class="math inline">\(\mathbf{K_e}\)</span>, <span class="math inline">\(\mathbf{\Sigma_R}\)</span> and <span class="math inline">\(\mathbf{K_R}\)</span> jointly with <span class="math inline">\(\boldsymbol{\beta}\)</span>, then obtains the random effects <span class="math inline">\(\mathbf{u}\)</span>.</p>
-<p>The variance parameters and <span class="math inline">\(\boldsymbol{\beta}\)</span> are estimated by minimizing the restricted negative log-likelihood <span class="citation" data-cites="patterson_recovery_1971 harville_maximum_1977">(<a href="#ref-harville_maximum_1977" role="doc-biblioref">Harville, 1977</a>; <a href="#ref-patterson_recovery_1971" role="doc-biblioref">Patterson &amp; Thompson, 1971</a>)</span>:</p>
+<p>Training estimates the variance parameters carried by the <span class="math inline">\(\mathbf{\Sigma_e}\)</span>, <span class="math inline">\(\mathbf{K_e}\)</span>, <span class="math inline">\(\mathbf{\Sigma_R}\)</span> and <span class="math inline">\(\mathbf{K_R}\)</span> jointly with <span class="math inline">\(\mathbf{\beta}\)</span>, then obtains the random effects <span class="math inline">\(\mathbf{u}\)</span>.</p>
+<p>The variance parameters and <span class="math inline">\(\mathbf{\beta}\)</span> are estimated by minimizing the restricted negative log-likelihood <span class="citation" data-cites="patterson_recovery_1971 harville_maximum_1977">(<a href="#ref-harville_maximum_1977" role="doc-biblioref">Harville, 1977</a>; <a href="#ref-patterson_recovery_1971" role="doc-biblioref">Patterson &amp; Thompson, 1971</a>)</span>:</p>
 <p><span class="math display">\[
 -2\ell_{\text{REML}} = \log\lvert\mathbf{V}\rvert
++ (\mathbf{y}-\mathbf{X}\mathbf{\beta})^\top\mathbf{V}^{-1}
+  (\mathbf{y}-\mathbf{X}\mathbf{\beta})
 + \log\lvert\mathbf{X}^\top\mathbf{V}^{-1}\mathbf{X}\rvert
-+ (\mathbf{y}-\mathbf{X}\boldsymbol{\beta})^\top\mathbf{V}^{-1}
-  (\mathbf{y}-\mathbf{X}\boldsymbol{\beta}).
++ (n - p) \log(2\pi).
 \]</span></p>
-<p>The objective is differentiated by automatic differentiation and optimized with L-BFGS under a strong-Wolfe line search, with Adam as a fallback for steps the line search cannot complete. The variance parameters and <span class="math inline">\(\boldsymbol{\beta}\)</span> are optimized jointly.</p>
+<p>The objective is differentiated by automatic differentiation and optimized with L-BFGS under a strong-Wolfe line search, with Adam as a fallback for steps the line search cannot complete. The variance parameters and <span class="math inline">\(\mathbf{\beta}\)</span> are optimized jointly.</p>
 </section>
 <section id="hmme" class="level2">
 <h2 class="anchored" data-anchor-id="hmme">HMME</h2>
@@ -323,15 +325,26 @@ window.Quarto = {
 \mathbf{X}^\top\mathbf{R}^{-1}\mathbf{X} &amp; \mathbf{X}^\top\mathbf{R}^{-1}\mathbf{Z} \\
 \mathbf{Z}^\top\mathbf{R}^{-1}\mathbf{X} &amp; \mathbf{Z}^\top\mathbf{R}^{-1}\mathbf{Z}+\mathbf{G}^{-1}
 \end{bmatrix}
-\begin{bmatrix} \hat{\boldsymbol{\beta}} \\ \hat{\mathbf{u}} \end{bmatrix}
+\begin{bmatrix} \hat{\mathbf{\beta}} \\ \hat{\mathbf{u}} \end{bmatrix}
 =
 \begin{bmatrix}
 \mathbf{X}^\top\mathbf{R}^{-1}\mathbf{y} \\
 \mathbf{Z}^\top\mathbf{R}^{-1}\mathbf{y}
 \end{bmatrix}.
 \]</span></p>
-<p>Their solution gives the best linear unbiased estimator (BLUE) of <span class="math inline">\(\boldsymbol{\beta}\)</span> and the best linear unbiased predictor (BLUP) of <span class="math inline">\(\mathbf{u}\)</span>, in a single solve.</p>
+<p>Their solution gives the best linear unbiased estimator (BLUE) of <span class="math inline">\(\mathbf{\beta}\)</span> and the best linear unbiased predictor (BLUP) of <span class="math inline">\(\mathbf{u}\)</span>, in a single solve.</p>
 <p>The same system also yields the error variances of the estimates and predictions. See <a href="./prediction.html">Prediction</a> for the prediction error variance of <span class="math inline">\(\hat{\mathbf{u}}\)</span>.</p>
+</section>
+<section id="akaike-information-criterion" class="level2">
+<h2 class="anchored" data-anchor-id="akaike-information-criterion">Akaike information criterion</h2>
+<p>Once the model is fitted, the Akaike information criterion (AIC) is computed in two different ways depending on whether it was performed by <code>OLS</code> or <code>HMME</code>/<code>REML</code>. The AIC method is consigned in the <code>AIC_meth</code> attribute.</p>
+<p>These two AICs should not be compared one with each other. AIC computed post-OLS is designed for the exploration of fixed effects with no variance structure, and AIC computed post REML/HMME is designed for the investigation of the variance structure with a fixed <span class="math inline">\(\mathbf{X}\)</span> (<em>i.e.</em> a fixed <code>formula</code> in the model specification).</p>
+<p>AIC post OLS is computed using the likelihood, from the unbiased residual variance <span class="math inline">\(\sigma^2_R\)</span>:</p>
+<p><span class="math display">\[
+-2\ell_{\text{ML}} = n \log\left( \frac{n-p}{n} \sigma^2_R \right) + n + n \log(2\pi)
+\]</span></p>
+<p>and AIC post REML/HMME is computed using the restricted likelihood (<span class="math inline">\(-2\ell_{\text{REML}}\)</span>).</p>
+<p>In both cases, AIC is obtained by the addition of twice the total number of parameters (<span class="math inline">\(\beta\)</span>, and all independent variance parameters).</p>
 </section>
 <section id="smw" class="level2">
 <h2 class="anchored" data-anchor-id="smw">SMW</h2>
@@ -375,15 +388,6 @@ window.Quarto = {
 <li>or if both <span class="math inline">\(\mathbf{\Sigma_R}\)</span> and <span class="math inline">\(\mathbf{K_R}\)</span> are diagonal, as <span class="math inline">\(\mathbf{W}\)</span> is a mere row-column selector.</li>
 </ul>
 </section>
-<section id="examples-of-special-interest" class="level3">
-<h3 class="anchored" data-anchor-id="examples-of-special-interest">Examples of special interest</h3>
-<p>SMW meaningfulness can be exemplified in these situations:</p>
-<ul>
-<li>with <code>right_hand = str</code> for a given effect <span class="math inline">\(\mathbf{a}\)</span>; the inversion of <span class="math inline">\(\mathbf{K_a}\)</span> is done once for all and cached so that only the left hand (possibly a mere scalar <span class="math inline">\(\sigma^2_\mathbf{a}\)</span>) needs inversion at each step;</li>
-<li>with any diagonal covariance (<code>left_hand</code> in <code>{iid, diag}</code> or <code>right_hand</code> in <code>{iid, het}</code>); the inversion turns an <span class="math inline">\(O(n^3)\)</span> factorization into an <span class="math inline">\(O(n)\)</span> elementwise operation;</li>
-<li>with <code>left_hand = fa</code>; the inversion of <span class="math inline">\(\mathbf{\Sigma_a}\)</span> is also done with SMW as it is approximated by the same form <span class="math inline">\(\mathbf{\Sigma_a} = \mathbf{Q_a}\mathbf{\Lambda_a}\mathbf{Q_a}^\top + \mathbf{\Psi_a}\)</span>, breaking the problem down even further.</li>
-</ul>
-</section>
 <section id="implementation-of-smw" class="level3">
 <h3 class="anchored" data-anchor-id="implementation-of-smw">Implementation of SMW</h3>
 <p>SMW is usually more efficient when <span class="math inline">\(q &lt; n\)</span>, with <span class="math inline">\(q\)</span> the number of columns of <span class="math inline">\(\mathbf{Z}\)</span> (the total dimension of <span class="math inline">\(\mathbf{u}\)</span>) and <span class="math inline">\(n\)</span> the number of stacked observations (<em>i.e.</em> <span class="math inline">\(\mathbf{Z}\)</span> is narrower than tall). Indeed, inverting the <span class="math inline">\(q \times q\)</span> matrix <span class="math inline">\(\mathbf{C}\)</span> is cheaper than inverting the <span class="math inline">\(n \times n\)</span> matrix <span class="math inline">\(\mathbf{V}\)</span> only when <span class="math inline">\(q &lt; n\)</span>.</p>
@@ -393,12 +397,11 @@ window.Quarto = {
 <li>using the high-level <code>from_dataframe</code> constructor, if the user forces <code>SMW=True</code> or <code>False</code> then their decision takes precedence over any other rule.</li>
 <li>using the high-level <code>from_dataframe</code> constructor, if all of the following conditions are met then SMW is switched off regardless of the dimensional rule:
 <ul>
-<li>Several responses are provided;</li>
-<li>These responses do not share exactly the same missing values;</li>
+<li><span class="math inline">\(\mathbf{W} \neq \mathbf{I}\)</span>, which can arise for instance with several unbalanced option, or when using autoregressive structures.</li>
 <li>The residual covariance <span class="math inline">\(\mathbf{R}\)</span> is not designed as a diagonal matrix.</li>
 </ul></li>
 </ul>
-<p>Indeed, in this situation <span class="math inline">\(\mathbf{R}^{-1} \neq \mathbf{W}\left(\mathbf{\Sigma_R}^{-1} \otimes \mathbf{K_R}^{-1}\right)\mathbf{W}^\top\)</span> and inverting the <span class="math inline">\(n \times n\)</span> matrix <span class="math inline">\(\mathbf{R}\)</span> is just as expensive as inverting <span class="math inline">\(\mathbf{V}\)</span> .</p>
+<p>Indeed, in this situation <span class="math inline">\(\mathbf{R}^{-1} \neq \mathbf{W}\left(\mathbf{\Sigma_R}^{-1} \otimes \mathbf{K_R}^{-1}\right)\mathbf{W}^\top\)</span> and inverting the <span class="math inline">\(n \times n\)</span> matrix <span class="math inline">\(\mathbf{R}\)</span> is just as expensive as inverting <span class="math inline">\(\mathbf{V}\)</span>.</p>
 <ul>
 <li>with the low-level constructor:
 <ul>
@@ -407,6 +410,32 @@ window.Quarto = {
 <li>If both methods are available, the dimensional rule applies.</li>
 </ul></li>
 </ul>
+</section>
+<section id="examples-of-special-interest" class="level3">
+<h3 class="anchored" data-anchor-id="examples-of-special-interest">Examples of special interest</h3>
+<p>SMW meaningfulness can be exemplified in these situations:</p>
+<ul>
+<li>with <code>right_hand = str</code> for a given effect <span class="math inline">\(\mathbf{a}\)</span>; the inversion of <span class="math inline">\(\mathbf{K_a}\)</span> is done once for all and cached so that only the left hand (possibly a mere scalar <span class="math inline">\(\sigma^2_\mathbf{a}\)</span>) needs inversion at each step;</li>
+<li>with any diagonal covariance (<code>left_hand</code> in <code>{iid, diag}</code> and <code>right_hand</code> in <code>{iid, het}</code>); the inversion of this block turns an <span class="math inline">\(O(n^3)\)</span> factorization into an <span class="math inline">\(O(n)\)</span> elementwise operation;</li>
+<li>with <code>left_hand = fa</code>; the inversion of <span class="math inline">\(\mathbf{\Sigma_a}\)</span> is also done with SMW as it is approximated by the same form <span class="math inline">\(\mathbf{\Sigma_a} = \mathbf{Q_a}\mathbf{\Lambda_a}\mathbf{Q_a}^\top + \mathbf{\Psi_a}\)</span>, breaking the problem down even further.</li>
+<li>the block diagonal structures, that rely on Kronecker products or direct sums, can be broke down into smaller problems.</li>
+<li>with the autoregressive kernels (<code>ar_iso</code>, <code>ar_ani</code>), not only the construction of the inverse of <span class="math inline">\(\mathbf{K}_a\)</span> can be broken down as a Kronecker product of inverses, but furthermore these elementary inverses have a close form:</li>
+</ul>
+<p><span class="math display">\[
+\mathbf{K}_a^{-1}
+  = \bigotimes_k \mathbf{K}_k^{-1},
+\qquad
+\mathbf{K}_k^{-1}
+  = \frac{1}{1-\varphi_k^2}
+  \begin{pmatrix}
+  1 &amp; -\varphi_k &amp; 0 &amp; \cdots &amp; 0 \\
+  -\varphi_k &amp; 1+\varphi_k^2 &amp; -\varphi_k &amp; \ddots &amp; \vdots \\
+  0 &amp; -\varphi_k &amp; 1+\varphi_k^2 &amp; \ddots &amp; 0 \\
+  \vdots &amp; \ddots &amp; \ddots &amp; \ddots &amp; -\varphi_k \\
+  0 &amp; \cdots &amp; 0 &amp; -\varphi_k &amp; 1
+  \end{pmatrix}.
+\]</span></p>
+<p>Given the dimensional rule, and that <span class="math inline">\(\mathbf{K}_a\)</span> is built for the whole grid even if it is sparsed, this actually optimizes the computation in the current dense implementation only when there are more observations than the number of nodes on the whole grid (several observation per node on the grid, and a dense grid).</p>
 </section>
 </section>
 <section id="monitoring" class="level2">
