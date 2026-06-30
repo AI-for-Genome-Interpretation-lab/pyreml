@@ -1330,7 +1330,11 @@ class Random(GaussianComponent):
             else:
                 u_train = u_full
 
-            u_pred = (K_pred @ torch.linalg.solve(K_train, u_train.T)).T.cpu().numpy()
+            if self.right_hand == "str":
+                Kinv_train, _ = self.build_Kinv()           # cached self.precision, training order
+                u_pred = (K_pred @ Kinv_train @ u_train.T).T.cpu().numpy()
+            else:
+                u_pred = (K_pred @ torch.linalg.solve(K_train, u_train.T)).T.cpu().numpy()
 
             if coord_regime:
                 cols = [*self._coord_cols, "response", "component", "prediction"]
