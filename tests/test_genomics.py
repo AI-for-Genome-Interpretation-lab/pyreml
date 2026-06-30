@@ -9,9 +9,17 @@ from pyreml import MixedModel, Random, Residual, A_genomic
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REF_JSON = os.path.join(HERE, "data", "genomic_sim.json")
+REF_BLKR_JSON = os.path.join(HERE, "data", "genomic_blkr.json")
 
 P = 5
 N_AXES = 2
+
+RESP = {0: [0, 1], 1: [2, 3]}
+FORM = {"Intercept": [0, 2], "x": [1, 3]}
+RESPONSES = ["y_0", "y_1"]
+TERMS = ["Intercept", "x"]
+
+MODELS = ["bl_resp", "bl_form", "kr_resp", "kr_form"]
 
 @pytest.fixture(scope="session")
 def ref():
@@ -70,7 +78,6 @@ def fitted_het(sim, G, request):
         SMW = request.param,
     ).fit()
 
-
 @pytest.fixture(scope="session", params=[True, False], ids=["woodbury", "direct"])
 def fitted_fa(sim, G, request):
     return MixedModel.from_dataframe(
@@ -90,6 +97,44 @@ def fitted_fa(sim, G, request):
         ),
         SMW = request.param,
     ).fit()
+
+@pytest.fixture(scope="session")
+def ref_blkr():
+    with open(REF_BLKR_JSON) as f:
+        return json.load(f)
+
+@pytest.fixture(scope="session")
+def sim_blkr(ref_blkr):
+    return {
+        "id_index": ref_blkr["id_index"],
+        "Sigma_A": np.array(ref_blkr["Sigma_A"]),
+        "Sigma_R": np.array(ref_blkr["Sigma_R"]),
+        "true_beta": {r: np.array(v) for r, v in ref_blkr["true_beta"].items()},
+        "u_true": np.array(ref_blkr["u_true"]),          # (n, 4)
+        "df_cols": pd.DataFrame(ref_blkr["df_cols"]),
+    }
+
+@pytest.fixture(scope="session", params=[
+    (lh, smw) for lh in MODELS for smw in (True, False)
+], ids=lambda p: f"{p[0]}-{'woodbury' if p[1] else 'direct'}")
+def fitted_blkr(sim_blkr, G, request):
+    lh, smw = request.param
+    mod = MixedModel.from_dataframe(
+        data     = sim_blkr["df_cols"],
+        response = RESPONSES,
+        fixed    = "1 + x",
+        random = Random(
+            unit         = "ID",
+            formula      = "1 + x",
+            left_hand    = lh,
+            right_hand   = "str",
+            covariance   = G,
+            matrix_index = sim_blkr["id_index"],
+        ),
+        residual = Residual(left_hand="diag"),
+        SMW = smw,
+    ).fit()
+    return lh, mod
 
 def _abs_corr(a, b):
     """|Pearson correlation| -- sign-agnostic, for factor axes / eigenvectors."""
@@ -228,3 +273,87 @@ class TestFA:
         ss_tot = np.sum((y_stacked - y_stacked.mean()) ** 2)
         r2 = 1.0 - ss_res / ss_tot
         assert r2 >= 0.95
+
+def _block(S, rows, cols):
+    return S[np.ix_(rows, cols)]
+
+
+class TestBlKr:
+    def test_structural_zeros(self, fitted_blkr):
+        """Off-block entries constrained to zero must be exactly zero (wiring check)."""
+        lh, mod = fitted_blkr
+        S = mod.random[0].build_S().detach().numpy()
+        if lh in ("bl_resp", "kr_resp"):
+            cross = _block(S, RESP[0], RESP[1])      # cross-response block
+        else:
+            cross = _block(S, FORM["Intercept"], FORM["x"])  # intercept–slope block
+        assert np.abs(cross).max() <= 1e-10
+
+    def test_variances_present_and_plausible(self, fitted_blkr, sim_blkr):
+        lh, mod = fitted_blkr
+        S = mod.random[0].build_S().detach().numpy()
+        true_var = np.diag(sim_blkr["Sigma_A"])
+        for i in range(S.shape[0]):
+            v = S[i, i]
+            assert np.isfinite(v) and v > 0.0
+            assert 0.4 * true_var[i] <= v <= 2.0 * true_var[i], (
+                f"{lh} diag[{i}]={v:.3f}"
+            )
+        # proportionality: only for kr structures, read the stored coefficient
+        if lh in ("kr_resp", "kr_form"):
+            mod.random[0].format_variance()
+            kr = mod.random[0].variance["metadata"]["kr"]
+            ratios = [r["alpha" if lh == "kr_resp" else "omega"] for r in kr["ratios"]]
+            # le ratio bloc/bloc doit égaler le coef stocké (proportionnalité exacte)
+            if lh == "kr_resp":
+                block_ratio = _block(S, RESP[1], RESP[1]) / _block(S, RESP[0], RESP[0])
+            else:
+                block_ratio = _block(S, FORM["x"], FORM["x"]) / _block(S, FORM["Intercept"], FORM["Intercept"])
+            cv = block_ratio.std() / abs(block_ratio.mean())
+            assert cv <= 1e-4, f"{lh}: non-constant ratio, cv={cv:.2e}"
+            np.testing.assert_allclose(block_ratio.mean(), ratios[0], rtol=1e-4)
+
+    def test_residual_variances(self, fitted_blkr, sim_blkr):
+        lh, mod = fitted_blkr
+        mod.residual.format_variance()
+        S_r = np.diag(mod.residual.variance["sigma"])
+        true_r = sim_blkr["Sigma_R"]
+        for j, resp in enumerate(RESPONSES):
+            rel_err = abs(S_r[j] - true_r[j]) / true_r[j]
+            assert rel_err <= 0.30, f"{lh} {resp}: residual relative error {rel_err:.3f}"
+
+    def test_environment_means(self, fitted_blkr, sim_blkr):
+        """Beta coefficients: intercept and slope per response, with a broad absolute tolerance."""
+        lh, mod = fitted_blkr
+        est = mod.estimates
+        for resp in RESPONSES:
+            true_int, true_slope = sim_blkr["true_beta"][resp]
+            sub = est[est["response"] == resp].set_index("term")["estimate"]
+            assert abs(sub["Intercept"] - true_int) <= 3.0
+            assert abs(sub["x"] - true_slope) <= 1.5
+
+    def test_blup_accuracy(self, fitted_blkr, sim_blkr):
+        """BLUP accuracy for each (response, component) pair."""
+        lh, mod = fitted_blkr
+        u_true = sim_blkr["u_true"]   # (n, 4), component order
+        col = {("y_0", "Intercept"): 0, ("y_0", "x"): 1,
+               ("y_1", "Intercept"): 2, ("y_1", "x"): 3}
+        tab = mod.random[0].table
+        u_df = pd.DataFrame({"unit": sim_blkr["id_index"]})
+        for (resp, comp), c in col.items():
+            u_df[f"{resp}|{comp}"] = u_true[:, c]
+        for resp in RESPONSES:
+            for comp in TERMS:
+                pred = tab[(tab["response"] == resp) & (tab["component"] == comp)][["unit", "prediction"]]
+                cmp = pred.merge(u_df[["unit", f"{resp}|{comp}"]], on="unit")
+                acc = np.corrcoef(cmp["prediction"], cmp[f"{resp}|{comp}"])[0, 1]
+                assert acc >= 0.85, f"{lh} {resp} {comp}: acc={acc:.4f}"
+
+    def test_r2(self, fitted_blkr, sim_blkr):
+        lh, mod = fitted_blkr
+        resid_tab = mod.residual.table
+        for resp in RESPONSES:
+            e = resid_tab[resid_tab["response"] == resp]["residual"].to_numpy()
+            yv = sim_blkr["df_cols"][resp].to_numpy()
+            r2 = 1.0 - np.sum(e ** 2) / np.sum((yv - yv.mean()) ** 2)
+            assert r2 >= 0.80, f"{lh} {resp}: R²={r2:.4f}"

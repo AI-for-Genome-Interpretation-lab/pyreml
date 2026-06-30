@@ -64,41 +64,29 @@ def _assert_table(got_df, ref_records, numeric_cols, label_cols):
 def spatial():
     df = larix.copy()
     df = df[df["year"] == 2000].copy()
-    df["ID"] = np.arange(len(df))
-
-    coords = df[["X", "Y"]].to_numpy()
-    D_train = np.linalg.norm(
-        coords[:, None, :] - coords[None, :, :],
-        axis=-1,
-    )
 
     mod = MixedModel.from_dataframe(
         data     = df,
         response = "height",
         fixed    = "1",
         random   = Random(
-            unit         = "ID",
-            right_hand   = "ar",
-            distance     = D_train,
-            matrix_index = df["ID"].tolist(),
+            unit       = ["X", "Y"],
+            right_hand = "eucl",
         ),
     ).fit()
+
+    coords = df[["X", "Y"]].to_numpy()
+    train_coords = [tuple(c) for c in coords]
 
     # coarse grid (step 10): must match the frozen reference produced by doc.py
     gx = np.arange(coords[:, 0].min() - 20, coords[:, 0].max() + 20, 10)
     gy = np.arange(coords[:, 1].min() - 20, coords[:, 1].max() + 20, 10)
     GX, GY = np.meshgrid(gx, gy)
     grid = np.column_stack([GX.ravel(), GY.ravel()])
-    grid_ids = np.arange(len(df), len(df) + len(grid))
-    all_coords = np.vstack([coords, grid])
-    D_full = np.linalg.norm(
-        all_coords[:, None, :] - all_coords[None, :, :],
-        axis=-1,
-    )
+    grid_coords = [tuple(c) for c in grid]
 
     pred = mod.random[0].predict(
-        matrix_index = df["ID"].tolist() + grid_ids.tolist(),
-        distance     = D_full,
+        matrix_index = train_coords + grid_coords,
     )
     return {"mod": mod, "pred": pred, "n_train": len(df), "n_grid": len(grid)}
 
@@ -200,9 +188,9 @@ class TestSpatial:
             label_cols=["response", "term"],
         )
 
-    def test_ar_parameter(self, spatial):
+    def test_rho(self, spatial):
         ref = _ref("spatial")
-        _close(spatial["mod"].random[0].variance["metadata"]["ar"], ref["ar"], "ar")
+        _close(spatial["mod"].random[0].variance["metadata"]["rho"], ref["rho"], "rho")
 
     def test_additive_variance(self, spatial):
         ref = _ref("spatial")
@@ -218,7 +206,7 @@ class TestSpatial:
             spatial["mod"].random[0].table,
             ref["blup"],
             numeric_cols=["prediction"],
-            label_cols=["unit", "response", "component"],
+            label_cols=["X", "Y", "response", "component"],
         )
 
     def test_residuals(self, spatial):
@@ -236,7 +224,7 @@ class TestSpatial:
             spatial["pred"],
             ref["prediction"],
             numeric_cols=["prediction"],
-            label_cols=["unit", "response", "component"],
+            label_cols=["X", "Y", "response", "component"],
         )
 
 class TestRegression:

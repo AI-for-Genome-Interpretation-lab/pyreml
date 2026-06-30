@@ -83,6 +83,10 @@ class TestOLS:
         actual = mod_ols.estimates["t"].tolist()
         np.testing.assert_allclose(actual, expected, atol=1e-10)
 
+    def test_aic(self, mod_ols):
+            expected = EXPECTED_FIXED_REG["aic"]
+            actual = float(mod_ols.AIC)
+            np.testing.assert_allclose(actual, expected, atol=1e-10)
 
 class TestLMM:
 
@@ -142,3 +146,8 @@ class TestLMM:
             expected = EXPECTED_RANDOM_REG["tvals"]
             actual = mod_lmm.estimates["t"].tolist()
             np.testing.assert_allclose(actual, expected, rtol=1e-5) # woodbury
+
+    def test_aic(self, mod_lmm):
+            expected = EXPECTED_RANDOM_REG["aic"]
+            actual = float(mod_lmm.AIC)
+            np.testing.assert_allclose(actual, expected, atol=1e-10)

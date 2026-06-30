@@ -7,10 +7,18 @@ that were not observed in the training data, for instance spatial interpolation
 or genomic prediction. This is available for effects whose right-hand factor
 relates the levels to one another:
 
-| `right_hand` | Prediction input                                              |
-|--------------|--------------------------------------------------------------|
-| `str`        | A known covariance over training and prediction levels.      |
-| `ar`         | A known distance over training and prediction levels.        |
+| `right_hand`            | Prediction input over all levels (train + new)        |
+|-------------------------|-------------------------------------------------------|
+| `str`                   | A known covariance, through `covariance`.             |
+| `dist`                  | A known distance, through `distance`.                 |
+| `eucl` / `ar_iso` / `ar_ani` | The coordinate tuples, through `matrix_index`.   |
+
+For the coordinate kernels the coordinates are the level labels, so they are
+carried by `matrix_index` itself; for `str` and `dist` the matrix is supplied
+separately and `matrix_index` only orders its rows and columns.
+
+Residuals can never be predicted, even when using a covariance structure 
+or kernel. Consider including such structure with an extra random effect instead.
 
 ## Prediction on-the-fly
 
@@ -18,6 +26,8 @@ The random effects can be directly obtained from
 [Henderson's equations](training.qmd#hmme) with the new levels included as
 *dummy* individuals: carrying no observation, they are tied to the observed
 levels solely through their correlation to the observed ones expressed in $\mathbf{K_a}$.
+
+For the `ar_iso` and `ar_ani`, the whole grid is always predicted on-the-fly.
 
 ## Prediction error variance
 
@@ -58,22 +68,40 @@ $\hat{\mathbf{a}}_{\text{train}}$ the prediction of the observed levels (usually
 predicted at the HMME step), and $\mathbf{K}_{\text{pred}}$ the covariance
 between the observed and non-observed levels.
 
-For `str`, $\mathbf{K_a}$ is read from the supplied covariance; for `ar`, it is
-rebuilt from the supplied distance with the estimated decay,
-$(\mathbf{K_a})_{ij} = \exp(-\hat{\rho}\, E_{ij})$.
+- with `str`, $\mathbf{K_a}$ is directly read from the supplied covariance structure;
 
-Prediction by kriging is operated at the random effect level, using `predict`:
-
-```python
+```py
 preds = model.random[0].predict(
-    matrix_index = full_index,   # all levels: train + pred
-    covariance   = K_full,       # or: distance = D_full for "ar"
+    matrix_index = full_index,   # all levels: train + new
+    covariance   = K_full,
 )
 ```
 
-`matrix_index` orders a complete covariance (or distance) over all levels,
-training and new; `predict` returns a long-format DataFrame with one row per
-(unit, response, component).
+- with `dist` it is
+rebuilt from the supplied distance $\mathbf{D}$ with the estimated decay $\hat{\rho}$:
+$(\mathbf{K_a})_{ij} = \exp(-\hat{\rho}\, (\mathbf{D})_{ij})$;
+
+```py
+preds = model.random[0].predict(
+    matrix_index = full_index,   # all levels: train + new
+    distance = D_full,
+)
+```
+
+- with the coordinate kernels `eucl`, `ar_iso` and `ar_ani`, it
+is rebuilt from the coordinate tuples with the estimated rate(s), reusing the
+same Euclidean or autoregressive decay as in the fit.
+
+```py
+preds = model.random[0].predict(
+    matrix_index = full_index,   # all levels: train + new
+)
+```
+
+`matrix_index` lists all levels, training and new; `predict` returns a
+long-format DataFrame with one row per (unit, response, component). When `unit`
+is a list of coordinate columns, those columns label the rows in place of a
+single `unit`.
 
 ## Illustration
 
@@ -86,56 +114,94 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pyreml import MixedModel, Random, larix as df
 
-## prepare data
+# prepare data
 df = df[df["year"] == 2000].copy()
-df["ID"] = np.arange(len(df))
 
-## prepare distance matrix
-coords  = df[["X", "Y"]].to_numpy()
-D_train = np.linalg.norm(
-    coords[:, None, :] - coords[None, :, :],
-    axis=-1
-)
-
-# fit the model
+# fit the model: coordinates are read directly from `unit`
 mod = MixedModel.from_dataframe(
-    data     = df,
-    response = "height",
-    fixed    = "1",
-    random   = Random(
-        unit         = "ID",
-        right_hand   = "ar",
-        distance     = D_train,
-        matrix_index = df["ID"].tolist(),
+    data=df,
+    response="height",
+    fixed="1",
+    random=Random(
+        unit=["X", "Y"],
+        right_hand="eucl",
     ),
 ).fit()
 
-# prepare kriging distance matrix
-gx = np.arange(coords[:, 0].min()-20, coords[:, 0].max()+20)
-gy = np.arange(coords[:, 1].min()-10, coords[:, 1].max()+10)
-GX, GY   = np.meshgrid(gx, gy)
-grid     = np.column_stack([GX.ravel(), GY.ravel()])
-grid_ids = np.arange(len(df), len(df) + len(grid))
-all_coords = np.vstack([coords, grid])
-D_full = np.linalg.norm(all_coords[:, None, :] - all_coords[None, :, :], axis=-1)
+# build the prediction grid
+coords = df[["X", "Y"]].to_numpy()
 
-# predict by kriging
-pred = mod.random[0].predict(
-    matrix_index = df["ID"].tolist() + grid_ids.tolist(),
-    distance     = D_full,
+gx = np.arange(
+    coords[:, 0].min() - 20,
+    coords[:, 0].max() + 20,
 )
 
-# plot the results
-surface = pred["prediction"].to_numpy().reshape(GX.shape)
-m = np.abs(surface).max()
+gy = np.arange(
+    coords[:, 1].min() - 10,
+    coords[:, 1].max() + 10,
+)
 
-plt.imshow(surface, origin="lower",
-           extent=[gx.min(), gx.max(), gy.min(), gy.max()],
-           aspect="equal", cmap="RdBu_r", vmin=-m, vmax=m)                   
+GX, GY = np.meshgrid(gx, gy)
+grid = np.column_stack([GX.ravel(), GY.ravel()])
+
+# coordinate tuples used as matrix indices
+train_coords = [tuple(c) for c in coords]
+grid_coords = [tuple(c) for c in grid]
+
+# fitted BLUPs at the observed coordinates
+train_blup = {
+    coord: prediction
+    for coord, prediction in zip(
+        train_coords,
+        mod.random[0].table["prediction"],
+    )
+}
+
+# predict only genuinely new coordinates
+new_coords = [
+    coord
+    for coord in grid_coords
+    if coord not in train_blup
+]
+
+prediction_df = mod.random[0].predict(
+    matrix_index=train_coords + new_coords,
+)
+
+# predicted values indexed by coordinate
+predicted_blup = {
+    (row["X"], row["Y"]): row["prediction"]
+    for _, row in prediction_df.iterrows()
+}
+
+# observed cells use their fitted BLUP;
+# unobserved cells use the kriging prediction
+surface = np.array(
+    [
+        train_blup.get(coord, predicted_blup.get(coord))
+        for coord in grid_coords
+    ],
+    dtype=float,
+).reshape(GX.shape)
+
+# plot the results
+m = np.nanmax(np.abs(surface))
+
+plt.imshow(
+    surface,
+    origin="lower",
+    extent=[gx.min(), gx.max(), gy.min(), gy.max()],
+    aspect="equal",
+    cmap="RdBu_r",
+    vmin=-m,
+    vmax=m,
+)
+
 plt.colorbar(label="prediction")
 plt.scatter(df["X"], df["Y"], c="black", s=8)
-plt.xlabel("X"); plt.ylabel("Y")
-plt.show()                 
+plt.xlabel("X")
+plt.ylabel("Y")
+plt.show()         
 ```
 :::
 

@@ -37,7 +37,7 @@ model.fit()
 | `random`   | A `Random` object or a list of them. See [variance structures](variance_structures.qmd) and [random regression](random_regression.qmd). |
 | `residual` | A `Residual` object; defaults to `iid`. See [variance structures](variance_structures.qmd). |
 | `dtype`    | The PyTorch floating-point dtype for every tensor of the model. Defaults to `torch.double` for maximal precision. Downgrade to `torch.float` for computational speed. |
-| `device`   | The device the model lives and trains on. Defaults to `"cpu"`, use `cuda` for [GPU acceleration](http://www.nvidia.com/cuda). |
+| `device`   | The device the model lives and trains on. Defaults to `"cpu"`, use `"cuda"` for [GPU acceleration](http://www.nvidia.com/cuda). |
 
 Each argument maps onto a term of the model: `fixed` builds $\mathbf{X}$, each
 `random` effect contributes columns to $\mathbf{Z}$ and a block of $\mathbf{G}$,
@@ -53,7 +53,7 @@ own set of observed rows, and unbalanced designs are handled out of the box.
 
 ## The fitted model
 
-After `fit()` (see [Training](training.qmd)), the estimates are read off the model and its effects:
+After `fit()` (see [training](training.qmd#the-fit-method)), the estimates are read off the model and its effects:
 
 | Accessor                   | Content                                                              |
 |----------------------------|---------------------------------------------------------------------|
@@ -62,7 +62,8 @@ After `fit()` (see [Training](training.qmd)), the estimates are read off the mod
 | `model.random[i].variance` | Its estimated variance structure. For homogeneity across methods, `sigma` is always a variance ($\Sigma$ or $\sigma^2$) and never a standard deviation $\sigma$. |
 | `model.residual.table`     | Model residuals.                                                    |
 | `model.residual.variance`  | The estimated residual variance.                                    |
-| `model.AIC`                | Akaike information criterion (AIC).                                 |
+| `model.AIC`                | Akaike information criterion [AIC](training.qmd#akaike-information-criterion). |
+| `model.AIC_meth`           | Method with which the AIC was obtained.                             |
 
 [pyreml]{.pyreml} does not compute p-values for the fixed effects.
 However, as an approximation, the `t` column can be compared to a $\mathcal{N}(0,1)$ distribution.

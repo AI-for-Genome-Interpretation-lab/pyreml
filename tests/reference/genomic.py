@@ -40,7 +40,7 @@ print(len(pedigree))
 A = A_pedigree(pedigree)
 
 # %% [markdown]
-# ## Simulate a genomic matrix from pedigree
+# ## Simulate a genomic matrix from the pedigree
 
 # %%
 n = A.shape[0]
@@ -78,7 +78,7 @@ plt.show()
 K = K2
 
 # %% [markdown]
-# ## Simulate a multritrial scenario
+# ## Simulate a multi-trial scenario
 
 # %%
 p = 5
@@ -236,11 +236,11 @@ print(f"  pyreml={var_a_hat:.3f}  true (Sigma_A[0,0])={Sigma_A[0, 0]:.3f}")
 mod_het.residual.format_variance()
 var = mod_het.residual.variance
 
-sigma_base = float(var["sigma"])          # variance de la modalité de référence (env 0)
-het = var["metadata"]["het"]              # [{column, h}, ...] pour les non-référence
+sigma_base = float(var["sigma"])          # variance of the reference category (env 0)
+het = var["metadata"]["het"]              # [{column, h}, ...] for non-reference categories
 
-# la référence (niveau patsy droppé = env 0) porte l'échelle ;
-# les autres sont des ratios h à cette référence
+# the reference category (dropped Patsy level = env 0) carries the scale;
+# the others are h ratios relative to this reference
 sigma_r_hat = {0: sigma_base}
 for entry in het:
     k = int(entry["column"].split("[T.")[1].rstrip("]"))   # "C(envt)[T.k]" -> k
@@ -388,4 +388,168 @@ reference_fa = {
 with open("../data/genomic_fa.json", "w") as f:
     json.dump(reference_fa, f, indent=2)
 
+# %% [markdown]
+# ## Bivariate random regression — references bl_resp / bl_form / kr_resp / kr_form
+# (reuses the beginning of the genomic script up to `K = K2`)
 
+# %%
+# d = k*c = 4, response-outer / formula-inner components:
+#   0:(y_0,Intercept) 1:(y_0,x) 2:(y_1,Intercept) 3:(y_1,x)
+corr = 0.5
+var = 10.0
+R = np.full((4, 4), corr)
+np.fill_diagonal(R, 1.0)
+Sigma_A = var * R                      # positive definite: eigenvalues 25 and 5 (x3)
+
+Sigma_R = np.array([4.0, 6.0])         # diagonal residual across the 2 responses (distinct)
+
+# true fixed effects (population): intercept and slope for each response
+true_beta = {"y_0": (100.0, 3.0), "y_1": (50.0, -2.0)}
+
+x_points = np.array([-2.0, -1.0, 0.0, 1.0, 2.0])
+
+print("Sigma_A =\n", Sigma_A)
+print("Sigma_R =", Sigma_R)
+print("true_beta =", true_beta)
+
+# %%
+# u ~ N(0, Sigma_A ⊗ K), using the same mechanism as in the previous script
+id_to_row = {id_: i for i, id_ in enumerate(pedigree["ID"])}
+
+Ls = np.linalg.cholesky(Sigma_A).T
+Lg = np.linalg.cholesky(K).T
+z = rng.normal(0, 1, size=4 * n).reshape(4, n)
+u = (Ls @ z @ Lg.T).T                  # (n, 4), columns in component order
+print("u.shape =", u.shape)
+
+# %%
+# records: each phenotyped genotype × each x value, with both responses observed
+geno = df["ID"].drop_duplicates().to_numpy()
+recs = []
+for gid in geno:
+    ri = id_to_row[gid]
+    a0i, a0s, a1i, a1s = u[ri]          # (y0,Int)(y0,x)(y1,Int)(y1,x)
+    for xv in x_points:
+        gv0 = true_beta["y_0"][0] + true_beta["y_0"][1] * xv + a0i + a0s * xv
+        gv1 = true_beta["y_1"][0] + true_beta["y_1"][1] * xv + a1i + a1s * xv
+        y0 = gv0 + rng.normal(0, np.sqrt(Sigma_R[0]))
+        y1 = gv1 + rng.normal(0, np.sqrt(Sigma_R[1]))
+        recs.append((gid, xv, y0, y1))
+
+df_cols = pd.DataFrame(recs, columns=["ID", "x", "y_0", "y_1"])
+print(df_cols.head())
+print("n_obs =", len(df_cols), " n_geno =", len(geno))
+
+# %%
+def fit_lh(left_hand):
+    return MixedModel.from_dataframe(
+        data     = df_cols,
+        response = ["y_0", "y_1"],
+        fixed    = "1 + x",
+        random = Random(
+            unit         = "ID",
+            formula      = "1 + x",
+            left_hand    = left_hand,
+            right_hand   = "str",
+            covariance   = K,
+            matrix_index = list(pedigree["ID"]),
+        ),
+        residual = Residual(left_hand="diag"),
+    ).fit()
+
+models = {lh: fit_lh(lh) for lh in ["bl_resp", "bl_form", "kr_resp", "kr_form"]}
+
+# %%
+# block indices (response-outer / formula-inner)
+RESP = {0: [0, 1], 1: [2, 3]}              # block / response
+FORM = {"Intercept": [0, 2], "x": [1, 3]}  # block / formula term
+
+def block(S, rows, cols):
+    return S[np.ix_(rows, cols)]
+
+# true sub-blocks of Sigma_A (what the nonzero blocks should approximate)
+true_resp0 = block(Sigma_A, RESP[0], RESP[0])      # [[10,5],[5,10]]
+true_form_int = block(Sigma_A, FORM["Intercept"], FORM["Intercept"])
+
+for lh, mod in models.items():
+    S = mod.random[0].build_S().detach().numpy()
+    print(f"\n===== {lh} =====")
+    print("S =\n", np.round(S, 3))
+
+    if lh in ("bl_resp", "kr_resp"):
+        cross = block(S, RESP[0], RESP[1])
+        print("  ||cross-response block|| (expected 0) =", np.abs(cross).max())
+        print("  response 0 block =\n", np.round(block(S, RESP[0], RESP[0]), 3))
+        print("  response 1 block =\n", np.round(block(S, RESP[1], RESP[1]), 3))
+        print("  true response block (reference) =\n", np.round(true_resp0, 3))
+        if lh == "kr_resp":
+            b0 = block(S, RESP[0], RESP[0])
+            b1 = block(S, RESP[1], RESP[1])
+            ratio = b1 / b0
+            print("  response1/response0 ratio (expected ~constant, ~1 here) =\n", np.round(ratio, 4))
+
+    if lh in ("bl_form", "kr_form"):
+        cross = block(S, FORM["Intercept"], FORM["x"])
+        print("  ||cross-formula block|| (expected 0) =", np.abs(cross).max())
+        bi = block(S, FORM["Intercept"], FORM["Intercept"])
+        bx = block(S, FORM["x"], FORM["x"])
+        print("  Intercept block =\n", np.round(bi, 3))
+        print("  x block =\n", np.round(bx, 3))
+        print("  true formula block (reference) =\n", np.round(true_form_int, 3))
+        if lh == "kr_form":
+            print("  x/Intercept ratio (expected ~constant, ~1 here) =\n", np.round(bx / bi, 4))
+
+    # diagonal residual
+    mod.residual.format_variance()
+    sr = np.diag(mod.residual.variance["sigma"])
+    print("  estimated residual =", np.round(sr, 3), " true =", Sigma_R)
+
+# %%
+# performance: BLUP accuracy by (response, component) + R² by response
+u_true_df = pd.DataFrame({
+    "unit": pedigree["ID"].values,
+    ("y_0", "Intercept"): u[:, 0],
+    ("y_0", "x"):         u[:, 1],
+    ("y_1", "Intercept"): u[:, 2],
+    ("y_1", "x"):         u[:, 3],
+})
+
+for lh, mod in models.items():
+    print(f"\n----- performance {lh} -----")
+    tab = mod.random[0].table
+    for resp in ["y_0", "y_1"]:
+        for comp in ["Intercept", "x"]:
+            pred = tab[(tab["response"] == resp) & (tab["component"] == comp)][["unit", "prediction"]]
+            tru = u_true_df[["unit", (resp, comp)]].rename(columns={(resp, comp): "u_true"})
+            cmp = pred.merge(tru, on="unit")
+            acc = np.corrcoef(cmp["prediction"], cmp["u_true"])[0, 1]
+            print(f"  acc {resp} {comp}: {acc:.4f}")
+
+    resid_tab = mod.residual.table
+    for resp in ["y_0", "y_1"]:
+        e = resid_tab[resid_tab["response"] == resp]["residual"].to_numpy()
+        yv = df_cols[resp].to_numpy()
+        r2 = 1.0 - np.sum(e ** 2) / np.sum((yv - yv.mean()) ** 2)
+        print(f"  R² {resp}: {r2:.4f}")
+
+# %%
+def _df_records(d):
+    return d.astype(object).where(d.notna(), None).to_dict(orient="records")
+
+reference_blkr = {
+    "model": "bl_kr_randomreg",
+    "k": 2, "c": 2, "d": 4,
+    "components": [["y_0", "Intercept"], ["y_0", "x"],
+                   ["y_1", "Intercept"], ["y_1", "x"]],
+    "corr_target": corr,
+    "var_target": var,
+    "id_index": list(pedigree["ID"]),
+    "Sigma_A": Sigma_A.tolist(),
+    "Sigma_R": Sigma_R.tolist(),
+    "true_beta": {r: list(v) for r, v in true_beta.items()},
+    "x_points": x_points.tolist(),
+    "u_true": u.tolist(),                # (n, 4), component order
+    "df_cols": _df_records(df_cols),
+}
+with open("../data/genomic_blkr.json", "w") as f:
+    json.dump(reference_blkr, f)

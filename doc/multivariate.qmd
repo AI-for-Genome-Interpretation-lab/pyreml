@@ -42,7 +42,7 @@ $\mathbf{\Sigma_a}$.
 
 The full stacked random vector keeps the direct-sum form 
 $\mathbf{u} \sim \mathcal{N}(\mathbf{0}, \bigoplus_e \mathbf{\Sigma}_e \otimes
-\mathbf{K}_e)$, and the residual stacks likewise (see [Training](training.qmd#reml)).
+\mathbf{K}_e)$, and the residual stacks likewise (see [training](training.qmd#reml)).
 This extends to any number of responses, random effects and
 random-regression components.
 

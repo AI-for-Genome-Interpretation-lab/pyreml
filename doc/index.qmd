@@ -24,17 +24,17 @@ pip install pyreml
 [pyreml]{.pyreml} fits the linear mixed model:
 
 $$
-\mathbf{y} = \mathbf{X}\boldsymbol{\beta} + \mathbf{Z}\mathbf{u} + \mathbf{e},
+\mathbf{y} = \mathbf{X}\boldsymbol{\beta} + \mathbf{Z}\mathbf{u} + \mathbf{r},
 \qquad
 \mathbf{u} \sim \mathcal{N}(\mathbf{0}, \mathbf{G}),
 \qquad
-\mathbf{e} \sim \mathcal{N}(\mathbf{0}, \mathbf{R}),
+\mathbf{r} \sim \mathcal{N}(\mathbf{0}, \mathbf{R}),
 $$
 
 where $\mathbf{X}$ and $\mathbf{Z}$ are the incidence matrices of the fixed
 effects $\boldsymbol{\beta}$ and the random effects $\mathbf{u}$, and
 $\mathbf{G}$ and $\mathbf{R}$ are the covariances of $\mathbf{u}$ and
-$\mathbf{e}$. These two covariances are assembled from the structures declared by
+$\mathbf{r}$. These two covariances are assembled from the structures declared by
 the user (see [Variance structures](variance_structures.qmd)).
 
 ## Example
@@ -86,8 +86,8 @@ model.random[0].table.head()
 ## Manual contents
 
 - [Building models](building_models.qmd)
-- [Variance structures](variance_structures.qmd)
 - [Choosing between fixed and random effects](fixed_random.qmd)
+- [Variance structures](variance_structures.qmd)
 - [Training models](training.qmd)
 - [Prediction](prediction.qmd)
 - [Multivariate analysis](multivariate.qmd)
