@@ -1441,10 +1441,12 @@ class Residual(GaussianComponent):
                 self.covariance = torch.as_tensor(np.asarray(self.covariance), dtype=self.dtype, device=self.device)
 
         self.init_varparams()         # -> self.varparams, self.log_S, (self.log_rho)
-
+        return self.W
+    
+    def check_Rtrick(self, W):
         self.W_is_identity = (
-            self.W.shape[0] == self.W.shape[1]
-            and np.allclose(self.W, np.eye(self.W.shape[0]))
+            W.shape[0] == W.shape[1]
+            and np.allclose(W, np.eye(W.shape[0]))
         )
         self.R_is_diagonal = (
             self.left_hand in ("iid", "diag")
@@ -1457,9 +1459,7 @@ class Residual(GaussianComponent):
         False otherwise
         """
         self.Rtrick = self.W_is_identity or self.R_is_diagonal
-
-        return self.W
-
+    
     def make_W(self) -> None:
         """
         W is the identity over the original rows of the DataFrame.

@@ -101,6 +101,7 @@ class MixedModel:
 
         W_blocks = residual.design(data, response, device = device, dtype = dtype)
         W = block_diag(*[W_blocks[m] for m in masks])
+        residual.check_Rtrick(W)
 
         varparams.extend(residual.varparams)
 
