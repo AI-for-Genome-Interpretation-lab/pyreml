@@ -239,8 +239,9 @@ breaking the problem down even further.
 - the block diagonal structures, that rely on Kronecker products or direct sums,
 can be broke down into smaller problems.
 - with the autoregressive kernels (`ar_iso`, `ar_ani`), not only
-the construction of the inverse of $\mathbf{K}_a$ can be broken down as a Kronecker
-of inverses, but furthermore these elementary inverses have a close form:
+the construction of the inverse of $\mathbf{K}_a$ can be broken down as a
+Kronecker product of inverses, but furthermore these elementary
+inverses have a close form:
 
 $$
 \mathbf{K}_a^{-1}

@@ -173,7 +173,7 @@ This is the first question to ask, because if the levels at
 hand are not exchangeable members of some
 larger population, the distributional assumption $\mathbf{a} \sim \mathcal{N}(0,
 \mathbf{G_a})$ is simply not meaningful. When there is no population to speak of,
-there is no real choice: the effect has to be fixed.
+there is not really a choice: the effect has to be fixed.
 
 ### Are there enough levels to estimate a variance?
 

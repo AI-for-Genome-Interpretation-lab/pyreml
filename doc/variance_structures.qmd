@@ -29,9 +29,9 @@ The two factors are set independently, through `left_hand` and `right_hand`.
 (response, formula element) pair: with $k$ responses and
 $c$ columns produced by the effect's [patsy](https://pypi.org/project/patsy/)
 `formula`, $\mathbf{\Sigma_a}$ is $(k\,c) \times (k\,c)$.
-How multiple responses are handled is covered in [Multivariate](multivariate.qmd).
+How multiple responses are handled is covered in the [multivariate](multivariate.qmd).
 How the `formula` carries a regression or random factors is
-covered in [Random regression and factors](random_regression.qmd).
+covered in [random regression and factors](random_regression.qmd).
 
 The index of $\mathbf{\Sigma_a}$ therefore has two sub-axes: the $k$
 responses and the $c$ formula columns; ordered response-outer, formula-inner.
@@ -170,7 +170,7 @@ estimated with strictly positive rate(s) $\rho > 0$, so all correlations are
 positive (no oscillation). The four members differ only in where the distance
 comes from and in which metric drives the decay. In all cases the
 estimated rate(s) are reused to predict new levels (see
-[Prediction](prediction.qmd)).
+[prediction](prediction.qmd)).
 
 When the distance is not supplied, the coordinates are read directly from
 `unit`: instead of a single grouping column, `unit` is passed as the list of
@@ -282,7 +282,7 @@ $$
 
 Most structures can be declared on the residual, but not all are identifiable; the
 choice between a `full` and a `diag` residual across responses is discussed in
-[Multivariate](multivariate.qmd).
+[multivariate](multivariate.qmd).
 
 The residual takes no formula, therefore the block-diagonal (`bl_form`, `bl_resp`) and 
 proportional blocks (`kr_form`, `kr_resp`) left-hand specifications

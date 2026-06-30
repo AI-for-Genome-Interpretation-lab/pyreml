@@ -6,9 +6,9 @@
     {
       "response": "height",
       "term": "Intercept",
-      "estimate": 467.89611731837715,
-      "SE": 53.38371427203731,
-      "t": 8.764772622115276
+      "estimate": 467.89611731860373,
+      "SE": 53.38371427170016,
+      "t": 8.764772622174876
     }
   ],
   "rho": 0.011174508388964879,
@@ -19,2486 +19,2486 @@
       "Y": 32.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 45.25626482873367
+      "prediction": 45.25626482850702
     },
     {
       "X": 39.0,
       "Y": 39.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 30.167663349716435
+      "prediction": 30.167663349480858
     },
     {
       "X": 35.0,
       "Y": 68.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -19.895117543598094
+      "prediction": -19.895117543823183
     },
     {
       "X": 25.0,
       "Y": 30.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 47.94903801919016
+      "prediction": 47.94903801896959
     },
     {
       "X": 36.0,
       "Y": 55.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 30.931936057719046
+      "prediction": 30.93193605748954
     },
     {
       "X": 8.0,
       "Y": 33.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 54.524490397472015
+      "prediction": 54.52449039723468
     },
     {
       "X": 31.0,
       "Y": 32.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 37.783405628139846
+      "prediction": 37.78340562790754
     },
     {
       "X": 16.0,
       "Y": 56.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 28.403656415283397
+      "prediction": 28.403656415051575
     },
     {
       "X": 66.0,
       "Y": 50.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 50.320717589114274
+      "prediction": 50.32071758890524
     },
     {
       "X": 27.0,
       "Y": 39.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 47.05626292218623
+      "prediction": 47.056262921961604
     },
     {
       "X": 34.0,
       "Y": 70.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -27.76438755286854
+      "prediction": -27.764387553091513
     },
     {
       "X": 60.0,
       "Y": 72.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -36.980723096003864
+      "prediction": -36.980723096224885
     },
     {
       "X": 8.0,
       "Y": 36.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 47.37578072204139
+      "prediction": 47.37578072180627
     },
     {
       "X": 35.0,
       "Y": 6.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -10.470842460924313
+      "prediction": -10.470842461140169
     },
     {
       "X": 34.0,
       "Y": 27.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 22.735684734250096
+      "prediction": 22.735684733997907
     },
     {
       "X": 37.0,
       "Y": 47.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 40.55905404131198
+      "prediction": 40.5590540410798
     },
     {
       "X": 48.0,
       "Y": 31.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 12.540119764578852
+      "prediction": 12.540119764347837
     },
     {
       "X": 51.0,
       "Y": 30.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 14.690141247141137
+      "prediction": 14.690141246914596
     },
     {
       "X": 27.0,
       "Y": 45.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 45.5659592052025
+      "prediction": 45.565959204973375
     },
     {
       "X": 19.0,
       "Y": 56.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 28.134249710511114
+      "prediction": 28.13424971027549
     },
     {
       "X": 54.0,
       "Y": 74.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -44.185554782947904
+      "prediction": -44.1855547831667
     },
     {
       "X": 35.0,
       "Y": 14.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -4.997604484238264
+      "prediction": -4.997604484470008
     },
     {
       "X": 36.0,
       "Y": 57.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 26.389942893472746
+      "prediction": 26.38994289324602
     },
     {
       "X": 34.0,
       "Y": 73.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -33.486486054618545
+      "prediction": -33.48648605483914
     },
     {
       "X": 62.0,
       "Y": 50.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 39.6180102617792
+      "prediction": 39.61801026157515
     },
     {
       "X": 54.0,
       "Y": 73.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -40.636726632929935
+      "prediction": -40.6367266331476
     },
     {
       "X": 38.0,
       "Y": 52.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 31.239256057493964
+      "prediction": 31.23925605726439
     },
     {
       "X": 28.0,
       "Y": 35.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 41.16700487726495
+      "prediction": 41.167004877042395
     },
     {
       "X": 59.0,
       "Y": 72.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -37.3755111734854
+      "prediction": -37.375511173705135
     },
     {
       "X": 20.0,
       "Y": 35.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 36.6254217548751
+      "prediction": 36.625421754656806
     },
     {
       "X": 36.0,
       "Y": 7.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -10.911234934145277
+      "prediction": -10.911234934359166
     },
     {
       "X": 58.0,
       "Y": 33.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 26.404545041101162
+      "prediction": 26.40454504088292
     },
     {
       "X": 51.0,
       "Y": 36.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 23.19331290678718
+      "prediction": 23.193312906553537
     },
     {
       "X": 8.0,
       "Y": 34.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 52.00091884335204
+      "prediction": 52.00091884311496
     },
     {
       "X": 39.0,
       "Y": 48.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 38.35641679276186
+      "prediction": 38.356416792530496
     },
     {
       "X": 17.0,
       "Y": 54.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 32.477624730339
+      "prediction": 32.47762473010493
     },
     {
       "X": 58.0,
       "Y": 69.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -31.05558225194016
+      "prediction": -31.055582252165753
     },
     {
       "X": 27.0,
       "Y": 40.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 45.38727089358594
+      "prediction": 45.38727089336177
     },
     {
       "X": 35.0,
       "Y": 15.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -4.762108625012527
+      "prediction": -4.762108625244833
     },
     {
       "X": 56.0,
       "Y": 66.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -15.841543352930552
+      "prediction": -15.841543353162583
     },
     {
       "X": 40.0,
       "Y": 51.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 28.74977500248279
+      "prediction": 28.74977500225534
     },
     {
       "X": 39.0,
       "Y": 4.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -12.786798364555276
+      "prediction": -12.78679836476371
     },
     {
       "X": 59.0,
       "Y": 33.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 27.458627642507324
+      "prediction": 27.458627642291457
     },
     {
       "X": 47.0,
       "Y": 38.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 23.913080442213584
+      "prediction": 23.913080441978128
     },
     {
       "X": 16.0,
       "Y": 36.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 41.92876272263895
+      "prediction": 41.928762722412955
     },
     {
       "X": 8.0,
       "Y": 32.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 54.420253997666784
+      "prediction": 54.42025399742949
     },
     {
       "X": 19.0,
       "Y": 55.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 30.916067820857464
+      "prediction": 30.91606782062178
     },
     {
       "X": 67.0,
       "Y": 45.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 53.995394012889825
+      "prediction": 53.99539401267635
     },
     {
       "X": 37.0,
       "Y": 43.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 42.42831297369902
+      "prediction": 42.4283129734657
     },
     {
       "X": 58.0,
       "Y": 72.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -39.40265784836112
+      "prediction": -39.402657848581676
     },
     {
       "X": 50.0,
       "Y": 75.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -57.51957794086634
+      "prediction": -57.519577941084
     },
     {
       "X": 36.0,
       "Y": 31.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 21.715695672326618
+      "prediction": 21.715695672084394
     },
     {
       "X": 39.0,
       "Y": 38.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 25.931725175344184
+      "prediction": 25.931725175107175
     },
     {
       "X": 15.0,
       "Y": 29.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 47.40752515992298
+      "prediction": 47.40752515969328
     },
     {
       "X": 41.0,
       "Y": 54.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 16.624091199422818
+      "prediction": 16.624091199195675
     },
     {
       "X": 27.0,
       "Y": 48.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 41.92964452482568
+      "prediction": 41.92964452459345
     },
     {
       "X": 64.0,
       "Y": 42.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 46.08321390699559
+      "prediction": 46.08321390677268
     },
     {
       "X": 50.0,
       "Y": 77.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -61.587446083787846
+      "prediction": -61.58744608400296
     },
     {
       "X": 37.0,
       "Y": 4.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -12.035618538366055
+      "prediction": -12.035618538577491
     },
     {
       "X": 11.0,
       "Y": 29.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 49.16293872620065
+      "prediction": 49.1629387259603
     },
     {
       "X": 64.0,
       "Y": 43.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 48.76911461668335
+      "prediction": 48.76911461646069
     },
     {
       "X": 24.0,
       "Y": 40.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 42.242220851475764
+      "prediction": 42.24222085124836
     },
     {
       "X": 22.0,
       "Y": 29.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 50.13232786363687
+      "prediction": 50.13232786342011
     },
     {
       "X": 33.0,
       "Y": 30.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 30.958499261300346
+      "prediction": 30.958499261054826
     },
     {
       "X": 59.0,
       "Y": 31.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 27.98291661584903
+      "prediction": 27.982916615637592
     },
     {
       "X": 51.0,
       "Y": 76.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -60.61946263256281
+      "prediction": -60.619462632779765
     },
     {
       "X": 40.0,
       "Y": 75.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -47.681655813281864
+      "prediction": -47.6816558135056
     },
     {
       "X": 42.0,
       "Y": 41.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 27.55572074906457
+      "prediction": 27.5557207488304
     },
     {
       "X": 11.0,
       "Y": 33.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 50.94006728504184
+      "prediction": 50.940067284802105
     },
     {
       "X": 30.0,
       "Y": 19.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 8.807009369345032
+      "prediction": 8.807009369118994
     },
     {
       "X": 24.0,
       "Y": 47.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 42.14067133446969
+      "prediction": 42.14067133423951
     },
     {
       "X": 59.0,
       "Y": 36.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 29.09035447920639
+      "prediction": 29.090354478986363
     },
     {
       "X": 68.0,
       "Y": 74.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -24.395826158981077
+      "prediction": -24.39582615918951
     },
     {
       "X": 52.0,
       "Y": 37.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 24.35703463873001
+      "prediction": 24.357034638498064
     },
     {
       "X": 38.0,
       "Y": 11.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -9.075344620981799
+      "prediction": -9.075344621202706
     },
     {
       "X": 37.0,
       "Y": 27.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 15.854811797191937
+      "prediction": 15.854811796932163
     },
     {
       "X": 58.0,
       "Y": 50.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 33.02746451139356
+      "prediction": 33.02746451118571
     },
     {
       "X": 18.0,
       "Y": 27.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 50.10062034026854
+      "prediction": 50.100620340047016
     },
     {
       "X": 13.0,
       "Y": 50.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 33.944272531149295
+      "prediction": 33.94427253091839
     },
     {
       "X": 38.0,
       "Y": 55.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 26.92195893054014
+      "prediction": 26.921958930308755
     },
     {
       "X": 23.0,
       "Y": 28.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 50.34689966411088
+      "prediction": 50.346899663891826
     },
     {
       "X": 50.0,
       "Y": 76.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -60.8131228165688
+      "prediction": -60.81312281678472
     },
     {
       "X": 41.0,
       "Y": 71.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -35.85834680881986
+      "prediction": -35.858346809046544
     },
     {
       "X": 33.0,
       "Y": 14.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -2.129546941792709
+      "prediction": -2.129546942024891
     },
     {
       "X": 56.0,
       "Y": 30.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 21.430078946580586
+      "prediction": 21.430078946363057
     },
     {
       "X": 18.0,
       "Y": 31.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 46.96365538079055
+      "prediction": 46.9636553805676
     },
     {
       "X": 67.0,
       "Y": 77.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -30.448830154498292
+      "prediction": -30.448830154704826
     },
     {
       "X": 38.0,
       "Y": 10.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -9.504754198862617
+      "prediction": -9.50475419908039
     },
     {
       "X": 58.0,
       "Y": 40.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 32.52883091615576
+      "prediction": 32.52883091593198
     },
     {
       "X": 18.0,
       "Y": 51.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 37.01077224491318
+      "prediction": 37.01077224467869
     },
     {
       "X": 23.0,
       "Y": 30.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 48.66592127939262
+      "prediction": 48.665921279175365
     },
     {
       "X": 11.0,
       "Y": 37.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 47.97086915102823
+      "prediction": 47.97086915079432
     },
     {
       "X": 63.0,
       "Y": 72.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -34.317545675741776
+      "prediction": -34.31754567596065
     },
     {
       "X": 43.0,
       "Y": 55.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 8.172963644698008
+      "prediction": 8.172963644470354
     },
     {
       "X": 50.0,
       "Y": 30.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 13.341936431814242
+      "prediction": 13.341936431588104
     },
     {
       "X": 38.0,
       "Y": 12.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -9.766272521906926
+      "prediction": -9.766272522129904
     },
     {
       "X": 56.0,
       "Y": 64.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -8.705364226890842
+      "prediction": -8.705364227121759
     },
     {
       "X": 64.0,
       "Y": 49.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 45.40492387195503
+      "prediction": 45.40492387174659
     },
     {
       "X": 6.0,
       "Y": 27.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 49.658718606790664
+      "prediction": 49.65871860656024
     },
     {
       "X": 21.0,
       "Y": 52.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 36.236929528644275
+      "prediction": 36.23692952840914
     },
     {
       "X": 37.0,
       "Y": 30.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 19.97971591892293
+      "prediction": 19.979715918674394
     },
     {
       "X": 39.0,
       "Y": 45.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 40.78997589368219
+      "prediction": 40.78997589344765
     },
     {
       "X": 18.0,
       "Y": 29.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 50.253860297875555
+      "prediction": 50.253860297652786
     },
     {
       "X": 56.0,
       "Y": 31.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 21.094830819392385
+      "prediction": 21.094830819171793
     },
     {
       "X": 30.0,
       "Y": 20.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 11.129888981321765
+      "prediction": 11.129888981093208
     },
     {
       "X": 41.0,
       "Y": 72.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -39.70125141637002
+      "prediction": -39.70125141659704
     },
     {
       "X": 23.0,
       "Y": 27.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 49.053984894202884
+      "prediction": 49.05398489398337
     },
     {
       "X": 11.0,
       "Y": 34.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 52.042397161649134
+      "prediction": 52.04239716140746
     },
     {
       "X": 32.0,
       "Y": 30.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 33.982096146351324
+      "prediction": 33.98209614611201
     },
     {
       "X": 57.0,
       "Y": 64.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -9.25521210723214
+      "prediction": -9.25521210746012
     },
     {
       "X": 38.0,
       "Y": 16.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -8.801060938740541
+      "prediction": -8.80106093897676
     },
     {
       "X": 41.0,
       "Y": 48.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 34.404361797297376
+      "prediction": 34.404361797064354
     },
     {
       "X": 52.0,
       "Y": 73.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -46.204049579157264
+      "prediction": -46.20404957937713
     },
     {
       "X": 14.0,
       "Y": 29.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 46.41218462405785
+      "prediction": 46.41218462382257
     },
     {
       "X": 35.0,
       "Y": 51.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 35.5649906158637
+      "prediction": 35.564990615627664
     },
     {
       "X": 42.0,
       "Y": 38.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 21.183023291083632
+      "prediction": 21.183023290846265
     },
     {
       "X": 23.0,
       "Y": 39.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 40.727927372481076
+      "prediction": 40.72792737225566
     },
     {
       "X": 22.0,
       "Y": 50.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 37.81662312544373
+      "prediction": 37.816623125210434
     },
     {
       "X": 59.0,
       "Y": 49.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 35.72330559852244
+      "prediction": 35.72330559831056
     },
     {
       "X": 60.0,
       "Y": 27.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 30.439188373324306
+      "prediction": 30.43918837312177
     },
     {
       "X": 31.0,
       "Y": 13.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 0.8346257912426692
+      "prediction": 0.8346257910196149
     },
     {
       "X": 26.0,
       "Y": 27.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 47.870658162101236
+      "prediction": 47.87065816187798
     },
     {
       "X": 34.0,
       "Y": 28.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 25.002725883118085
+      "prediction": 25.002725882867274
     },
     {
       "X": 14.0,
       "Y": 32.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 46.78104720139355
+      "prediction": 46.78104720116171
     },
     {
       "X": 10.0,
       "Y": 34.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 52.73490186113744
+      "prediction": 52.734901860895945
     },
     {
       "X": 35.0,
       "Y": 18.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 1.750306283357161
+      "prediction": 1.7503062831236411
     },
     {
       "X": 40.0,
       "Y": 73.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -42.05186851343678
+      "prediction": -42.05186851366506
     },
     {
       "X": 22.0,
       "Y": 47.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 41.13858574425928
+      "prediction": 41.13858574402816
     },
     {
       "X": 63.0,
       "Y": 69.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -21.940847286769362
+      "prediction": -21.940847286992568
     },
     {
       "X": 44.0,
       "Y": 55.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 7.7198849322055745
+      "prediction": 7.719884931977455
     },
     {
       "X": 57.0,
       "Y": 65.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -11.893613112127092
+      "prediction": -11.893613112357885
     },
     {
       "X": 32.0,
       "Y": 5.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -6.765956218987733
+      "prediction": -6.765956219203226
     },
     {
       "X": 37.0,
       "Y": 40.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 39.585644733448014
+      "prediction": 39.585644733217215
     },
     {
       "X": 28.0,
       "Y": 17.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 11.829275162711513
+      "prediction": 11.829275162486686
     },
     {
       "X": 14.0,
       "Y": 35.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 45.175195265972825
+      "prediction": 45.17519526574164
     },
     {
       "X": 25.0,
       "Y": 37.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 44.073820588806015
+      "prediction": 44.07382058858621
     },
     {
       "X": 54.0,
       "Y": 39.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 26.955861985558933
+      "prediction": 26.955861985330113
     },
     {
       "X": 60.0,
       "Y": 40.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 31.31408902271038
+      "prediction": 31.314089022483248
     },
     {
       "X": 38.0,
       "Y": 14.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -10.571513917054329
+      "prediction": -10.571513917288902
     },
     {
       "X": 36.0,
       "Y": 28.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 19.58192624396189
+      "prediction": 19.581926243704107
     },
     {
       "X": 38.0,
       "Y": 8.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -11.274104181600734
+      "prediction": -11.27410418181382
     },
     {
       "X": 22.0,
       "Y": 33.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 41.985728498976876
+      "prediction": 41.9857284987562
     },
     {
       "X": 61.0,
       "Y": 50.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 38.64511034416739
+      "prediction": 38.64511034396526
     },
     {
       "X": 10.0,
       "Y": 35.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 51.64461287165337
+      "prediction": 51.64461287141456
     },
     {
       "X": 68.0,
       "Y": 75.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -25.034808621104503
+      "prediction": -25.034808621313864
     },
     {
       "X": 37.0,
       "Y": 46.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 42.19946479560416
+      "prediction": 42.1994647953704
     },
     {
       "X": 23.0,
       "Y": 45.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 45.07681926596454
+      "prediction": 45.07681926573502
     },
     {
       "X": 32.0,
       "Y": 32.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 34.21334208472505
+      "prediction": 34.21334208448834
     },
     {
       "X": 42.0,
       "Y": 43.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 32.97124927560385
+      "prediction": 32.97124927537391
     },
     {
       "X": 18.0,
       "Y": 33.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 40.30353244334426
+      "prediction": 40.30353244312423
     },
     {
       "X": 30.0,
       "Y": 34.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 37.05340633803414
+      "prediction": 37.053406337808426
     },
     {
       "X": 55.0,
       "Y": 72.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -37.47538843047909
+      "prediction": -37.475388430696746
     },
     {
       "X": 23.0,
       "Y": 38.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 40.53484187820387
+      "prediction": 40.534841877980796
     },
     {
       "X": 37.0,
       "Y": 56.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 26.523216522390324
+      "prediction": 26.523216522163466
     },
     {
       "X": 7.0,
       "Y": 31.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 53.20407447241167
+      "prediction": 53.20407447217561
     },
     {
       "X": 29.0,
       "Y": 19.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 11.294471861244782
+      "prediction": 11.294471861020181
     },
     {
       "X": 30.0,
       "Y": 8.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -1.11916355314617
+      "prediction": -1.1191635533653204
     },
     {
       "X": 59.0,
       "Y": 27.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 29.76278275298309
+      "prediction": 29.762782752777646
     },
     {
       "X": 68.0,
       "Y": 50.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 51.383349884755596
+      "prediction": 51.38334988454652
     },
     {
       "X": 20.0,
       "Y": 52.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 36.70352888402288
+      "prediction": 36.70352888378867
     },
     {
       "X": 60.0,
       "Y": 46.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 40.07629004600692
+      "prediction": 40.07629004579114
     },
     {
       "X": 46.0,
       "Y": 50.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 13.995511248533017
+      "prediction": 13.995511248305853
     },
     {
       "X": 21.0,
       "Y": 42.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 39.1787399502493
+      "prediction": 39.17873995002232
     },
     {
       "X": 36.0,
       "Y": 68.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -21.049486621689773
+      "prediction": -21.04948662191521
     },
     {
       "X": 33.0,
       "Y": 11.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -5.507995623699447
+      "prediction": -5.507995623924692
     },
     {
       "X": 68.0,
       "Y": 72.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -22.31876727252263
+      "prediction": -22.318767272733215
     },
     {
       "X": 17.0,
       "Y": 31.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 47.95716785633257
+      "prediction": 47.95716785610769
     },
     {
       "X": 39.0,
       "Y": 43.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 40.232831503327716
+      "prediction": 40.23283150309184
     },
     {
       "X": 36.0,
       "Y": 15.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -5.546690561863426
+      "prediction": -5.546690562094644
     },
     {
       "X": 10.0,
       "Y": 29.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 51.037396033656435
+      "prediction": 51.03739603341582
     },
     {
       "X": 27.0,
       "Y": 28.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 48.29225272084239
+      "prediction": 48.29225272061724
     },
     {
       "X": 20.0,
       "Y": 32.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 42.31462133525333
+      "prediction": 42.31462133503455
     },
     {
       "X": 20.0,
       "Y": 51.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 36.818617813622915
+      "prediction": 36.81861781338972
     },
     {
       "X": 37.0,
       "Y": 39.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 37.80912926655015
+      "prediction": 37.80912926631574
     },
     {
       "X": 65.0,
       "Y": 47.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 51.634269309717766
+      "prediction": 51.634269309505456
     },
     {
       "X": 53.0,
       "Y": 28.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 18.84306912808496
+      "prediction": 18.84306912786375
     },
     {
       "X": 59.0,
       "Y": 39.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 31.11584352607877
+      "prediction": 31.11584352585255
     },
     {
       "X": 58.0,
       "Y": 74.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -42.71515912724932
+      "prediction": -42.715159127466485
     },
     {
       "X": 10.0,
       "Y": 32.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 52.7520954599732
+      "prediction": 52.75209545973358
     },
     {
       "X": 41.0,
       "Y": 73.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -44.80462391177637
+      "prediction": -44.80462391200446
     },
     {
       "X": 14.0,
       "Y": 52.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 27.595023157847272
+      "prediction": 27.595023157617714
     },
     {
       "X": 21.0,
       "Y": 35.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 36.56977292454705
+      "prediction": 36.569772924330145
     },
     {
       "X": 61.0,
       "Y": 31.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 28.593926916241845
+      "prediction": 28.59392691603282
     },
     {
       "X": 32.0,
       "Y": 28.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 27.803321810294147
+      "prediction": 27.803321810050246
     },
     {
       "X": 12.0,
       "Y": 29.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 46.92458552744373
+      "prediction": 46.92458552720451
     },
     {
       "X": 52.0,
       "Y": 67.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -20.02306219381904
+      "prediction": -20.023062194050457
     },
     {
       "X": 31.0,
       "Y": 14.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 1.0105408684574075
+      "prediction": 1.0105408682297896
     },
     {
       "X": 54.0,
       "Y": 34.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 19.461093657098154
+      "prediction": 19.461093656873068
     },
     {
       "X": 25.0,
       "Y": 39.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 42.936268074067826
+      "prediction": 42.93626807384246
     },
     {
       "X": 11.0,
       "Y": 35.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 50.41158144390037
+      "prediction": 50.411581443659855
     },
     {
       "X": 35.0,
       "Y": 3.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -10.49435420904415
+      "prediction": -10.494354209252542
     },
     {
       "X": 34.0,
       "Y": 51.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 36.90365429419169
+      "prediction": 36.90365429395535
     },
     {
       "X": 38.0,
       "Y": 39.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 34.24984464930285
+      "prediction": 34.24984464906747
     },
     {
       "X": 34.0,
       "Y": 34.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 25.687341565113122
+      "prediction": 25.687341564876068
     },
     {
       "X": 60.0,
       "Y": 77.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -48.35503439187964
+      "prediction": -48.355034392091504
     },
     {
       "X": 38.0,
       "Y": 70.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -31.615311516510666
+      "prediction": -31.615311516736444
     },
     {
       "X": 9.0,
       "Y": 27.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 46.59962249291724
+      "prediction": 46.59962249268222
     },
     {
       "X": 48.0,
       "Y": 28.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 9.096383412246313
+      "prediction": 9.096383412015394
     },
     {
       "X": 55.0,
       "Y": 30.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 19.60288107811379
+      "prediction": 19.602881077895592
     },
     {
       "X": 35.0,
       "Y": 10.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -9.509653890147582
+      "prediction": -9.509653890369606
     },
     {
       "X": 21.0,
       "Y": 54.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 28.854916353150134
+      "prediction": 28.854916352915478
     },
     {
       "X": 50.0,
       "Y": 67.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -20.63053479005042
+      "prediction": -20.630534790281125
     },
     {
       "X": 39.0,
       "Y": 51.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 31.304253809612373
+      "prediction": 31.304253809383532
     },
     {
       "X": 26.0,
       "Y": 46.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 45.357326737560996
+      "prediction": 45.35732673733187
     },
     {
       "X": 31.0,
       "Y": 15.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 2.0905742786366184
+      "prediction": 2.0905742784080785
     },
     {
       "X": 59.0,
       "Y": 50.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 34.64770586350952
+      "prediction": 34.64770586330108
     },
     {
       "X": 15.0,
       "Y": 30.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 48.8931078071969
+      "prediction": 48.893107806966235
     }
   ],
   "residuals": [
     {
       "observation": 0,
       "response": "height",
-      "residual": -38.15238214711087
+      "residual": -38.15238214711076
     },
     {
       "observation": 1,
       "response": "height",
-      "residual": 1.9362193319063863
+      "residual": 1.9362193319154244
     },
     {
       "observation": 2,
       "response": "height",
-      "residual": 23.999000225220925
+      "residual": 23.999000225219447
     },
     {
       "observation": 3,
       "response": "height",
-      "residual": -15.845155337567348
+      "residual": -15.84515533757326
     },
     {
       "observation": 4,
       "response": "height",
-      "residual": 50.17194662390381
+      "residual": 50.171946623906706
     },
     {
       "observation": 5,
       "response": "height",
-      "residual": 100.5793922841508
+      "residual": 100.5793922841616
     },
     {
       "observation": 6,
       "response": "height",
-      "residual": 91.32047705348299
+      "residual": 91.32047705348873
     },
     {
       "observation": 7,
       "response": "height",
-      "residual": 33.70022626633943
+      "residual": 33.700226266344714
     },
     {
       "observation": 8,
       "response": "height",
-      "residual": 98.78316509250863
+      "residual": 98.783165092491
     },
     {
       "observation": 9,
       "response": "height",
-      "residual": 155.04761975943666
+      "residual": 155.0476197594346
     },
     {
       "observation": 10,
       "response": "height",
-      "residual": -92.13172976550862
+      "residual": -92.1317297655122
     },
     {
       "observation": 11,
       "response": "height",
-      "residual": -14.915394222373266
+      "residual": -14.915394222378836
     },
     {
       "observation": 12,
       "response": "height",
-      "residual": -91.27189804041859
+      "residual": -91.27189804040995
     },
     {
       "observation": 13,
       "response": "height",
-      "residual": -9.425274857452848
+      "residual": -9.425274857463535
     },
     {
       "observation": 14,
       "response": "height",
-      "residual": 9.368197947372778
+      "residual": 9.368197947398357
     },
     {
       "observation": 15,
       "response": "height",
-      "residual": -39.45517135968913
+      "residual": -39.455171359683504
     },
     {
       "observation": 16,
       "response": "height",
-      "residual": -24.436237082955984
+      "residual": -24.43623708295155
     },
     {
       "observation": 17,
       "response": "height",
-      "residual": -12.586258565518278
+      "residual": -12.586258565518335
     },
     {
       "observation": 18,
       "response": "height",
-      "residual": 1.5379234764203602
+      "residual": 1.5379234764228613
     },
     {
       "observation": 19,
       "response": "height",
-      "residual": -16.030367028888236
+      "residual": -16.030367028879198
     },
     {
       "observation": 20,
       "response": "height",
-      "residual": 73.28943746457077
+      "residual": 73.28943746456298
     },
     {
       "observation": 21,
       "response": "height",
-      "residual": 47.1014871658611
+      "residual": 47.101487165866274
     },
     {
       "observation": 22,
       "response": "height",
-      "residual": 108.71393978815013
+      "residual": 108.71393978815024
     },
     {
       "observation": 23,
       "response": "height",
-      "residual": 10.590368736241373
+      "residual": 10.590368736235405
     },
     {
       "observation": 24,
       "response": "height",
-      "residual": -48.514127580156355
+      "residual": -48.514127580178865
     },
     {
       "observation": 25,
       "response": "height",
-      "residual": 74.74060931455278
+      "residual": 74.74060931454386
     },
     {
       "observation": 26,
       "response": "height",
-      "residual": 0.8646266241289027
+      "residual": 0.8646266241318585
     },
     {
       "observation": 27,
       "response": "height",
-      "residual": -24.06312219564211
+      "residual": -24.063122195646145
     },
     {
       "observation": 28,
       "response": "height",
-      "residual": 77.47939385510824
+      "residual": 77.47939385510142
     },
     {
       "observation": 29,
       "response": "height",
-      "residual": -44.52153907325226
+      "residual": -44.521539073260556
     },
     {
       "observation": 30,
       "response": "height",
-      "residual": 2.0151176157681334
+      "residual": 2.0151176157554573
     },
     {
       "observation": 31,
       "response": "height",
-      "residual": 32.69933764052166
+      "residual": 32.69933764051336
     },
     {
       "observation": 32,
       "response": "height",
-      "residual": 48.910569774835665
+      "residual": 48.91056977484271
     },
     {
       "observation": 33,
       "response": "height",
-      "residual": -34.89703616172915
+      "residual": -34.89703616171869
     },
     {
       "observation": 34,
       "response": "height",
-      "residual": 48.74746588886097
+      "residual": 48.747465888865804
     },
     {
       "observation": 35,
       "response": "height",
-      "residual": 49.62625795128383
+      "residual": 49.626257951291336
     },
     {
       "observation": 36,
       "response": "height",
-      "residual": -116.84053506643698
+      "residual": -116.84053506643795
     },
     {
       "observation": 37,
       "response": "height",
-      "residual": -53.28338821196314
+      "residual": -53.28338821196553
     },
     {
       "observation": 38,
       "response": "height",
-      "residual": -70.13400869336465
+      "residual": -70.13400869335891
     },
     {
       "observation": 39,
       "response": "height",
-      "residual": 32.94542603455341
+      "residual": 32.945426034558864
     },
     {
       "observation": 40,
       "response": "height",
-      "residual": 3.354107679140043
+      "residual": 3.3541076791409523
     },
     {
       "observation": 41,
       "response": "height",
-      "residual": -32.109318953821855
+      "residual": -32.109318953840045
     },
     {
       "observation": 42,
       "response": "height",
-      "residual": -19.35474496088449
+      "residual": -19.354744960895175
     },
     {
       "observation": 43,
       "response": "height",
-      "residual": 42.190802239409265
+      "residual": 42.19080223941813
     },
     {
       "observation": 44,
       "response": "height",
-      "residual": 12.175119958983885
+      "residual": 12.175119958983316
     },
     {
       "observation": 45,
       "response": "height",
-      "residual": 25.683628683956044
+      "residual": 25.68362868396673
     },
     {
       "observation": 46,
       "response": "height",
-      "residual": 68.1878148607654
+      "residual": 68.1878148607745
     },
     {
       "observation": 47,
       "response": "height",
-      "residual": 53.108488668733
+      "residual": 53.10848866871993
     },
     {
       "observation": 48,
       "response": "height",
-      "residual": 1.6755697079238416
+      "residual": 1.6755697079305492
     },
     {
       "observation": 49,
       "response": "height",
-      "residual": -100.49345947001603
+      "residual": -100.49345947002206
     },
     {
       "observation": 50,
       "response": "height",
-      "residual": -30.376539377510824
+      "residual": -30.376539377519748
     },
     {
       "observation": 51,
       "response": "height",
-      "residual": -46.611812990703754
+      "residual": -46.61181299068812
     },
     {
       "observation": 52,
       "response": "height",
-      "residual": -138.82784249372133
+      "residual": -138.82784249371093
     },
     {
       "observation": 53,
       "response": "height",
-      "residual": -50.30364247830016
+      "residual": -50.30364247829698
     },
     {
       "observation": 54,
       "response": "height",
-      "residual": -54.52020851779997
+      "residual": -54.520208517799404
     },
     {
       "observation": 55,
       "response": "height",
-      "residual": -14.825761843202827
+      "residual": -14.8257618431972
     },
     {
       "observation": 56,
       "response": "height",
-      "residual": -15.979331225372789
+      "residual": -15.979331225376427
     },
     {
       "observation": 57,
       "response": "height",
-      "residual": -6.308671234589326
+      "residual": -6.308671234600752
     },
     {
       "observation": 58,
       "response": "height",
-      "residual": -3.860498780011085
+      "residual": -3.860498780026262
     },
     {
       "observation": 59,
       "response": "height",
-      "residual": 17.9409439554222
+      "residual": 17.940943955435955
     },
     {
       "observation": 60,
       "response": "height",
-      "residual": 88.33476806493945
+      "residual": 88.33476806493559
     },
     {
       "observation": 61,
       "response": "height",
-      "residual": -0.1383381698528865
+      "residual": -0.1383381698520907
     },
     {
       "observation": 62,
       "response": "height",
-      "residual": 36.971554817985975
+      "residual": 36.9715548179762
     },
     {
       "observation": 63,
       "response": "height",
-      "residual": 51.1453834203225
+      "residual": 51.14538342034143
     },
     {
       "observation": 64,
       "response": "height",
-      "residual": 51.120966065773814
+      "residual": 51.120966065758694
     },
     {
       "observation": 65,
       "response": "height",
-      "residual": -125.27665468581432
+      "residual": -125.27665468582398
     },
     {
       "observation": 66,
       "response": "height",
-      "residual": -30.2144615050953
+      "residual": -30.214461505098143
     },
     {
       "observation": 67,
       "response": "height",
-      "residual": -73.45183806744171
+      "residual": -73.45183806743415
     },
     {
       "observation": 68,
       "response": "height",
-      "residual": -66.83618460341904
+      "residual": -66.83618460340585
     },
     {
       "observation": 69,
       "response": "height",
-      "residual": -36.703126687722204
+      "residual": -36.703126687722715
     },
     {
       "observation": 70,
       "response": "height",
-      "residual": -40.03678865284684
+      "residual": -40.036788652843256
     },
     {
       "observation": 71,
       "response": "height",
-      "residual": 1.0135282024164667
+      "residual": 1.0135282024099297
     },
     {
       "observation": 72,
       "response": "height",
-      "residual": 1.4997088406039438
+      "residual": 1.499708840585754
     },
     {
       "observation": 73,
       "response": "height",
-      "residual": 9.74684804289285
+      "residual": 9.746848042898193
     },
     {
       "observation": 74,
       "response": "height",
-      "residual": 50.17922730260466
+      "residual": 50.179227302598974
     },
     {
       "observation": 75,
       "response": "height",
-      "residual": -11.750929115569079
+      "residual": -11.750929115535882
     },
     {
       "observation": 76,
       "response": "height",
-      "residual": 42.07641817022932
+      "residual": 42.07641817021056
     },
     {
       "observation": 77,
       "response": "height",
-      "residual": 52.00326234135434
+      "residual": 52.00326234134923
     },
     {
       "observation": 78,
       "response": "height",
-      "residual": 68.15961015047355
+      "residual": 68.15961015047787
     },
     {
       "observation": 79,
       "response": "height",
-      "residual": 76.1819237510827
+      "residual": 76.18192375108754
     },
     {
       "observation": 80,
       "response": "height",
-      "residual": 36.75698301751197
+      "residual": 36.75698301750447
     },
     {
       "observation": 81,
       "response": "height",
-      "residual": -56.082994501808344
+      "residual": -56.08299450181903
     },
     {
       "observation": 82,
       "response": "height",
-      "residual": 33.96222949044272
+      "residual": 33.96222949044284
     },
     {
       "observation": 83,
       "response": "height",
-      "residual": 9.233429623415532
+      "residual": 9.23342962342116
     },
     {
       "observation": 84,
       "response": "height",
-      "residual": -14.32619626495773
+      "residual": -14.326196264966768
     },
     {
       "observation": 85,
       "response": "height",
-      "residual": 25.140227300832294
+      "residual": 25.140227300828656
     },
     {
       "observation": 86,
       "response": "height",
-      "residual": 22.552712836121145
+      "residual": 22.55271283610108
     },
     {
       "observation": 87,
       "response": "height",
-      "residual": 26.60863688048545
+      "residual": 26.608636880476638
     },
     {
       "observation": 88,
       "response": "height",
-      "residual": 79.5750517654671
+      "residual": 79.57505176546431
     },
     {
       "observation": 89,
       "response": "height",
-      "residual": 50.09311043670965
+      "residual": 50.09311043671755
     },
     {
       "observation": 90,
       "response": "height",
-      "residual": 8.437961402230258
+      "residual": 8.437961402220935
     },
     {
       "observation": 91,
       "response": "height",
-      "residual": 29.133013530594667
+      "residual": 29.133013530601943
     },
     {
       "observation": 92,
       "response": "height",
-      "residual": -95.57857164263538
+      "residual": -95.57857164264306
     },
     {
       "observation": 93,
       "response": "height",
-      "residual": -106.06908096307518
+      "residual": -106.0690809630741
     },
     {
       "observation": 94,
       "response": "height",
-      "residual": -7.238053750191398
+      "residual": -7.2380537501918525
     },
     {
       "observation": 95,
       "response": "height",
-      "residual": -15.129844796470252
+      "residual": -15.129844796473833
     },
     {
       "observation": 96,
       "response": "height",
-      "residual": 34.80924690851367
+      "residual": 34.80924690851805
     },
     {
       "observation": 97,
       "response": "height",
-      "residual": -71.30104119033217
+      "residual": -71.30104119035036
     },
     {
       "observation": 98,
       "response": "height",
-      "residual": 47.44516407483218
+      "residual": 47.44516407483604
     },
     {
       "observation": 99,
       "response": "height",
-      "residual": 70.86695315297857
+      "residual": 70.86695315298715
     },
     {
       "observation": 100,
       "response": "height",
-      "residual": 32.12416676269993
+      "residual": 32.12416676272187
     },
     {
       "observation": 101,
       "response": "height",
-      "residual": 24.313906787940653
+      "residual": 24.31390678794861
     },
     {
       "observation": 102,
       "response": "height",
-      "residual": 41.85002238374727
+      "residual": 41.85002238374352
     },
     {
       "observation": 103,
       "response": "height",
-      "residual": -38.99094813776952
+      "residual": -38.99094813777555
     },
     {
       "observation": 104,
       "response": "height",
-      "residual": -56.026006299698906
+      "residual": -56.02600629969692
     },
     {
       "observation": 105,
       "response": "height",
-      "residual": 52.80513409799289
+      "residual": 52.80513409799329
     },
     {
       "observation": 106,
       "response": "height",
-      "residual": -1.9501022125800773
+      "residual": -1.950102212587126
     },
     {
       "observation": 107,
       "response": "height",
-      "residual": 96.06148551997376
+      "residual": 96.06148551998876
     },
     {
       "observation": 108,
       "response": "height",
-      "residual": 58.12178653527155
+      "residual": 58.121786535284286
     },
     {
       "observation": 109,
       "response": "height",
-      "residual": -66.64090521114503
+      "residual": -66.6409052111436
     },
     {
       "observation": 110,
       "response": "height",
-      "residual": -97.09505637963662
+      "residual": -97.09505637962695
     },
     {
       "observation": 111,
       "response": "height",
-      "residual": 67.69952088432547
+      "residual": 67.69952088433195
     },
     {
       "observation": 112,
       "response": "height",
-      "residual": -46.69206773921991
+      "residual": -46.692067739226616
     },
     {
       "observation": 113,
       "response": "height",
-      "residual": -64.30830194243504
+      "residual": -64.30830194242628
     },
     {
       "observation": 114,
       "response": "height",
-      "residual": -58.46110793424083
+      "residual": -58.46110793423139
     },
     {
       "observation": 115,
       "response": "height",
-      "residual": -69.07914060946081
+      "residual": -69.07914060945001
     },
     {
       "observation": 116,
       "response": "height",
-      "residual": -3.624044690858227
+      "residual": -3.624044690859364
     },
     {
       "observation": 117,
       "response": "height",
-      "residual": -15.712740443820906
+      "residual": -15.712740443814141
     },
     {
       "observation": 118,
       "response": "height",
-      "residual": -19.619422916899566
+      "residual": -19.61942291691429
     },
     {
       "observation": 119,
       "response": "height",
-      "residual": 36.66469430829852
+      "residual": 36.66469430827448
     },
     {
       "observation": 120,
       "response": "height",
-      "residual": 43.26925689038018
+      "residual": 43.26925689037665
     },
     {
       "observation": 121,
       "response": "height",
-      "residual": 64.23322451952163
+      "residual": 64.23322451951833
     },
     {
       "observation": 122,
       "response": "height",
-      "residual": 52.101156798504746
+      "residual": 52.10115679852902
     },
     {
       "observation": 123,
       "response": "height",
-      "residual": -27.677164519770713
+      "residual": -27.677164519765483
     },
     {
       "observation": 124,
       "response": "height",
-      "residual": 24.368980820485376
+      "residual": 24.368980820500383
     },
     {
       "observation": 125,
       "response": "height",
-      "residual": 55.353576398265716
+      "residual": 55.35357639827265
     },
     {
       "observation": 126,
       "response": "height",
-      "residual": 58.15575119505962
+      "residual": 58.15575119506133
     },
     {
       "observation": 127,
       "response": "height",
-      "residual": -19.034703062636424
+      "residual": -19.034703062631877
     },
     {
       "observation": 128,
       "response": "height",
-      "residual": 47.04472996839223
+      "residual": 47.04472996838882
     },
     {
       "observation": 129,
       "response": "height",
-      "residual": 8.38399774941729
+      "residual": 8.383997749418825
     },
     {
       "observation": 130,
       "response": "height",
-      "residual": 48.99749579374992
+      "residual": 48.99749579375418
     },
     {
       "observation": 131,
       "response": "height",
-      "residual": -11.130161099389397
+      "residual": -11.130161099400482
     },
     {
       "observation": 132,
       "response": "height",
-      "residual": 37.51823794817483
+      "residual": 37.518237948179035
     },
     {
       "observation": 133,
       "response": "height",
-      "residual": 25.274607518911353
+      "residual": 25.27460751890959
     },
     {
       "observation": 134,
       "response": "height",
-      "residual": -18.071312584349926
+      "residual": -18.071312584345378
     },
     {
       "observation": 135,
       "response": "height",
-      "residual": 63.03006209281682
+      "residual": 63.030062092810056
     },
     {
       "observation": 136,
       "response": "height",
-      "residual": -7.851979303936105
+      "residual": -7.851979303933831
     },
     {
       "observation": 137,
       "response": "height",
-      "residual": -157.21020634108754
+      "residual": -157.21020634108697
     },
     {
       "observation": 138,
       "response": "height",
-      "residual": -72.3246034013228
+      "residual": -72.32460340131485
     },
     {
       "observation": 139,
       "response": "height",
-      "residual": -7.478043562339053
+      "residual": -7.478043562307846
     },
     {
       "observation": 140,
       "response": "height",
-      "residual": -13.622013136776445
+      "residual": -13.622013136789917
     },
     {
       "observation": 141,
       "response": "height",
-      "residual": 10.11815418264598
+      "residual": 10.118154182640069
     },
     {
       "observation": 142,
       "response": "height",
-      "residual": 49.45877233745546
+      "residual": 49.458772337431014
     },
     {
       "observation": 143,
       "response": "height",
-      "residual": 55.45926980996944
+      "residual": 55.45926980998172
     },
     {
       "observation": 144,
       "response": "height",
-      "residual": 57.13869130272735
+      "residual": 57.13869130271013
     },
     {
       "observation": 145,
       "response": "height",
-      "residual": 31.904417886018678
+      "residual": 31.90441788602584
     },
     {
       "observation": 146,
       "response": "height",
-      "residual": 102.02706341565829
+      "residual": 102.02706341566125
     },
     {
       "observation": 147,
       "response": "height",
-      "residual": 2.890540596897779
+      "residual": 2.890540596907954
     },
     {
       "observation": 148,
       "response": "height",
-      "residual": 49.13263340601901
+      "residual": 49.132633406022364
     },
     {
       "observation": 149,
       "response": "height",
-      "residual": -97.19964976172139
+      "residual": -97.19964976172798
     },
     {
       "observation": 150,
       "response": "height",
-      "residual": -69.94952365641132
+      "residual": -69.94952365641217
     },
     {
       "observation": 151,
       "response": "height",
-      "residual": 34.579271112101935
+      "residual": 34.57927111209301
     },
     {
       "observation": 152,
       "response": "height",
-      "residual": -8.430959196581
+      "residual": -8.430959196584524
     },
     {
       "observation": 153,
       "response": "height",
-      "residual": -21.41933384076748
+      "residual": -21.419333840767194
     },
     {
       "observation": 154,
       "response": "height",
-      "residual": 5.899808209211187
+      "residual": 5.899808209220623
     },
     {
       "observation": 155,
       "response": "height",
-      "residual": -41.19058917962195
+      "residual": -41.190589179623885
     },
     {
       "observation": 156,
       "response": "height",
-      "residual": 25.223046234769015
+      "residual": 25.22304623476157
     },
     {
       "observation": 157,
       "response": "height",
-      "residual": 80.34109992863978
+      "residual": 80.34109992861863
     },
     {
       "observation": 158,
       "response": "height",
-      "residual": 68.72053279686725
+      "residual": 68.72053279684974
     },
     {
       "observation": 159,
       "response": "height",
-      "residual": 85.40035379759996
+      "residual": 85.40035379760758
     },
     {
       "observation": 160,
       "response": "height",
-      "residual": 12.027592635615918
+      "residual": 12.027592635605117
     },
     {
       "observation": 161,
       "response": "height",
-      "residual": -126.89162856691019
+      "residual": -126.89162856690956
     },
     {
       "observation": 162,
       "response": "height",
-      "residual": -72.07485726862643
+      "residual": -72.07485726862603
     },
     {
       "observation": 163,
       "response": "height",
-      "residual": 13.153369303312616
+      "residual": 13.153369303311479
     },
     {
       "observation": 164,
       "response": "height",
-      "residual": -17.388121694677693
+      "residual": -17.388121694679057
     },
     {
       "observation": 165,
       "response": "height",
-      "residual": -42.57735004585453
+      "residual": -42.5773500458705
     },
     {
       "observation": 166,
       "response": "height",
-      "residual": 79.14671482529025
+      "residual": 79.14671482528854
     },
     {
       "observation": 167,
       "response": "height",
-      "residual": 59.87105117829515
+      "residual": 59.87105117830441
     },
     {
       "observation": 168,
       "response": "height",
-      "residual": 59.65057324348629
+      "residual": 59.650573243490896
     },
     {
       "observation": 169,
       "response": "height",
-      "residual": 83.06648664796637
+      "residual": 83.06648664798047
     },
     {
       "observation": 170,
       "response": "height",
-      "residual": 143.81162996078046
+      "residual": 143.811629960779
     },
     {
       "observation": 171,
       "response": "height",
-      "residual": -50.21073865363047
+      "residual": -50.21073865363826
     },
     {
       "observation": 172,
       "response": "height",
-      "residual": -59.714735132000044
+      "residual": -59.71473513199345
     },
     {
       "observation": 173,
       "response": "height",
-      "residual": 120.2947534150727
+      "residual": 120.29475341508055
     },
     {
       "observation": 174,
       "response": "height",
-      "residual": 48.4696133719051
+      "residual": 48.46961337189077
     },
     {
       "observation": 175,
       "response": "height",
-      "residual": 73.2608135535379
+      "residual": 73.2608135535325
     },
     {
       "observation": 176,
       "response": "height",
-      "residual": 2.9880391555440724
+      "residual": 2.9880391555437313
     },
     {
       "observation": 177,
       "response": "height",
-      "residual": 29.819041808872157
+      "residual": 29.819041808862778
     },
     {
       "observation": 178,
       "response": "height",
-      "residual": 15.351787221649602
+      "residual": 15.351787221662676
     },
     {
       "observation": 179,
       "response": "height",
-      "residual": -139.09149340660076
+      "residual": -139.09149340659928
     },
     {
       "observation": 180,
       "response": "height",
-      "residual": -170.49114047622442
+      "residual": -170.49114047622146
     },
     {
       "observation": 181,
       "response": "height",
-      "residual": -99.46589024292422
+      "residual": -99.46589024293388
     },
     {
       "observation": 182,
       "response": "height",
-      "residual": -65.490044234619
+      "residual": -65.49004423463657
     },
     {
       "observation": 183,
       "response": "height",
-      "residual": -133.69943912867132
+      "residual": -133.69943912865398
     },
     {
       "observation": 184,
       "response": "height",
-      "residual": -79.82070284582085
+      "residual": -79.82070284580823
     },
     {
       "observation": 185,
       "response": "height",
-      "residual": 30.126944875441893
+      "residual": 30.126944875446725
     },
     {
       "observation": 186,
       "response": "height",
-      "residual": -36.906658186834534
+      "residual": -36.90665818683351
     },
     {
       "observation": 187,
       "response": "height",
-      "residual": -77.35721097547531
+      "residual": -77.35721097547679
     },
     {
       "observation": 188,
       "response": "height",
-      "residual": -61.83238539244496
+      "residual": -61.83238539244621
     },
     {
       "observation": 189,
       "response": "height",
-      "residual": -30.307698762277482
+      "residual": -30.307698762263612
     },
     {
       "observation": 190,
       "response": "height",
-      "residual": -9.40176310933299
+      "residual": -9.40176310935118
     },
     {
       "observation": 191,
       "response": "height",
-      "residual": 23.20022838743114
+      "residual": 23.200228387440916
     },
     {
       "observation": 192,
       "response": "height",
-      "residual": 39.85403803231998
+      "residual": 39.85403803232879
     },
     {
       "observation": 193,
       "response": "height",
-      "residual": -158.58345888349027
+      "residual": -158.5834588834798
     },
     {
       "observation": 194,
       "response": "height",
-      "residual": -69.5410829264975
+      "residual": -69.54108292651222
     },
     {
       "observation": 195,
       "response": "height",
-      "residual": -48.28080580186651
+      "residual": -48.2808058018673
     },
     {
       "observation": 196,
       "response": "height",
-      "residual": -85.49573981129436
+      "residual": -85.49573981128594
     },
     {
       "observation": 197,
       "response": "height",
-      "residual": -51.992500730623476
+      "residual": -51.9925007306191
     },
     {
       "observation": 198,
       "response": "height",
-      "residual": -35.49899839649095
+      "residual": -35.4989983964993
     },
     {
       "observation": 199,
       "response": "height",
-      "residual": -48.38646342822955
+      "residual": -48.38646342823415
     },
     {
       "observation": 200,
       "response": "height",
-      "residual": -151.7510336715273
+      "residual": -151.75103367151922
     },
     {
       "observation": 201,
       "response": "height",
-      "residual": 44.73441747167328
+      "residual": 44.734417471677375
     },
     {
       "observation": 202,
       "response": "height",
-      "residual": 10.799628872010487
+      "residual": 10.799628872012761
     },
     {
       "observation": 203,
       "response": "height",
-      "residual": 56.74655594406181
+      "residual": 56.746555944064426
     },
     {
       "observation": 204,
       "response": "height",
-      "residual": -7.98669159701376
+      "residual": -7.986691597011827
     },
     {
       "observation": 205,
       "response": "height",
-      "residual": -0.5438231818866939
+      "residual": -0.5438231819048269
     },
     {
       "observation": 206,
       "response": "height",
-      "residual": 108.21077487442597
+      "residual": 108.21077487443006
     }
   ],
   "prediction": [
@@ -2507,924 +2507,924 @@
       "Y": -17.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 15.096641858260455
+      "prediction": 15.0966418581163
     },
     {
       "X": -4.0,
       "Y": -17.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 13.279565035003145
+      "prediction": 13.27956503485018
     },
     {
       "X": 6.0,
       "Y": -17.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 9.944623280760197
+      "prediction": 9.94462328059933
     },
     {
       "X": 16.0,
       "Y": -17.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 5.2081140561357415
+      "prediction": 5.208114055969588
     },
     {
       "X": 26.0,
       "Y": -17.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 0.058467747750512444
+      "prediction": 0.05846774758146012
     },
     {
       "X": 36.0,
       "Y": -17.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -3.472036176272127
+      "prediction": -3.472036176440554
     },
     {
       "X": 46.0,
       "Y": -17.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -3.657110669417932
+      "prediction": -3.657110669582437
     },
     {
       "X": 56.0,
       "Y": -17.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -1.0248578486270503
+      "prediction": -1.0248578487849045
     },
     {
       "X": 66.0,
       "Y": -17.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 2.6246045220001406
+      "prediction": 2.624604521850472
     },
     {
       "X": 76.0,
       "Y": -17.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 5.938373335308398
+      "prediction": 5.938373335168251
     },
     {
       "X": 86.0,
       "Y": -17.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 8.330936113130434
+      "prediction": 8.330936112999638
     },
     {
       "X": -14.0,
       "Y": -7.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 19.34752625465262
+      "prediction": 19.34752625449636
     },
     {
       "X": -4.0,
       "Y": -7.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 17.96220044637664
+      "prediction": 17.962200446209295
     },
     {
       "X": 6.0,
       "Y": -7.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 14.306135341074139
+      "prediction": 14.30613534089781
     },
     {
       "X": 16.0,
       "Y": -7.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 7.945479496569362
+      "prediction": 7.945479496386042
     },
     {
       "X": 26.0,
       "Y": -7.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -0.29115114472773485
+      "prediction": -0.29115114491560234
     },
     {
       "X": 36.0,
       "Y": -7.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -6.640253681365323
+      "prediction": -6.640253681552792
     },
     {
       "X": 46.0,
       "Y": -7.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -6.139118241982942
+      "prediction": -6.13911824216467
     },
     {
       "X": 56.0,
       "Y": -7.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -1.0061639406096674
+      "prediction": -1.0061639407824146
     },
     {
       "X": 66.0,
       "Y": -7.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 4.6450222898210995
+      "prediction": 4.645022289658755
     },
     {
       "X": 76.0,
       "Y": -7.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 8.974834393443075
+      "prediction": 8.974834393291701
     },
     {
       "X": 86.0,
       "Y": -7.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 11.594670725375181
+      "prediction": 11.594670725234465
     },
     {
       "X": -14.0,
       "Y": 3.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 24.521936990996778
+      "prediction": 24.521936990828294
     },
     {
       "X": -4.0,
       "Y": 3.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 24.43908335312659
+      "prediction": 24.43908335294583
     },
     {
       "X": 6.0,
       "Y": 3.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 21.438542654738285
+      "prediction": 21.43854265454638
     },
     {
       "X": 16.0,
       "Y": 3.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 14.032394450197273
+      "prediction": 14.032394449997525
     },
     {
       "X": 26.0,
       "Y": 3.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 1.7976537462184865
+      "prediction": 1.797653746011747
     },
     {
       "X": 36.0,
       "Y": 3.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -11.211165962842529
+      "prediction": -11.211165963050007
     },
     {
       "X": 46.0,
       "Y": 3.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -7.921784154341708
+      "prediction": -7.9217841545408305
     },
     {
       "X": 56.0,
       "Y": 3.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 1.1658725202380538
+      "prediction": 1.1658725200508115
     },
     {
       "X": 66.0,
       "Y": 3.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 9.016583737535143
+      "prediction": 9.016583737360975
     },
     {
       "X": 76.0,
       "Y": 3.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 13.90662968927603
+      "prediction": 13.906629689113743
     },
     {
       "X": 86.0,
       "Y": 3.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 16.147225863549522
+      "prediction": 16.147225863399342
     },
     {
       "X": -14.0,
       "Y": 13.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 30.002846839099107
+      "prediction": 30.002846838919595
     },
     {
       "X": -4.0,
       "Y": 13.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 32.427049323334245
+      "prediction": 32.427049323139386
     },
     {
       "X": 6.0,
       "Y": 13.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 31.863507152254215
+      "prediction": 31.863507152047305
     },
     {
       "X": 16.0,
       "Y": 13.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 25.76567396037842
+      "prediction": 25.765673960164975
     },
     {
       "X": 26.0,
       "Y": 13.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 10.590211099286932
+      "prediction": 10.590211099067915
     },
     {
       "X": 36.0,
       "Y": 13.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -7.713885394486965
+      "prediction": -7.7138853947148505
     },
     {
       "X": 46.0,
       "Y": 13.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -4.435561748182977
+      "prediction": -4.435561748400914
     },
     {
       "X": 56.0,
       "Y": 13.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 7.802352280175171
+      "prediction": 7.802352279974627
     },
     {
       "X": 66.0,
       "Y": 13.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 16.92472666636712
+      "prediction": 16.92472666618221
     },
     {
       "X": 76.0,
       "Y": 13.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 21.034431424689046
+      "prediction": 21.03443142451738
     },
     {
       "X": 86.0,
       "Y": 13.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 21.88549033651765
+      "prediction": 21.885490336358885
     },
     {
       "X": -14.0,
       "Y": 23.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 34.23750414063932
+      "prediction": 34.23750414045128
     },
     {
       "X": -4.0,
       "Y": 23.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 40.12271611536801
+      "prediction": 40.12271611516155
     },
     {
       "X": 6.0,
       "Y": 23.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 44.01118654781828
+      "prediction": 44.01118654759557
     },
     {
       "X": 16.0,
       "Y": 23.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 42.94712121443763
+      "prediction": 42.947121214215144
     },
     {
       "X": 26.0,
       "Y": 23.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 33.31548261177704
+      "prediction": 33.315482611553875
     },
     {
       "X": 36.0,
       "Y": 23.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 10.137131661984654
+      "prediction": 10.137131661738522
     },
     {
       "X": 46.0,
       "Y": 23.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 5.254400202460829
+      "prediction": 5.254400202228453
     },
     {
       "X": 56.0,
       "Y": 23.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 19.3912942534011
+      "prediction": 19.391294253192143
     },
     {
       "X": 66.0,
       "Y": 23.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 27.85863986709336
+      "prediction": 27.85863986690015
     },
     {
       "X": 76.0,
       "Y": 23.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 29.57243627272493
+      "prediction": 29.57243627254394
     },
     {
       "X": 86.0,
       "Y": 23.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 28.077155382288993
+      "prediction": 28.077155382121987
     },
     {
       "X": -14.0,
       "Y": 33.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 34.941302346505836
+      "prediction": 34.94130234631314
     },
     {
       "X": -4.0,
       "Y": 33.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 42.33799740623931
+      "prediction": 42.33799740602694
     },
     {
       "X": 6.0,
       "Y": 33.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 51.82415870862508
+      "prediction": 51.824158708392474
     },
     {
       "X": 16.0,
       "Y": 33.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 43.75361392617947
+      "prediction": 43.753613925954824
     },
     {
       "X": 26.0,
       "Y": 33.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 43.922797863500364
+      "prediction": 43.92279786328072
     },
     {
       "X": 36.0,
       "Y": 33.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 23.0651217081529
+      "prediction": 23.06512170791393
     },
     {
       "X": 46.0,
       "Y": 33.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 15.466810973513475
+      "prediction": 15.466810973278427
     },
     {
       "X": 56.0,
       "Y": 33.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 22.328212349276782
+      "prediction": 22.328212349055946
     },
     {
       "X": 66.0,
       "Y": 33.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 35.67826823270724
+      "prediction": 35.67826823250135
     },
     {
       "X": 76.0,
       "Y": 33.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 38.065616455294105
+      "prediction": 38.06561645510317
     },
     {
       "X": 86.0,
       "Y": 33.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 33.22715990975024
+      "prediction": 33.227159909575334
     },
     {
       "X": -14.0,
       "Y": 43.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 31.22302166704594
+      "prediction": 31.223021666853697
     },
     {
       "X": -4.0,
       "Y": 43.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 36.398196198430355
+      "prediction": 36.39819619821981
     },
     {
       "X": 6.0,
       "Y": 43.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 40.29496954096044
+      "prediction": 40.29496954073477
     },
     {
       "X": 16.0,
       "Y": 43.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 40.07264630103168
+      "prediction": 40.0726463008034
     },
     {
       "X": 26.0,
       "Y": 43.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 45.37991526929193
+      "prediction": 45.37991526906558
     },
     {
       "X": 36.0,
       "Y": 43.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 43.10072578287475
+      "prediction": 43.10072578264328
     },
     {
       "X": 46.0,
       "Y": 43.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 26.291229076231275
+      "prediction": 26.2912290760014
     },
     {
       "X": 56.0,
       "Y": 43.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 31.688416207394937
+      "prediction": 31.688416207172395
     },
     {
       "X": 66.0,
       "Y": 43.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 50.63639522559566
+      "prediction": 50.63639522537886
     },
     {
       "X": 76.0,
       "Y": 43.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 44.45607830733718
+      "prediction": 44.45607830713993
     },
     {
       "X": 86.0,
       "Y": 43.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 34.38149940282801
+      "prediction": 34.381499402648615
     },
     {
       "X": -14.0,
       "Y": 53.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 24.507760849517354
+      "prediction": 24.507760849329657
     },
     {
       "X": -4.0,
       "Y": 53.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 27.00692067886405
+      "prediction": 27.006920678659412
     },
     {
       "X": 6.0,
       "Y": 53.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 28.38813882164402
+      "prediction": 28.388138821424832
     },
     {
       "X": 16.0,
       "Y": 53.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 31.55153060117982
+      "prediction": 31.55153060094858
     },
     {
       "X": 26.0,
       "Y": 53.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 33.121557768563775
+      "prediction": 33.12155776833106
     },
     {
       "X": 36.0,
       "Y": 53.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 32.9751384554487
+      "prediction": 32.97513845521769
     },
     {
       "X": 46.0,
       "Y": 53.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 10.44100399689546
+      "prediction": 10.441003996669565
     },
     {
       "X": 56.0,
       "Y": 53.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 22.49418696278991
+      "prediction": 22.49418696257669
     },
     {
       "X": 66.0,
       "Y": 53.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 39.992717755956164
+      "prediction": 39.99271775574937
     },
     {
       "X": 76.0,
       "Y": 53.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 35.65040776898405
+      "prediction": 35.6504077687859
     },
     {
       "X": 86.0,
       "Y": 53.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 27.297398374484203
+      "prediction": 27.29739837430276
     },
     {
       "X": -14.0,
       "Y": 63.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 16.46351335843474
+      "prediction": 16.463513358253977
     },
     {
       "X": -4.0,
       "Y": 63.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 16.460369559572428
+      "prediction": 16.460369559376318
     },
     {
       "X": 6.0,
       "Y": 63.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 15.37969472436157
+      "prediction": 15.379694724151022
     },
     {
       "X": 16.0,
       "Y": 63.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 13.412403266200727
+      "prediction": 13.412403265978242
     },
     {
       "X": 26.0,
       "Y": 63.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 7.655740540863917
+      "prediction": 7.6557405406375665
     },
     {
       "X": 36.0,
       "Y": 63.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -0.2863684782881819
+      "prediction": -0.2863684785144187
     },
     {
       "X": 46.0,
       "Y": 63.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -9.887244580165316
+      "prediction": -9.887244580393826
     },
     {
       "X": 56.0,
       "Y": 63.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -5.743872746846307
+      "prediction": -5.743872747074363
     },
     {
       "X": 66.0,
       "Y": 63.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 3.4850998722702684
+      "prediction": 3.485099872055855
     },
     {
       "X": 76.0,
       "Y": 63.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 11.340400941878897
+      "prediction": 11.340400941680969
     },
     {
       "X": 86.0,
       "Y": 63.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 12.813262080735399
+      "prediction": 12.813262080554523
     },
     {
       "X": -14.0,
       "Y": 73.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 8.303860850615138
+      "prediction": 8.3038608504433
     },
     {
       "X": -4.0,
       "Y": 73.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 5.990507951578422
+      "prediction": 5.990507951393511
     },
     {
       "X": 6.0,
       "Y": 73.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 1.747283469153217
+      "prediction": 1.747283468955402
     },
     {
       "X": 16.0,
       "Y": 73.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -5.669765750969532
+      "prediction": -5.669765751178147
     },
     {
       "X": 26.0,
       "Y": 73.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -18.648701160185396
+      "prediction": -18.64870116040072
     },
     {
       "X": 36.0,
       "Y": 73.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -36.86476903932237
+      "prediction": -36.864769039543944
     },
     {
       "X": 46.0,
       "Y": 73.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -47.01116012382704
+      "prediction": -47.01116012404998
     },
     {
       "X": 56.0,
       "Y": 73.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -40.70655345000631
+      "prediction": -40.706553450223055
     },
     {
       "X": 66.0,
       "Y": 73.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -28.129016303268145
+      "prediction": -28.12901630348057
     },
     {
       "X": 76.0,
       "Y": 73.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -10.672421357096198
+      "prediction": -10.672421357290887
     },
     {
       "X": 86.0,
       "Y": 73.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -2.5017959564085004
+      "prediction": -2.5017959565852266
     },
     {
       "X": -14.0,
       "Y": 83.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": 0.9794210494105187
+      "prediction": 0.9794210492494813
     },
     {
       "X": -4.0,
       "Y": 83.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -3.015829970243203
+      "prediction": -3.015829970416405
     },
     {
       "X": 6.0,
       "Y": 83.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -9.242555543345816
+      "prediction": -9.24255554353033
     },
     {
       "X": 16.0,
       "Y": 83.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -18.63259374446784
+      "prediction": -18.632593744661563
     },
     {
       "X": 26.0,
       "Y": 83.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -31.896575759398445
+      "prediction": -31.896575759599273
     },
     {
       "X": 36.0,
       "Y": 83.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -47.379793537802925
+      "prediction": -47.37979353800927
     },
     {
       "X": 46.0,
       "Y": 83.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -58.846152771808875
+      "prediction": -58.84615277201584
     },
     {
       "X": 56.0,
       "Y": 83.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -55.59594307590345
+      "prediction": -55.595943076107005
     },
     {
       "X": 66.0,
       "Y": 83.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -39.56289308379354
+      "prediction": -39.56289308399033
     },
     {
       "X": 76.0,
       "Y": 83.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -24.172107697372326
+      "prediction": -24.172107697556157
     },
     {
       "X": 86.0,
       "Y": 83.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -14.1681334752152
+      "prediction": -14.168133475383968
     },
     {
       "X": -14.0,
       "Y": 93.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -4.900134770997738
+      "prediction": -4.900134771148089
     },
     {
       "X": -4.0,
       "Y": 93.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -9.704222632635378
+      "prediction": -9.704222632796245
     },
     {
       "X": 6.0,
       "Y": 93.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -16.421758011877955
+      "prediction": -16.421758012048144
     },
     {
       "X": 16.0,
       "Y": 93.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -25.354487758654784
+      "prediction": -25.354487758832988
     },
     {
       "X": 26.0,
       "Y": 93.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -36.148925320212584
+      "prediction": -36.14892532039721
     },
     {
       "X": 36.0,
       "Y": 93.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -46.826921786533035
+      "prediction": -46.82692178672153
     },
     {
       "X": 46.0,
       "Y": 93.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -53.29873420080355
+      "prediction": -53.29873420099261
     },
     {
       "X": 56.0,
       "Y": 93.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -51.36344372916989
+      "prediction": -51.36344372935582
     },
     {
       "X": 66.0,
       "Y": 93.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -41.953975553952205
+      "prediction": -41.95397555413206
     },
     {
       "X": 76.0,
       "Y": 93.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -30.698926440707453
+      "prediction": -30.69892644087753
     },
     {
       "X": 86.0,
       "Y": 93.0,
       "response": "height",
       "component": "Intercept",
-      "prediction": -21.34882056944457
+      "prediction": -21.34882056960231
     }
   ]
 }
