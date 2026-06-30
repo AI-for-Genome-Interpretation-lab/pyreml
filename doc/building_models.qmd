@@ -58,9 +58,9 @@ After `fit()` (see [training](training.qmd#the-fit-method)), the estimates are r
 | Accessor                   | Content                                                              |
 |----------------------------|---------------------------------------------------------------------|
 | `model.estimates`          | Fixed-effect estimates (BLUE) as a long table `response · term · estimate · SE · t`. |
-| `model.random[i].table`    | Random-effect predictions (BLUP) for effect `i`, as a long table.   |
+| `model.random[i].table`    | Random-effect predictions (BLUP) for effect `i`, as a long table `unit · prediction · SE · CD`, with `SE` the prediction error standard deviation and `CD` the coefficient of determination (`0` to `1`). |
 | `model.random[i].variance` | Its estimated variance structure. For homogeneity across methods, `sigma` is always a variance ($\Sigma$ or $\sigma^2$) and never a standard deviation $\sigma$. |
-| `model.residual.table`     | Model residuals.                                                    |
+| `model.residual.table`     | Model residuals, as a long table `observation · response · residual · SD`, with `SD` the residual standard deviation, *i.e.* the corresponding diagonal element of $\mathbf{R}$. |
 | `model.residual.variance`  | The estimated residual variance.                                    |
 | `model.AIC`                | Akaike information criterion [AIC](training.qmd#akaike-information-criterion). |
 | `model.AIC_meth`           | Method with which the AIC was obtained.                             |
