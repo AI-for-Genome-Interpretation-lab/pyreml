@@ -1376,12 +1376,16 @@ class Residual(GaussianComponent):
 
             if self.Rtrick:
                 # masked but fully diagonal: selection commutes, logdet from the diagonal
-                Sinv, _ = self.build_Sinv()
-                Kinv, _ = self.build_Kinv()
+                Sinv, logdet_S = self.build_Sinv()
+                Kinv, logdet_K = self.build_Kinv()
                 Rinv = W @ torch.kron(Sinv.contiguous(), Kinv.contiguous()) @ W.T
-                logdet_R = -torch.sum(torch.log(torch.diagonal(Rinv)))
-                return Rinv, logdet_R
 
+                if self.R_is_diagonal:
+                    logdet_R = -torch.sum(torch.log(torch.diagonal(Rinv)))
+                else:
+                    logdet_R = self.L * logdet_S + self.d * logdet_K
+                return Rinv, logdet_R
+            
             # masked and dense: form R then factor
             R = W @ self.varmeth()() @ W.T
             L = torch.linalg.cholesky(R)
@@ -1438,11 +1442,11 @@ class Residual(GaussianComponent):
 
         self.init_varparams()         # -> self.varparams, self.log_S, (self.log_rho)
 
-        W_is_identity = (
+        self.W_is_identity = (
             self.W.shape[0] == self.W.shape[1]
             and np.allclose(self.W, np.eye(self.W.shape[0]))
         )
-        R_is_diagonal = (
+        self.R_is_diagonal = (
             self.left_hand in ("iid", "diag")
             and
             self.right_hand in ("iid", "het")
@@ -1452,7 +1456,7 @@ class Residual(GaussianComponent):
         True if R_inv can be computed as W Rtot_inv W'
         False otherwise
         """
-        self.Rtrick = W_is_identity or R_is_diagonal
+        self.Rtrick = self.W_is_identity or self.R_is_diagonal
 
         return self.W
 

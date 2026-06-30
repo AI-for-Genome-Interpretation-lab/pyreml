@@ -295,9 +295,7 @@ def _blup(mod):
 
 
 # --------------------------------------------------------------------------- #
-# ar_ani on SUBSET_BLOCS slides toward the degenerate Ve -> 0 / near-diagonal
-# corner (rho ~ 1.96 on one axis): pyreml and rrBLUP drift to different points on
-# that flat plateau, so Ve / blup / pev_diag are not jointly identified here.
+# ar_ani: the close-to-zero residual variance is not well identifiable
 # --------------------------------------------------------------------------- #
 def _xfail_ar_ani_degenerate(run):
     if run.case["id"] == "ar_ani":
@@ -349,14 +347,12 @@ class TestSpatial:
         np.testing.assert_allclose(mod.EEV.item(), expected["eev_intercept"], rtol=2e-4)
 
     def test_blup(self, run, mod, expected):
-        _xfail_ar_ani_degenerate(run)
-        np.testing.assert_allclose(_blup(mod), expected["blup"], atol=2e-3)
+        np.testing.assert_allclose(_blup(mod), expected["blup"], rtol=1e-3)
 
     def test_pev_diag(self, run, mod, expected):
-        _xfail_ar_ani_degenerate(run)
         pev = mod.random[0].PEV.detach().numpy()
         diag = _observed(mod, np.diag(pev))
-        np.testing.assert_allclose(diag, expected["pev_diag"], rtol=1e-3, atol=1e-6)
+        np.testing.assert_allclose(diag, expected["pev_diag"], rtol = 2e-3)
 
     def test_predict(self, mod, case, pred_inputs, expected, expected_pred):
         kind = case["pred"]
