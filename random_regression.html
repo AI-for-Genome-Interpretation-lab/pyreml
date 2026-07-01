@@ -244,7 +244,7 @@ window.Quarto = {
 
 
 <p>Each random effect of a <span class="pyreml">pyreml</span> model takes a <code>formula</code> specification, that is reminescent of the <code>(1 + x | unit)</code> idiom in <a href="https://cran.r-project.org/web/packages/lme4/index.html">lme4</a>. This formula should be comprehensive for <a href="https://pypi.org/project/patsy/">patsy</a>. Each column read from this formula (intercept, regressor, modalities of factors, and interactions) becomes a component of the effect that varies from one <code>unit</code> to the next.</p>
-<p>The left-hand factor <span class="math inline">\(\mathbf{\Sigma_a}\)</span> models the covariance between these components (see <a href="./variance_structures.html">Variance structures</a>).</p>
+<p>The left-hand factor <span class="math inline">\(\mathbf{\Sigma_a}\)</span> models the covariance between these components (see <a href="./variance_structures.html">variance structures</a>).</p>
 <section id="random-regression" class="level2">
 <h2 class="anchored" data-anchor-id="random-regression">Random regression</h2>
 <p>A formula including a regression, such as <code>"1 + x"</code>, gives each unit its own random intercept and its own random slope.</p>
