@@ -140,7 +140,7 @@ as a list of coordinate columns and a level is a distinct coordinate tuple.
 | `right_hand` | Structure                                                                  |
 |--------------|----------------------------------------------------------------------------|
 | `iid`        | Identity $\mathbf{I}$: independent, homoscedastic levels (default).        |
-| `str`        | [A known covariance](#structured) (e.g. a kinship), via `covariance`.       |
+| `str`        | [A known covariance](#structured) $\mathbf{K_a}$ (*e.g.* a kinship), via `covariance`. Alternatively, $\mathbf{K_a}^{-1}$ and optionally $\log|\mathbf{K_a}|$ can be provided via `precision` and `logdet_K`.|
 | `dist`       | [Decay over a supplied distance matrix](#supplied-distance), via `distance`.|
 | `eucl`       | [Decay over an internally-computed Euclidean distance](#euclidean-distance) between `coords`. |
 | `ar_iso`     | [Separable autoregressive decay](#separable-autoregressive), isotropic (one rate shared across axes). |

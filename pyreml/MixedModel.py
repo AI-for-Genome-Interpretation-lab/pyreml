@@ -246,7 +246,7 @@ class MixedModel:
             self.residual.format_variance()
 
             self.EEV = EEV
-            self.format_fixed(compute_SE=True)
+            self.format_fixed()
 
             residuals = (self.y - self.X @ self.beta).flatten()
             self.residual.format_residuals(residuals, self.W)
@@ -348,90 +348,90 @@ class MixedModel:
         return logdet_V + quad + k_reml + const
 
     def HMME(self):
-            """
-            Henderson's mixed model equations: BLUE of beta, BLUP of u, and the
-            associated prediction error variances (PEV). LH is factored once; its
-            inverse gives Var(beta_hat) (top-left block) and the PEV of u_hat
-            (bottom-right block). If Random/Residual objects are attached (high-level
-            build), each effect's slice is dispatched to them; otherwise (low-level
-            constructor) the raw results are stored flat on the model.
-            """
+        """
+        Henderson's mixed model equations: BLUE of beta, BLUP of u, and the
+        associated prediction error variances (PEV). LH is factored once; its
+        inverse gives Var(beta_hat) (top-left block) and the PEV of u_hat
+        (bottom-right block). If Random/Residual objects are attached (high-level
+        build), each effect's slice is dispatched to them; otherwise (low-level
+        constructor) the raw results are stored flat on the model.
+        """
 
-            with torch.no_grad():
-                if callable(self.varmeth_inv):
-                    Ginv, Rinv, _, _ = self.varmeth_inv()
-                else:
-                    G, R = self.varmeth()
-                    Ginv = torch.linalg.inv(G)
-                    Rinv = torch.linalg.inv(R)
+        with torch.no_grad():
+            if callable(self.varmeth_inv):
+                Ginv, Rinv, _, _ = self.varmeth_inv()
+            else:
+                G, R = self.varmeth()
+                Ginv = torch.linalg.inv(G)
+                Rinv = torch.linalg.inv(R)
 
-                if self.Z is None:
-                    LH = self.X.T @ Rinv @ self.X
-                    RH = self.X.T @ Rinv @ self.y
-                else:
-                    XtRiX = self.X.T @ Rinv @ self.X
-                    XtRiZ = self.X.T @ Rinv @ self.Z
-                    ZtRiZ = self.Z.T @ Rinv @ self.Z
+            if self.Z is None:
+                LH = self.X.T @ Rinv @ self.X
+                RH = self.X.T @ Rinv @ self.y
+            else:
+                XtRiX = self.X.T @ Rinv @ self.X
+                XtRiZ = self.X.T @ Rinv @ self.Z
+                ZtRiZ = self.Z.T @ Rinv @ self.Z
 
-                    LH = torch.cat([
-                            torch.cat([XtRiX, XtRiZ], dim=1),
-                            torch.cat([XtRiZ.T, ZtRiZ + Ginv], dim=1),
-                        ],
-                        dim=0,
-                    )
-                    RH = torch.cat([
-                            self.X.T @ Rinv @ self.y,
-                            self.Z.T @ Rinv @ self.y
-                        ],
-                        dim=0
-                    )
+                LH = torch.cat([
+                        torch.cat([XtRiX, XtRiZ], dim=1),
+                        torch.cat([XtRiZ.T, ZtRiZ + Ginv], dim=1),
+                    ],
+                    dim=0,
+                )
+                RH = torch.cat([
+                        self.X.T @ Rinv @ self.y,
+                        self.Z.T @ Rinv @ self.y
+                    ],
+                    dim=0
+                )
+            
+            # Factor LH once (symmetric PD): reuse for the solve and the inverse.
+            LH = 0.5 * (LH + LH.T)
+            Lchol = torch.linalg.cholesky(LH)
                 
-                # Factor LH once (symmetric PD): reuse for the solve and the inverse.
-                LH = 0.5 * (LH + LH.T)
-                Lchol = torch.linalg.cholesky(LH)
-                    
-                sol = torch.cholesky_solve(RH, Lchol)
-                C = torch.cholesky_inverse(Lchol)          # C = LH^{-1}
+            sol = torch.cholesky_solve(RH, Lchol)
+            C = torch.cholesky_inverse(Lchol)          # C = LH^{-1}
+            
+            p = self.p
+            self.beta.data.copy_(sol[:p])
+            self.EEV = C[:p, :p]
+
+            if self.Z is not None:
+                self.uhat.data.copy_(sol[p:])
+                PEV = C[p:, p:]
+
+            # Fixed effects: labelled table if high-level, raw beta + EEV otherwise.
+            self.format_fixed()
+
+            if self.Z is None:
+                y_hat = self.X @ self.beta
+            else:
+                y_hat = self.X @ self.beta + self.Z @ self.uhat
+
+            residuals = (self.y - y_hat).flatten()
+
+            random = getattr(self, "random", None)
+            residual = getattr(self, "residual", None)
+
+            if random is not None:
+                offset = 0
+                for rand in random:
+                    size = rand.k * rand.c * rand.L
+                    idx = slice(offset, offset + size)
+                    rand.format_pred(self.uhat[idx], PEV[idx, idx])
+                    offset += size
+            else:
+                self.PEV = PEV
                 
-                p = self.p
-                self.beta.data.copy_(sol[:p])
-                self.EEV = C[:p, :p]
+            if residual is not None:
+                residual.format_residuals(residuals, self.W)
+            else:
+                self.residuals = residuals
 
-                if self.Z is not None:
-                    self.uhat.data.copy_(sol[p:])
-                    PEV = C[p:, p:]
+            self.compute_AIC(REML = True)
 
-                # Fixed effects: labelled table if high-level, raw beta + EEV otherwise.
-                self.format_fixed(compute_SE=True)
-
-                if self.Z is None:
-                    y_hat = self.X @ self.beta
-                else:
-                    y_hat = self.X @ self.beta + self.Z @ self.uhat
-
-                residuals = (self.y - y_hat).flatten()
-
-                random = getattr(self, "random", None)
-                residual = getattr(self, "residual", None)
-
-                if random is not None:
-                    offset = 0
-                    for rand in random:
-                        size = rand.k * rand.c * rand.L
-                        idx = slice(offset, offset + size)
-                        rand.format_pred(self.uhat[idx], PEV[idx, idx])
-                        offset += size
-                else:
-                    self.PEV = PEV
-                    
-                if residual is not None:
-                    residual.format_residuals(residuals, self.W)
-                else:
-                    self.residuals = residuals
-
-                self.compute_AIC(REML = True)
-
-    def format_fixed(self, compute_SE: bool = False):
+    def format_fixed(self):
         """
         Format the fixed-effect estimates.
 
@@ -439,10 +439,7 @@ class MixedModel:
         DataFrame in self.estimates, kept in the native order of beta
         (response-outer, term-inner) so that row i aligns with row/col i of the
         estimation error variance matrix self.EEV. Columns are
-        [response | term | estimate]; if compute_SE is True, SE and t are appended
-        (SE = sqrt(diag(EEV)), t = estimate / SE), which requires self.EEV to be
-        current. The full EEV is also delivered as-is (the off-diagonals carry the
-        covariances between estimates).
+        [response | term | estimate | SE = sqrt(diag(EEV)) | t = estimate / SE ]
 
         Low-level fallback: self.estimates is not built; the raw beta vector
         (self.beta) and self.EEV are the only outputs.
@@ -455,31 +452,21 @@ class MixedModel:
         beta = self.beta.detach().flatten().tolist()
         p_fixed = len(fixed_names)
 
-        if compute_SE:
-            se = torch.sqrt(torch.diag(self.EEV)).detach().flatten().tolist()
-            rows = [
-                (
-                    resp,
-                    term,
-                    beta[r * p_fixed + t],
-                    se[r * p_fixed + t],
-                    beta[r * p_fixed + t] / se[r * p_fixed + t],
-                )
-                for r, resp in enumerate(response)
-                for t, term in enumerate(fixed_names)
-            ]
-            self.estimates = pd.DataFrame(
-                rows, columns=["response", "term", "estimate", "SE", "t"]
+        se = torch.sqrt(torch.diag(self.EEV)).detach().flatten().tolist()
+        rows = [
+            (
+                resp,
+                term,
+                beta[r * p_fixed + t],
+                se[r * p_fixed + t],
+                beta[r * p_fixed + t] / se[r * p_fixed + t],
             )
-        else:
-            rows = [
-                (resp, term, beta[r * p_fixed + t])
-                for r, resp in enumerate(response)
-                for t, term in enumerate(fixed_names)
-            ]
-            self.estimates = pd.DataFrame(
-                rows, columns=["response", "term", "estimate"]
-            )
+            for r, resp in enumerate(response)
+            for t, term in enumerate(fixed_names)
+        ]
+        self.estimates = pd.DataFrame(
+            rows, columns=["response", "term", "estimate", "SE", "t"]
+        )
 
     def compute_AIC(self, REML = True):
         """

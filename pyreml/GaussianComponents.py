@@ -25,6 +25,8 @@ class GaussianComponent:
         left_hand: LEFT = "iid",
         right_hand: RIGHT = "iid",
         covariance: None | np.ndarray = None,
+        precision: None | np.ndarray = None,
+        logdet_K:  None | float = None,
         distance: None | np.ndarray = None,
         matrix_index: None | list = None,
         het_formula: None | str = None,
@@ -83,6 +85,8 @@ class GaussianComponent:
         self.left_hand = left_hand
         self.right_hand = right_hand
         self.covariance = covariance
+        self.precision = precision
+        self.logdet_K = logdet_K
         self.distance = distance
         self.matrix_index = matrix_index
         self.het_formula = het_formula
@@ -99,10 +103,10 @@ class GaussianComponent:
 
         # check str
         if self.right_hand == "str":
-            if self.covariance is None:
-                raise ValueError("`covariance` is required when right_hand = 'str'.")
-        elif self.covariance is not None:
-            raise ValueError("`covariance` must be None when right_hand != 'str'.")
+            if self.covariance is None and self.precision is None:
+                raise ValueError("`covariance` or `precision` is required when right_hand = 'str'.")
+        elif self.covariance is not None or self.precision is not None or self.logdet_K is not None:
+            raise ValueError("`covariance` or `precision` must be None when right_hand != 'str'.")
 
         # check het
         if self.right_hand == "het":
@@ -397,9 +401,6 @@ class GaussianComponent:
                 n_right = self.coord_dim
 
             case "str":
-                if self.covariance is None:
-                    raise ValueError("a covariance matrix must be provided for right_hand='str'")
-                # constant, no trainable parameter
                 n_right = 0
 
             case "het":
@@ -607,7 +608,6 @@ class GaussianComponent:
 
     def build_K(
         self,
-        covariance: None | torch.Tensor = None,
         distance: None | torch.Tensor = None,
         coords: None | torch.Tensor = None,
     ) -> torch.Tensor:
@@ -620,7 +620,6 @@ class GaussianComponent:
         on the effect; passing new ones (over a superset of levels) lets `predict`
         reuse the same kernel logic for kriging.
         """
-        covariance = self.covariance if covariance is None else covariance
         distance = self.distance if distance is None else distance
 
         match self.right_hand:
@@ -633,7 +632,10 @@ class GaussianComponent:
                 return torch.exp(-rho * distance)
             
             case "str":
-                return covariance
+                if self.covariance is None:
+                    Lkm = torch.linalg.cholesky(self.precision)
+                    self.covariance = torch.cholesky_inverse(Lkm)
+                return self.covariance
             
             case "het":
                 h = torch.cat([torch.zeros(1, dtype=self.dtype, device=self.device), self.log_h])
@@ -870,12 +872,15 @@ class GaussianComponent:
                 return Kinv, logdet
 
             case "str":
-                # K constant => invert + logdet once, then cache.
-                if not hasattr(self, "Kinv"):
+                if self.precision is None:
                     Lk = torch.linalg.cholesky(self.covariance)
-                    self.Kinv = torch.cholesky_inverse(Lk)
+                    self.precision = torch.cholesky_inverse(Lk)
                     self.logdet_K = 2.0 * torch.sum(torch.log(torch.diagonal(Lk)))
-                return self.Kinv, self.logdet_K
+                elif self.logdet_K is None:
+                    Lp = torch.linalg.cholesky(self.precision)
+                    logdet_precision = 2.0 * torch.sum(torch.log(torch.diagonal(Lp)))
+                    self.logdet_K = -logdet_precision
+                return self.precision, self.logdet_K
             
             case _:
                 raise ValueError(f"unsupported right hand type: {self.right_hand}")
@@ -1045,6 +1050,8 @@ class Random(GaussianComponent):
         right_hand: RIGHT = "iid",
         covariance: None | np.ndarray = None,
         distance: None | np.ndarray = None,
+        precision: None | np.ndarray = None,
+        logdet_K:  None | float = None,
         matrix_index: None | list = None,
         het_formula: None | str = None,
         n_axes: None | int = None,
@@ -1058,6 +1065,8 @@ class Random(GaussianComponent):
             right_hand = right_hand,
             covariance = covariance,
             distance = distance,
+            precision = precision,
+            logdet_K = logdet_K,
             matrix_index = matrix_index,
             het_formula = het_formula,
             n_axes = n_axes,
@@ -1079,9 +1088,13 @@ class Random(GaussianComponent):
 
         make_Z sets self.index: the sorted unique values of `unit` for ordinary
         kernels, or the distinct coordinate tuples (first-occurrence order) for
-        the coordinate kernels. For ar_iso / ar_ani, make_coords then completes
-        the integer grid and overwrites self.index with the grid cells, keeping
-        the observed positions in self._obs_levels for prediction.
+        the coordinate kernels. For ar_iso / ar_ani, make_coords completes the
+        integer grid and overwrites self.index with the grid cells. For str /
+        dist, self.index is completed to `matrix_index` the same way: K is
+        never subsetted to the observed levels (a sub-block of a covariance is
+        still valid, but a sub-block of a precision is NOT the precision of the
+        marginal), so the unobserved levels get empty Z columns instead.
+        Observed positions are kept in self._obs_levels for prediction.
         """
         self.device = device
         self.dtype = dtype
@@ -1105,30 +1118,44 @@ class Random(GaussianComponent):
                     "(a regular grid). Use 'eucl' for arbitrary real coordinates."
                 )
             self.make_coords(data, checkerboard=True)   # rebuilds self.Z over the grid
+
+        elif self.right_hand in ("str", "dist"):
+            if self.matrix_index is None:
+                raise ValueError(
+                    "matrix_index must be provided for right_hand in {'str', 'dist'}."
+                )
+            self._obs_levels = self.index
+
+            # embed the observed-level Z columns into the full matrix_index
+            # columns (unobserved levels, e.g. pedigree founders, get empty
+            # columns); K is used as-is afterwards, never subsetted/permuted.
+            pos = {lvl: j for j, lvl in enumerate(self.matrix_index)}
+            try:
+                level_cell = np.array([pos[lvl] for lvl in self.index], dtype=int)
+            except KeyError as e:
+                raise ValueError(f"level {e} present in data is missing from matrix_index")
+
+            L_obs, L_full, c = len(self.index), len(self.matrix_index), self.c
+            grid_incidence = np.zeros((self.Z.shape[0], c * L_full))
+            for j in range(c):
+                grid_incidence[:, j * L_full + level_cell] = self.Z[:, j * L_obs:(j + 1) * L_obs]
+
+            self.Z = grid_incidence
+            self.index = np.asarray(self.matrix_index)
+            self.L = L_full
+
         self.n, self.q = self.Z.shape
         self.d = self.k * self.c
 
         # constant right-hand inputs (the variable parts of K live in build_K).
-        # Reorder/subset the user matrix from `matrix_index` to the data levels.
-        
-        if self.distance is not None or self.covariance is not None:
-            if self.matrix_index is None:
-                raise ValueError("matrix_index must be provided alongside covariance/distance")
-            
-            pos = {lvl: j for j, lvl in enumerate(self.matrix_index)}
-
-            try:
-                perm = [pos[lvl] for lvl in self.index]
-
-            except KeyError as e:
-                raise ValueError(f"level {e} present in data is missing from matrix_index")
-            
-            ix = np.ix_(perm, perm)
-
-            if self.distance is not None:
-                self.distance = torch.as_tensor(np.asarray(self.distance)[ix], dtype=dtype, device=device)
-            if self.covariance is not None:
-                self.covariance = torch.as_tensor(np.asarray(self.covariance)[ix], dtype=dtype, device=device)
+        # self.index now equals matrix_index for str/dist, so these already
+        # align with self.index as-is: no permutation needed.
+        if self.distance is not None:
+            self.distance = torch.as_tensor(np.asarray(self.distance), dtype=dtype, device=device)
+        if self.covariance is not None:
+            self.covariance = torch.as_tensor(np.asarray(self.covariance), dtype=dtype, device=device)
+        if self.precision is not None:
+            self.precision = torch.as_tensor(np.asarray(self.precision), dtype=dtype, device=device)
 
         self.init_varparams()         # -> self.varparams, self.log_S, (self.log_rho)
         self.uhat = torch.zeros(self.d * self.L, 1, dtype=dtype, device=device)
@@ -1185,7 +1212,7 @@ class Random(GaussianComponent):
     def format_pred(
         self,
         uhat: torch.Tensor,
-        pev: None | torch.Tensor = None,
+        pev: torch.Tensor,
     ) -> None:
         """
         Receive this effect's uhat slice (and optionally its PEV sub-matrix),
@@ -1196,12 +1223,23 @@ class Random(GaussianComponent):
         columns; for ar_iso / ar_ani these levels span the FULL grid (empty cells
         included), which is what `uhat` carries. Ordinary kernels label the rows
         by `unit`.
+
+        Also computes:
+            - SE: sqrt(diag(PEV))
+            - CD: coefficient of determination, diag((Sigma - PEV) @ Sigma^-1),
+              with Sigma = S ⊗ K (+ jitter) the effect's full variance block.
         """
         self.uhat.copy_(uhat.detach().reshape(self.uhat.shape))
         self.PEV = pev
         self._fitted = True
 
         vals = self.uhat.cpu().numpy().ravel()
+
+        with torch.no_grad():
+            Sigma = self.varmeth()()
+            se = torch.sqrt(torch.diagonal(pev)).cpu().numpy()
+            Sigma_inv = torch.linalg.inv(Sigma)
+            cd = torch.diagonal((Sigma - pev) @ Sigma_inv).cpu().numpy()
 
         if self._coord_cols is not None:
             coord_cols = list(self._coord_cols)
@@ -1211,10 +1249,10 @@ class Random(GaussianComponent):
             for resp in self.responses:
                 for comp in self.colnames:
                     for lvl in levels:
-                        rows.append((*lvl, resp, comp, float(vals[idx])))
+                        rows.append((*lvl, resp, comp, float(vals[idx]), float(se[idx]), float(cd[idx])))
                         idx += 1
             self.table = pd.DataFrame(
-                rows, columns=[*coord_cols, "response", "component", "prediction"]
+                rows, columns=[*coord_cols, "response", "component", "prediction", "SE", "CD"]
             )
         else:
             levels = self.index.tolist()
@@ -1223,10 +1261,10 @@ class Random(GaussianComponent):
             for resp in self.responses:
                 for comp in self.colnames:
                     for lvl in levels:
-                        rows.append((lvl, resp, comp, float(vals[idx])))
+                        rows.append((lvl, resp, comp, float(vals[idx]), float(se[idx]), float(cd[idx])))
                         idx += 1
             self.table = pd.DataFrame(
-                rows, columns=["unit", "response", "component", "prediction"]
+                rows, columns=["unit", "response", "component", "prediction", "SE", "CD"]
             )
 
     def predict(
@@ -1280,9 +1318,8 @@ class Random(GaussianComponent):
                 if self.right_hand == "str":
                     if covariance is None:
                         raise ValueError("`covariance` is required to predict with right_hand='str'.")
-                    K_full = self.build_K(
-                        covariance=torch.as_tensor(np.asarray(covariance), dtype=self.dtype, device=self.device)
-                    )
+                    K_full = torch.as_tensor(np.asarray(covariance), dtype=self.dtype, device=self.device)
+                
                 else:  # dist
                     if distance is None:
                         raise ValueError("`distance` is required to predict with right_hand='dist'.")
@@ -1313,7 +1350,11 @@ class Random(GaussianComponent):
             else:
                 u_train = u_full
 
-            u_pred = (K_pred @ torch.linalg.solve(K_train, u_train.T)).T.cpu().numpy()
+            if self.right_hand == "str":
+                Kinv_train, _ = self.build_Kinv()           # cached self.precision, training order
+                u_pred = (K_pred @ Kinv_train @ u_train.T).T.cpu().numpy()
+            else:
+                u_pred = (K_pred @ torch.linalg.solve(K_train, u_train.T)).T.cpu().numpy()
 
             if coord_regime:
                 cols = [*self._coord_cols, "response", "component", "prediction"]
@@ -1340,6 +1381,8 @@ class Residual(GaussianComponent):
         right_hand: RIGHT = "iid",
         covariance: None | np.ndarray = None,
         distance: None | np.ndarray = None,
+        precision: None | np.ndarray = None,
+        logdet_K:  None | float = None,
         coords: None | list[str] = None,
         het_formula: None | str = None,
         n_axes: None | int = None,
@@ -1356,6 +1399,8 @@ class Residual(GaussianComponent):
             right_hand = right_hand,
             covariance = covariance,
             distance = distance,
+            precision = precision,
+            logdet_K = logdet_K,
             matrix_index = None,
             het_formula = het_formula,
             n_axes = n_axes,
@@ -1434,11 +1479,12 @@ class Residual(GaussianComponent):
         self.n, self.q = self.W.shape
         self.d = self.k * self.c
 
-        if self.distance is not None or self.covariance is not None:
-            if self.distance is not None:
-                self.distance = torch.as_tensor(np.asarray(self.distance), dtype=self.dtype, device=self.device)
-            if self.covariance is not None:
-                self.covariance = torch.as_tensor(np.asarray(self.covariance), dtype=self.dtype, device=self.device)
+        if self.distance is not None:
+            self.distance = torch.as_tensor(np.asarray(self.distance), dtype=self.dtype, device=self.device)
+        if self.covariance is not None:
+            self.covariance = torch.as_tensor(np.asarray(self.covariance), dtype=self.dtype, device=self.device)
+        if self.precision is not None:
+            self.precision = torch.as_tensor(np.asarray(self.precision), dtype=self.dtype, device=self.device)
 
         self.init_varparams()         # -> self.varparams, self.log_S, (self.log_rho)
         return self.W
@@ -1521,3 +1567,10 @@ class Residual(GaussianComponent):
             rows,
             columns=["observation", "response", "residual"],
         )
+
+        # compute SD
+        with torch.no_grad():
+            R = Wtot @ self.varmeth()() @ Wtot.T
+            sd = torch.sqrt(torch.diagonal(R)).cpu().numpy()
+
+        self.table["SD"] = sd
