@@ -300,6 +300,7 @@ model = MixedModel.from_dataframe(
         init         = P / 2,
         jitter       = 1e-6,
     ),
+    device = "cuda",
 ).fit()
 
 ran_var = model.random[0].variance
@@ -363,3 +364,5 @@ plt.setp(ax2.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
 
 fig.tight_layout()
 plt.show()
+
+# %%

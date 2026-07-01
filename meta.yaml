@@ -1,5 +1,5 @@
 {% set name = "pyreml" %}
-{% set version = "0.2.0" %}
+{% set version = "0.2.1" %}
 {% set python_min = "3.10" %}
 
 package:
@@ -8,7 +8,7 @@ package:
 
 source:
   url: https://pypi.org/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
-  sha256: da7d49e116ade2dc6be033feaec75bc6ecd26a0eeeaa7734d32c13458bb4c536
+  sha256: 92684fd020e98a24ba8015c90c3a88c500e20acb8b4133d8e6e7c83586e0b11a 
 
 build:
   noarch: python

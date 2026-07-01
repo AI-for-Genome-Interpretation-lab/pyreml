@@ -38,6 +38,7 @@ def sim(ref):
 
     return {
         "id_index": id_index,
+        "obs_ids": set(df_long["ID"].unique()),
         "A": np.array(ref["A"]),
         "X": np.array(ref["X"]),
         "K": np.array(ref["K_genomic"]),
@@ -105,13 +106,15 @@ def ref_blkr():
 
 @pytest.fixture(scope="session")
 def sim_blkr(ref_blkr):
+    df_cols = pd.DataFrame(ref_blkr["df_cols"])
     return {
         "id_index": ref_blkr["id_index"],
+        "obs_ids": set(df_cols["ID"].unique()),
         "Sigma_A": np.array(ref_blkr["Sigma_A"]),
         "Sigma_R": np.array(ref_blkr["Sigma_R"]),
         "true_beta": {r: np.array(v) for r, v in ref_blkr["true_beta"].items()},
         "u_true": np.array(ref_blkr["u_true"]),          # (n, 4)
-        "df_cols": pd.DataFrame(ref_blkr["df_cols"]),
+        "df_cols": pd.DataFrame(df_cols),
     }
 
 @pytest.fixture(scope="session", params=[
@@ -186,6 +189,7 @@ class TestHet:
             {"unit": sim["id_index"], "u_true": sim["u_true"][:, 0]}
         )
         cmp = blup.merge(u_true, on="unit")
+        cmp = cmp[cmp["unit"].isin(sim["obs_ids"])]
         acc = np.corrcoef(cmp["prediction"], cmp["u_true"])[0, 1]
         assert acc >= 0.99
 
@@ -259,6 +263,7 @@ class TestFA:
             resp = f"y_{envt}"
             pred = tab[tab["response"] == resp][["unit", "prediction"]]
             cmp = pred.merge(u_true_df[["unit", resp]], on="unit")
+            cmp = cmp[cmp["unit"].isin(sim["obs_ids"])]
             acc = np.corrcoef(cmp["prediction"], cmp[resp])[0, 1]
             assert acc >= 0.75
 
@@ -346,6 +351,7 @@ class TestBlKr:
             for comp in TERMS:
                 pred = tab[(tab["response"] == resp) & (tab["component"] == comp)][["unit", "prediction"]]
                 cmp = pred.merge(u_df[["unit", f"{resp}|{comp}"]], on="unit")
+                cmp = cmp[cmp["unit"].isin(sim_blkr["obs_ids"])]
                 acc = np.corrcoef(cmp["prediction"], cmp[f"{resp}|{comp}"])[0, 1]
                 assert acc >= 0.85, f"{lh} {resp} {comp}: acc={acc:.4f}"
 

@@ -10,7 +10,7 @@ interactions) becomes a component of the effect that varies from one `unit`
 to the next.
 
 The left-hand factor $\mathbf{\Sigma_a}$ models the covariance
-between these components (see [Variance structures](variance_structures.qmd)).
+between these components (see [variance structures](variance_structures.qmd)).
 
 ## Random regression
 

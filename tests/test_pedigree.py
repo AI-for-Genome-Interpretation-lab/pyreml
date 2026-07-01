@@ -84,6 +84,24 @@ def _pev_diag_multi_for(rand, ids):
         rows.append([pev[j * L + i, j * L + i] for j in range(k)])
     return np.array(rows)
 
+
+def _kernel_kwargs(kind, K, ped_ids):
+    """
+    Build the Random() kwargs for the right_hand='str' kernel input, either
+    as a covariance (K) or as the equivalent precision + logdet (computed
+    externally, mirroring how a user would pass a pre-inverted kinship).
+    `matrix_index` is shared: same permutation contract for either path.
+    """
+    if kind == "covariance":
+        return dict(covariance=K, matrix_index=ped_ids)
+    elif kind == "precision":
+        Kinv = np.linalg.inv(K)
+        logdet_K = np.linalg.slogdet(K)[1]
+        return dict(precision=Kinv, logdet_K=logdet_K, matrix_index=ped_ids)
+    else:
+        raise ValueError(kind)
+
+
 @pytest.fixture
 def df_train(df):
     return df[df["BLOC"].isin([f"B{i}" for i in range(1, 9)])].copy()
@@ -120,7 +138,7 @@ def kinship_train(pedigree_full, df_train):
 
     # Réordonner selon la référence
     ref_order = KINSHIP["index"]
-    keep_idx = [ped_ids_full.index(id_) for id_ in ref_order if id_ in keep_set]
+    keep_idx = [ped_ids_full.index(id_) for id_ in ped_ids_full if id_ in keep_set]
     ped_ids = [ped_ids_full[i] for i in keep_idx]
 
     A = A_full[np.ix_(keep_idx, keep_idx)]
@@ -155,8 +173,21 @@ def uni_variances(df_train, kinship_train):
 
     return SigmaA_init, SigmaR_init
 
-@pytest.fixture(params=[True, False], ids=["woodbury", "direct"])
+
+_SMW_KERNEL_PARAMS = [
+    (smw, kind)
+    for smw in (True, False)
+    for kind in ("covariance", "precision")
+]
+_SMW_KERNEL_IDS = [
+    f"{'woodbury' if smw else 'direct'}-{kind}"
+    for smw, kind in _SMW_KERNEL_PARAMS
+]
+
+
+@pytest.fixture(params=_SMW_KERNEL_PARAMS, ids=_SMW_KERNEL_IDS)
 def mod_uni(df_train, kinship_train, request):
+    smw, kind = request.param
     A, D, ped_ids = kinship_train
     return MixedModel.from_dataframe(
         data     = df_train,
@@ -166,22 +197,21 @@ def mod_uni(df_train, kinship_train, request):
             Random(
                 unit         = "ID",
                 right_hand   = "str",
-                covariance   = A,
-                matrix_index = ped_ids,
+                **_kernel_kwargs(kind, A, ped_ids),
             ),
             Random(
                 unit         = "ID",
                 right_hand   = "str",
-                covariance   = D,
-                matrix_index = ped_ids
+                **_kernel_kwargs(kind, D, ped_ids),
             ),
         ],
-        SMW = request.param,
+        SMW = smw,
     ).fit()
 
 
-@pytest.fixture(params=[True, False], ids=["woodbury", "direct"])
+@pytest.fixture(params=_SMW_KERNEL_PARAMS, ids=_SMW_KERNEL_IDS)
 def mod_diag(df_train, kinship_train, uni_variances, request):
+    smw, kind = request.param
     A, _, ped_ids = kinship_train
     SigmaA_init, SigmaR_init = uni_variances
     return MixedModel.from_dataframe(
@@ -196,20 +226,20 @@ def mod_diag(df_train, kinship_train, uni_variances, request):
             unit         = "ID",
             left_hand    = "diag",
             right_hand   = "str",
-            covariance   = A,
-            matrix_index = ped_ids,
             init         = SigmaA_init,
+            **_kernel_kwargs(kind, A, ped_ids),
         ),
         residual = Residual(
             left_hand = "diag",
             init      = SigmaR_init,
         ),
-        SMW = request.param,
+        SMW = smw,
     ).fit()
 
 
-@pytest.fixture(params=[True, False], ids=["woodbury", "direct"])
+@pytest.fixture(params=_SMW_KERNEL_PARAMS, ids=_SMW_KERNEL_IDS)
 def mod_str(df_train, kinship_train, uni_variances, request):
+    smw, kind = request.param
     A, _, ped_ids = kinship_train
     SigmaA_init, SigmaR_init = uni_variances
     return MixedModel.from_dataframe(
@@ -224,27 +254,31 @@ def mod_str(df_train, kinship_train, uni_variances, request):
             unit         = "ID",
             left_hand    = "full",
             right_hand   = "str",
-            covariance   = A,
-            matrix_index = ped_ids,
             init         = SigmaA_init,
+            **_kernel_kwargs(kind, A, ped_ids),
         ),
         residual = Residual(
             left_hand    = "full",
             init         = SigmaR_init,
         ),
-        SMW = request.param,
+        SMW = smw,
     ).fit()
 
 class TestKinship:
 
     def test_A(self, kinship_train):
-        A, _, _ = kinship_train
-        np.testing.assert_allclose(A, np.array(KINSHIP["A"]), atol=1e-6)
+        A, _, ped_ids = kinship_train
+        ref_order = KINSHIP["index"]
+        idx = [ped_ids.index(id_) for id_ in ref_order]
+        A_sub = A[np.ix_(idx, idx)]
+        np.testing.assert_allclose(A_sub, np.array(KINSHIP["A"]), atol=1e-6)
 
     def test_D(self, kinship_train):
-        _, D, _ = kinship_train
-        np.testing.assert_allclose(D, np.array(KINSHIP["D"]), atol=1e-6)
-
+        _, D, ped_ids = kinship_train
+        ref_order = KINSHIP["index"]
+        idx = [ped_ids.index(id_) for id_ in ref_order]
+        D_sub = D[np.ix_(idx, idx)]
+        np.testing.assert_allclose(D_sub, np.array(KINSHIP["D"]), atol=1e-6)
 
 class TestUnivariate:
 

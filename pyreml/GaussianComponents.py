@@ -1050,6 +1050,8 @@ class Random(GaussianComponent):
         right_hand: RIGHT = "iid",
         covariance: None | np.ndarray = None,
         distance: None | np.ndarray = None,
+        precision: None | np.ndarray = None,
+        logdet_K:  None | float = None,
         matrix_index: None | list = None,
         het_formula: None | str = None,
         n_axes: None | int = None,
@@ -1063,6 +1065,8 @@ class Random(GaussianComponent):
             right_hand = right_hand,
             covariance = covariance,
             distance = distance,
+            precision = precision,
+            logdet_K = logdet_K,
             matrix_index = matrix_index,
             het_formula = het_formula,
             n_axes = n_axes,
@@ -1084,9 +1088,13 @@ class Random(GaussianComponent):
 
         make_Z sets self.index: the sorted unique values of `unit` for ordinary
         kernels, or the distinct coordinate tuples (first-occurrence order) for
-        the coordinate kernels. For ar_iso / ar_ani, make_coords then completes
-        the integer grid and overwrites self.index with the grid cells, keeping
-        the observed positions in self._obs_levels for prediction.
+        the coordinate kernels. For ar_iso / ar_ani, make_coords completes the
+        integer grid and overwrites self.index with the grid cells. For str /
+        dist, self.index is completed to `matrix_index` the same way: K is
+        never subsetted to the observed levels (a sub-block of a covariance is
+        still valid, but a sub-block of a precision is NOT the precision of the
+        marginal), so the unobserved levels get empty Z columns instead.
+        Observed positions are kept in self._obs_levels for prediction.
         """
         self.device = device
         self.dtype = dtype
@@ -1110,32 +1118,44 @@ class Random(GaussianComponent):
                     "(a regular grid). Use 'eucl' for arbitrary real coordinates."
                 )
             self.make_coords(data, checkerboard=True)   # rebuilds self.Z over the grid
+
+        elif self.right_hand in ("str", "dist"):
+            if self.matrix_index is None:
+                raise ValueError(
+                    "matrix_index must be provided for right_hand in {'str', 'dist'}."
+                )
+            self._obs_levels = self.index
+
+            # embed the observed-level Z columns into the full matrix_index
+            # columns (unobserved levels, e.g. pedigree founders, get empty
+            # columns); K is used as-is afterwards, never subsetted/permuted.
+            pos = {lvl: j for j, lvl in enumerate(self.matrix_index)}
+            try:
+                level_cell = np.array([pos[lvl] for lvl in self.index], dtype=int)
+            except KeyError as e:
+                raise ValueError(f"level {e} present in data is missing from matrix_index")
+
+            L_obs, L_full, c = len(self.index), len(self.matrix_index), self.c
+            grid_incidence = np.zeros((self.Z.shape[0], c * L_full))
+            for j in range(c):
+                grid_incidence[:, j * L_full + level_cell] = self.Z[:, j * L_obs:(j + 1) * L_obs]
+
+            self.Z = grid_incidence
+            self.index = np.asarray(self.matrix_index)
+            self.L = L_full
+
         self.n, self.q = self.Z.shape
         self.d = self.k * self.c
 
         # constant right-hand inputs (the variable parts of K live in build_K).
-        # Reorder/subset the user matrix from `matrix_index` to the data levels.
-        
-        if self.distance is not None or self.covariance is not None or self.precision is not None:
-            if self.matrix_index is None:
-                raise ValueError("matrix_index must be provided alongside covariance/distance")
-            
-            pos = {lvl: j for j, lvl in enumerate(self.matrix_index)}
-
-            try:
-                perm = [pos[lvl] for lvl in self.index]
-
-            except KeyError as e:
-                raise ValueError(f"level {e} present in data is missing from matrix_index")
-            
-            ix = np.ix_(perm, perm)
-
-            if self.distance is not None:
-                self.distance = torch.as_tensor(np.asarray(self.distance)[ix], dtype=dtype, device=device)
-            if self.covariance is not None:
-                self.covariance = torch.as_tensor(np.asarray(self.covariance)[ix], dtype=dtype, device=device)
-            if self.precision is not None:
-                self.precision = torch.as_tensor(np.asarray(self.precision)[ix], dtype=dtype, device=device)
+        # self.index now equals matrix_index for str/dist, so these already
+        # align with self.index as-is: no permutation needed.
+        if self.distance is not None:
+            self.distance = torch.as_tensor(np.asarray(self.distance), dtype=dtype, device=device)
+        if self.covariance is not None:
+            self.covariance = torch.as_tensor(np.asarray(self.covariance), dtype=dtype, device=device)
+        if self.precision is not None:
+            self.precision = torch.as_tensor(np.asarray(self.precision), dtype=dtype, device=device)
 
         self.init_varparams()         # -> self.varparams, self.log_S, (self.log_rho)
         self.uhat = torch.zeros(self.d * self.L, 1, dtype=dtype, device=device)
@@ -1361,6 +1381,8 @@ class Residual(GaussianComponent):
         right_hand: RIGHT = "iid",
         covariance: None | np.ndarray = None,
         distance: None | np.ndarray = None,
+        precision: None | np.ndarray = None,
+        logdet_K:  None | float = None,
         coords: None | list[str] = None,
         het_formula: None | str = None,
         n_axes: None | int = None,
@@ -1377,6 +1399,8 @@ class Residual(GaussianComponent):
             right_hand = right_hand,
             covariance = covariance,
             distance = distance,
+            precision = precision,
+            logdet_K = logdet_K,
             matrix_index = None,
             het_formula = het_formula,
             n_axes = n_axes,
