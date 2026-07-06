@@ -116,7 +116,7 @@
     "href": "index.html#the-model",
     "title": "pyreml",
     "section": "The model",
-    "text": "The model\npyreml fits the linear mixed model:\n\\[\n\\mathbf{y} = \\mathbf{X}\\boldsymbol{\\beta} + \\mathbf{Z}\\mathbf{u} + \\mathbf{r},\n\\qquad\n\\mathbf{u} \\sim \\mathcal{N}(\\mathbf{0}, \\mathbf{G}),\n\\qquad\n\\mathbf{r} \\sim \\mathcal{N}(\\mathbf{0}, \\mathbf{R}),\n\\]\nwhere \\(\\mathbf{X}\\) and \\(\\mathbf{Z}\\) are the incidence matrices of the fixed effects \\(\\boldsymbol{\\beta}\\) and the random effects \\(\\mathbf{u}\\), and \\(\\mathbf{G}\\) and \\(\\mathbf{R}\\) are the covariances of \\(\\mathbf{u}\\) and \\(\\mathbf{r}\\). These two covariances are assembled from the structures declared by the user (see Variance structures)."
+    "text": "The model\npyreml fits the linear mixed model:\n\\[\n\\mathbf{y} = \\mathbf{X}\\mathbf{\\beta} + \\mathbf{Z}\\mathbf{u} + \\mathbf{r},\n\\qquad\n\\mathbf{u} \\sim \\mathcal{N}(\\mathbf{0}, \\mathbf{G}),\n\\qquad\n\\mathbf{r} \\sim \\mathcal{N}(\\mathbf{0}, \\mathbf{R}),\n\\]\nwhere \\(\\mathbf{X}\\) and \\(\\mathbf{Z}\\) are the incidence matrices of the fixed effects \\(\\mathbf{\\beta}\\) and the random effects \\(\\mathbf{u}\\), and \\(\\mathbf{G}\\) and \\(\\mathbf{R}\\) are the covariances of \\(\\mathbf{u}\\) and \\(\\mathbf{r}\\). These two covariances are assembled from the structures declared by the user (see Variance structures)."
   },
   {
     "objectID": "index.html#example",
