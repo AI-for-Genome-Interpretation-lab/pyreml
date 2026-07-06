@@ -24,7 +24,7 @@ pip install pyreml
 [pyreml]{.pyreml} fits the linear mixed model:
 
 $$
-\mathbf{y} = \mathbf{X}\boldsymbol{\beta} + \mathbf{Z}\mathbf{u} + \mathbf{r},
+\mathbf{y} = \mathbf{X}\mathbf{\beta} + \mathbf{Z}\mathbf{u} + \mathbf{r},
 \qquad
 \mathbf{u} \sim \mathcal{N}(\mathbf{0}, \mathbf{G}),
 \qquad
@@ -32,7 +32,7 @@ $$
 $$
 
 where $\mathbf{X}$ and $\mathbf{Z}$ are the incidence matrices of the fixed
-effects $\boldsymbol{\beta}$ and the random effects $\mathbf{u}$, and
+effects $\mathbf{\beta}$ and the random effects $\mathbf{u}$, and
 $\mathbf{G}$ and $\mathbf{R}$ are the covariances of $\mathbf{u}$ and
 $\mathbf{r}$. These two covariances are assembled from the structures declared by
 the user (see [Variance structures](variance_structures.qmd)).
