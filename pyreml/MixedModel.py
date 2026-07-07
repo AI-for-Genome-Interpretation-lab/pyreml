@@ -23,7 +23,7 @@ class MixedModel:
         random: None | Random | list[Random] = None,
         residual: Residual | None = None,
         SMW: bool | None = None,
-        dtype = torch.double,
+        dtype = torch.float32,
         device: str = "cpu",
     ):
 
@@ -172,7 +172,7 @@ class MixedModel:
         varmeth: Callable | None = None,
         varmeth_inv: Callable | None = None,
         do_REML: bool = True,
-        dtype = torch.double,
+        dtype = torch.float32,
         device = "cpu",
     ):
         self.dtype = dtype
