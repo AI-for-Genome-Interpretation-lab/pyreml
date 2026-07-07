@@ -92,6 +92,7 @@ def fitted_fa(sim, G, request):
             covariance   = G,
             matrix_index = sim["id_index"],
             n_axes       = N_AXES,
+            jitter       = 1e-6,
         ),
         residual = Residual(
             left_hand    = "diag",
