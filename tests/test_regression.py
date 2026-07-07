@@ -124,7 +124,7 @@ class TestLMM:
 
     def test_sigma_r(self, mod_lmm):
         expected = EXPECTED_RANDOM_REG["sigma_r"]
-        actual = float(torch.exp(mod_lmm.residual.log_S).detach().numpy())
+        actual = float(mod_lmm.residual.variance["sigma"])
         np.testing.assert_allclose(actual, expected, atol=1e-4)
 
     def test_blup(self, mod_lmm):

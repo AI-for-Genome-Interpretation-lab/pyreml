@@ -93,6 +93,7 @@ class GaussianComponent:
         self.n_axes = n_axes
         self.init = init
         self.jitter = jitter
+        self.scale = None 
 
         # check "dist"
         if self.right_hand == "dist":
@@ -167,6 +168,27 @@ class GaussianComponent:
         else:
             self.effect_label = "(" + ", ".join(map(str, self.unit)) + ")"
 
+    def _scale_init(self, init, scale_d):
+        """
+        Map a natural-units `init` into the scaled space where log_S lives, so
+        the stored parameter is O(1). scale_d is the per-component SD (the
+        per-response scale repeated over the c formula columns).
+
+            covariance matrix : init[i,j] / (scale_d[i] * scale_d[j])
+            diagonal vector   : init[i]   / scale_d[i]**2
+            iid scalar        : init / geomean(scale_d**2)  (exact iff scale uniform)
+
+        The element-wise matrix form commutes with the bl_*/kr_* block
+        extractions, so every branch can read the returned object unchanged.
+        """
+        init = np.asarray(init, dtype=float)
+        sd = np.asarray(scale_d, dtype=float)
+        if init.ndim == 0:
+            return init / np.exp(np.mean(np.log(sd ** 2)))
+        if init.ndim == 1:
+            return init / sd ** 2
+        return init / np.outer(sd, sd)
+
     def init_varparams(self) -> None:
         """
         Instantiate the trainable variance parameters for this effect.
@@ -195,14 +217,20 @@ class GaussianComponent:
         ]
         k, c, d = self.k, self.c, self.d
 
+        if self.scale is not None:
+            scale_d = np.repeat(np.asarray(self.scale, dtype=float), c)
+            init_src = None if self.init is None else self._scale_init(self.init, scale_d)
+        else:
+            init_src = self.init
+
         # --- left-hand factor S ---------------------------------------------
         match self.left_hand:
 
             case "iid":
-                if self.init is None:
+                if init_src is None:
                     log_S0 = torch.zeros((), dtype = self.dtype, device = self.device)
                 else:
-                    init = np.asarray(self.init, dtype=float)
+                    init = np.asarray(init_src, dtype=float)
                     if init.size != 1:
                         raise ValueError("init for left_hand='iid' must be a scalar.")
                     log_S0 = torch.as_tensor(np.log(float(init)), dtype = self.dtype, device = self.device)
@@ -210,19 +238,19 @@ class GaussianComponent:
                 n_left = 1
 
             case "full":
-                if self.init is None:
+                if init_src is None:
                     log_S0 = torch.zeros(d, d, dtype = self.dtype, device = self.device)
                 else:
-                    init = np.asarray(self.init, dtype=float)
+                    init = np.asarray(init_src, dtype=float)
                     log_S0 = torch.as_tensor(np.real(logm(init)) / 2.0, dtype=self.dtype, device=self.device)
                 self.log_S = nn.Parameter(log_S0)
                 n_left = d * (d + 1) // 2
 
             case "diag":
-                if self.init is None:
+                if init_src is None:
                     log_S0 = torch.zeros(d, dtype = self.dtype, device = self.device)
                 else:
-                    init = np.asarray(self.init, dtype=float)
+                    init = np.asarray(init_src, dtype=float)
                     diag = np.diag(init) if init.ndim == 2 else init
                     log_S0 = torch.as_tensor(np.log(diag), dtype = self.dtype, device = self.device)
                 self.log_S = nn.Parameter(log_S0)
@@ -236,10 +264,10 @@ class GaussianComponent:
                     )
 
                 # target covariance S0: identity by default, else the user matrix
-                if self.init is None:
+                if init_src is None:
                     S0 = torch.eye(d, dtype = self.dtype, device = self.device)
                 else:
-                    init = np.asarray(self.init, dtype=float)
+                    init = np.asarray(init_src, dtype=float)
                     if init.shape != (d, d):
                         raise ValueError(
                             f"init for left_hand='fa' must be a ({d}, {d}) covariance matrix."
@@ -272,10 +300,10 @@ class GaussianComponent:
 
             case "bl_resp":
                 # k blocks of c x c, each parameterized like `full`
-                if self.init is None:
+                if init_src is None:
                     log_S0 = torch.zeros(k, c, c, dtype=self.dtype, device=self.device)
                 else:
-                    init = np.asarray(self.init, dtype=float)
+                    init = np.asarray(init_src, dtype=float)
                     blocks = [
                         np.real(logm(init[r * c:(r + 1) * c, r * c:(r + 1) * c])) / 2.0
                         for r in range(k)
@@ -286,10 +314,10 @@ class GaussianComponent:
 
             case "bl_form":
                 # c blocks of k x k (one per formula column)
-                if self.init is None:
+                if init_src is None:
                     log_S0 = torch.zeros(c, k, k, dtype=self.dtype, device=self.device)
                 else:
-                    init = np.asarray(self.init, dtype=float)
+                    init = np.asarray(init_src, dtype=float)
                     blocks = []
                     for e in range(c):
                         idx = [r * c + e for r in range(k)]
@@ -300,11 +328,11 @@ class GaussianComponent:
 
             case "kr_resp":
                 # S = diag([1, exp(log_alpha)]) ⊗ Omega, Omega (c x c) full
-                if self.init is None:
+                if init_src is None:
                     Bflat = torch.zeros(c * c, dtype=self.dtype, device=self.device)
                     log_alpha = torch.zeros(k - 1, dtype=self.dtype, device=self.device)
                 else:
-                    init = np.asarray(self.init, dtype=float)
+                    init = np.asarray(init_src, dtype=float)
                     Omega0 = init[:c, :c]
                     Bflat = torch.as_tensor(
                         (np.real(logm(Omega0)) / 2.0).reshape(-1), dtype=self.dtype, device=self.device
@@ -321,11 +349,11 @@ class GaussianComponent:
 
             case "kr_form":
                 # S = A ⊗ diag([1, exp(log_omega)]), A (k x k) full
-                if self.init is None:
+                if init_src is None:
                     Bflat = torch.zeros(k * k, dtype=self.dtype, device=self.device)
                     log_omega = torch.zeros(c - 1, dtype=self.dtype, device=self.device)
                 else:
-                    init = np.asarray(self.init, dtype=float)
+                    init = np.asarray(init_src, dtype=float)
                     idx0 = [r * c + 0 for r in range(k)]
                     A0 = init[np.ix_(idx0, idx0)]
                     Bflat = torch.as_tensor(
@@ -549,7 +577,7 @@ class GaussianComponent:
         self.index = grid_cells
         self.L = L_grid
 
-    def build_S(self) -> torch.Tensor:
+    def core_S(self) -> torch.Tensor:
         """
         Rebuild the left-hand factor S from its log-parameterization.
         Differentiable in self.log_S.
@@ -605,6 +633,13 @@ class GaussianComponent:
 
             case _:
                 raise NotImplementedError(f"left_hand='{self.left_hand}' is not implemented.")
+
+    def build_S(self):
+        S = self.core_S()
+        if self.scale is not None:
+            scale_d = torch.as_tensor(self.scale, dtype=self.dtype, device=self.device).repeat_interleave(self.c)
+            S = scale_d[:, None] * S * scale_d[None, :]
+        return S
 
     def build_K(
         self,
@@ -681,7 +716,7 @@ class GaussianComponent:
             return torch.kron(S.contiguous(), K.contiguous())
         return block
 
-    def build_Sinv(self) -> tuple[torch.Tensor, torch.Tensor]:
+    def core_Sinv(self) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Return (S^{-1}, logdet S). Structured per left_hand; falls back to a dense
         regularized inverse when jitter > 0 (jitter breaks the structure).
@@ -802,6 +837,15 @@ class GaussianComponent:
             case _:
                 raise ValueError(f"unsupported left hand type: {self.left_hand}")
 
+    def build_Sinv(self):
+        Sinv, logdet = self.core_Sinv()
+        if self.scale is not None:
+            scale_d = torch.as_tensor(self.scale, dtype=self.dtype, device=self.device).repeat_interleave(self.c)
+            inv = 1.0 / scale_d
+            Sinv = inv[:, None] * Sinv * inv[None, :]
+            logdet = logdet + 2.0 * torch.sum(torch.log(scale_d))
+        return Sinv, logdet
+
     def build_Kinv(self) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Return (K^{-1}, logdet K). For str, both are precomputed once (cached);
@@ -903,13 +947,25 @@ class GaussianComponent:
 
     def format_variance(self) -> None:
         """
-        Format the estimated variance structure into a user-facing object stored
-        in `self.variance`. `metadata["rho"]` is a scalar for the single-rate
-        kernels (dist, eucl, ar_iso) and a list for ar_ani (one rate per axis);
-        absent for the structures with no estimated rate.
+        Format the estimated variance structure into `self.variance`, in NATURAL
+        units. Everything is derived from S = build_S() (already de-scaled) except
+        the fa factors, which only exist in log_S and are de-scaled analytically:
+        loadings Gamma_nat = diag(scale_d) Q sqrt(Lambda) reconstruct the natural
+        low-rank part, Lambda_nat[j] = ||Gamma_nat[:,j]||^2, directions are
+        renormalized, and Psi_nat = scale_d**2 * Psi (exact, diagonal). kr ratios
+        are read from the natural blocks of S, so they carry the trait scales.
+
+        metadata["rho"] is scalar for single-rate kernels (dist, eucl, ar_iso),
+        a list for ar_ani; absent otherwise.
         """
         with torch.no_grad():
-            S = self.build_S().detach().cpu().numpy()
+            S = self.build_S().detach().cpu().numpy()   # natural units
+
+            scale_d = (
+                np.repeat(np.asarray(self.scale, dtype=float), self.c)
+                if self.scale is not None
+                else np.ones(self.d, dtype=float)
+            )
 
             metadata = {
                 "labels": [
@@ -920,69 +976,78 @@ class GaussianComponent:
 
             # --- left-hand Sigma ------------------------------------------------
             match self.left_hand:
-                case "iid":
-                    sigma_base = float(torch.exp(self.log_S).detach().cpu().numpy())
 
-                case "diag" | "full" | "bl_resp" | "bl_form" :
+                case "iid":
+                    sigma_base = float(S[0, 0])
+
+                case "diag" | "full" | "bl_resp" | "bl_form":
                     sigma_base = S
 
                 case "kr_resp":
-                    # S = diag([1, exp(log_alpha)]) ⊗ Omega ; one alpha per non-reference response
+                    # ratios from the NATURAL response blocks: alpha_r = tr(S_r)/tr(S_0)
                     sigma_base = S
-                    log_alpha = self.log_S[self.c * self.c:]
-                    alpha_vec = torch.exp(log_alpha).detach().cpu().numpy()
+                    c = self.c
+                    tr0 = np.trace(S[0:c, 0:c])
+                    ratios = [
+                        np.trace(S[r * c:(r + 1) * c, r * c:(r + 1) * c]) / tr0
+                        for r in range(1, self.k)
+                    ]
                     metadata["kr"] = {
                         "axis": "response",
                         "reference": self.responses[0],
                         "ratios": [
                             {"response": resp, "alpha": float(a)}
-                            for resp, a in zip(self.responses[1:], alpha_vec)
+                            for resp, a in zip(self.responses[1:], ratios)
                         ],
                     }
 
                 case "kr_form":
-                    # S = A ⊗ diag([1, exp(log_omega)]) ; one omega per non-reference formula element
+                    # ratios from the NATURAL formula-element blocks
                     sigma_base = S
-                    log_omega = self.log_S[self.k * self.k:]
-                    omega_vec = torch.exp(log_omega).detach().cpu().numpy()
+                    c, k = self.c, self.k
+                    idx0 = [r * c + 0 for r in range(k)]
+                    trA = np.trace(S[np.ix_(idx0, idx0)])
+                    ratios = []
+                    for e in range(1, c):
+                        idx_e = [r * c + e for r in range(k)]
+                        ratios.append(np.trace(S[np.ix_(idx_e, idx_e)]) / trA)
                     metadata["kr"] = {
                         "axis": "formula",
                         "reference": self.colnames[0],
                         "ratios": [
                             {"formula_element": elem, "omega": float(w)}
-                            for elem, w in zip(self.colnames[1:], omega_vec)
+                            for elem, w in zip(self.colnames[1:], ratios)
                         ],
                     }
 
                 case "fa":
                     sigma_base = S
 
-                    d = self.d
-                    q = self.n_axes
+                    d, q = self.d, self.n_axes
                     log_S = self.log_S
                     M = log_S[: d * q].reshape(d, q)
                     log_Lambda = log_S[d * q: d * q + q]
                     log_Psi = log_S[d * q + q:]
 
-                    # sign convention: make diag(R) >= 0 (reporting only)
+                    # same QR + sign convention as core_S (reporting)
                     Q, R = torch.linalg.qr(M)
                     s = torch.sign(torch.diagonal(R))
                     s = torch.where(s == 0, torch.ones_like(s), s)
-                    Q = Q * s
+                    Q = (Q * s).detach().cpu().numpy()
+                    Lambda = torch.exp(log_Lambda).detach().cpu().numpy()
+                    Psi = torch.exp(log_Psi).detach().cpu().numpy()
+                    Gamma = (scale_d[:, None] * Q) * np.sqrt(Lambda)[None, :]
+                    Lambda_nat = np.sum(Gamma ** 2, axis=0)
+                    Q_nat = Gamma / np.sqrt(Lambda_nat)[None, :]
+                    Psi_nat = scale_d ** 2 * Psi
 
-                    Lambda = torch.exp(log_Lambda)
-                    Psi = torch.exp(log_Psi)
-
-                    # canonical axis order: decreasing Lambda
-                    order = torch.argsort(Lambda, descending=True)
-                    Lambda = Lambda[order]
-                    Q = Q[:, order]
-
+                    # canonical order: decreasing natural inertia
+                    order = np.argsort(Lambda_nat)[::-1]
                     metadata["fa"] = {
                         "n_axes": int(q),
-                        "Q": Q.detach().cpu().numpy(),
-                        "Lambda": Lambda.detach().cpu().numpy(),
-                        "Psi": Psi.detach().cpu().numpy(),
+                        "Q": Q_nat[:, order],
+                        "Lambda": Lambda_nat[order],
+                        "Psi": Psi_nat,
                     }
 
                 case _:
@@ -1000,7 +1065,7 @@ class GaussianComponent:
                     sigma = sigma_base
                     metadata = {
                         **metadata,
-                        "rho": float(torch.exp(self.log_rho).detach().cpu().numpy())
+                        "rho": float(torch.exp(self.log_rho).detach().cpu().numpy()),
                     }
 
                 case "ar_ani":
@@ -1013,16 +1078,14 @@ class GaussianComponent:
                     }
 
                 case "het":
-                    # multiplicative variance factors per non-intercept patsy column
+                    # multiplicative factors on K, relative to env 0 (dimensionless);
+                    # the natural scale is carried by sigma_base, so h needs no de-scaling.
                     self.h = np.exp(self.log_h.detach().cpu().numpy())
-
                     sigma = sigma_base
-
                     het_labels = [
                         {"column": col, "h": float(h_i)}
                         for col, h_i in zip(self.het_index, self.h)
                     ]
-
                     metadata = {
                         **metadata,
                         "het_formula": self.het_formula,
@@ -1080,6 +1143,7 @@ class Random(GaussianComponent):
         responses: list[str],
         dtype = torch.double,
         device = "cpu",
+        scale=None,
     ) -> np.ndarray:
         """
         Confront the random effect to the actual data: read the dimensions,
@@ -1100,6 +1164,7 @@ class Random(GaussianComponent):
         self.dtype = dtype
         self.responses = list(responses)
         self.k = len(self.responses)
+        self.scale = None if scale is None else np.asarray(scale, dtype=float)
 
         self.make_Z(data)             # -> self.colnames, self.c, self.index, self.Z, self.L
 
@@ -1446,6 +1511,7 @@ class Residual(GaussianComponent):
         responses: list[str],
         dtype = torch.double,
         device = "cpu",
+        scale=None,
     ) -> np.ndarray:
         """
         Confront the residual to the actual data: read the dimensions,
@@ -1459,6 +1525,7 @@ class Residual(GaussianComponent):
         self.dtype = dtype
         self.responses = list(responses)
         self.k = len(self.responses)
+        self.scale = None if scale is None else np.asarray(scale, dtype=float)
 
         self.index = np.arange(len(data))
 

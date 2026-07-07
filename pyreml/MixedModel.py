@@ -66,6 +66,8 @@ class MixedModel:
         y = np.hstack(
             [data.loc[m, resp].to_numpy() for resp, m in zip(response, masks)]
         )
+        scale = np.array([float(data[resp].std()) for resp in response], dtype=float)
+        scale = np.where(np.isfinite(scale) & (scale > 0.0), scale, 1.0)
 
         ## Build X
         dm = patsy.dmatrix(fixed, data=data, return_type="dataframe")
@@ -86,7 +88,7 @@ class MixedModel:
         varparams = []
 
         for r in random:
-            Z_base = r.design(data, response, device = device, dtype = dtype)
+            Z_base = r.design(data, response, scale=scale, device = device, dtype = dtype)
             Z_e = block_diag(*[Z_base[m] for m in masks])
 
             Z_blocks.append(Z_e)
@@ -99,7 +101,7 @@ class MixedModel:
         else:
             Z = None
 
-        W_blocks = residual.design(data, response, device = device, dtype = dtype)
+        W_blocks = residual.design(data, response, scale=scale, device = device, dtype = dtype)
         W = block_diag(*[W_blocks[m] for m in masks])
         residual.check_Rtrick(W)
 
