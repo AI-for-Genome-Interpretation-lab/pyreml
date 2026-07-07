@@ -3,7 +3,6 @@ from pathlib import Path
 
 import torch
 import numpy as np
-import pandas as pd
 import pytest
 
 from pyreml import MixedModel, Random, larix as DF
@@ -15,6 +14,11 @@ with open(DATA_DIR / "regression_fixed.json") as f:
 
 with open(DATA_DIR / "regression_random.json") as f:
     EXPECTED_RANDOM_REG = json.load(f)
+
+
+@pytest.fixture(params=[torch.float64, torch.float32], ids=["double", "float"])
+def dtype(request):
+    return request.param
 
 
 @pytest.fixture
@@ -30,16 +34,17 @@ def df():
 
 
 @pytest.fixture
-def mod_ols(df):
+def mod_ols(df, dtype):
     return MixedModel.from_dataframe(
         data=df,
         response="height",
         fixed="1 + BLOC + circumference",
+        dtype=dtype,
     ).fit()
 
 
 @pytest.fixture(params=[True, False], ids=["woodbury", "direct"])
-def mod_lmm(df, request):
+def mod_lmm(df, request, dtype):
     return MixedModel.from_dataframe(
         data=df,
         response="height",
@@ -50,7 +55,9 @@ def mod_lmm(df, request):
             left_hand="full",
         ),
         SMW=request.param,
+        dtype=dtype,
     ).fit()
+
 
 class TestOLS:
 
@@ -84,9 +91,10 @@ class TestOLS:
         np.testing.assert_allclose(actual, expected, rtol=1e-3, atol=1e-4)
 
     def test_aic(self, mod_ols):
-            expected = EXPECTED_FIXED_REG["aic"]
-            actual = float(mod_ols.AIC)
-            np.testing.assert_allclose(actual, expected, atol=1e-3)
+        expected = EXPECTED_FIXED_REG["aic"]
+        actual = float(mod_ols.AIC)
+        np.testing.assert_allclose(actual, expected, atol=1e-3)
+
 
 class TestLMM:
 
@@ -120,9 +128,8 @@ class TestLMM:
         np.testing.assert_allclose(actual, expected, atol=1e-4)
 
     def test_blup(self, mod_lmm):
-        expected = np.array(EXPECTED_RANDOM_REG["blup"])  # (n_levels, n_components)
+        expected = np.array(EXPECTED_RANDOM_REG["blup"])
         rand = mod_lmm.random[0]
-        # pyreml: (n_components * n_levels,) -> reshape to (n_components, n_levels) -> T
         actual = rand.uhat.detach().numpy().reshape(rand.c, rand.L).T
         np.testing.assert_allclose(actual, expected, atol=1e-4)
 
@@ -132,22 +139,21 @@ class TestLMM:
         np.testing.assert_allclose(actual, expected, atol=1e-3)
 
     def test_pev_diagonal_blocks(self, mod_lmm):
-        expected = np.array(EXPECTED_RANDOM_REG["pev"])  # (2, 2, n_levels)
+        expected = np.array(EXPECTED_RANDOM_REG["pev"])
         rand = mod_lmm.random[0]
-        pev = rand.PEV.detach().numpy()  # (k*c*L, k*c*L)
+        pev = rand.PEV.detach().numpy()
         c, L = rand.c, rand.L
         for i in range(L):
-            # diagonal block for level i: rows/cols i, i+L (component-outer, level-inner)
             idx = [i + j * L for j in range(c)]
             block = pev[np.ix_(idx, idx)]
-            np.testing.assert_allclose(block, expected[:, :, i], atol=2.5e-3)  # !!
+            np.testing.assert_allclose(block, expected[:, :, i], atol=2.5e-3)
 
     def test_tvals(self, mod_lmm):
-            expected = EXPECTED_RANDOM_REG["tvals"]
-            actual = mod_lmm.estimates["t"].tolist()
-            np.testing.assert_allclose(actual, expected, rtol=1e-3)
+        expected = EXPECTED_RANDOM_REG["tvals"]
+        actual = mod_lmm.estimates["t"].tolist()
+        np.testing.assert_allclose(actual, expected, rtol=1e-3)
 
     def test_aic(self, mod_lmm):
-            expected = EXPECTED_RANDOM_REG["aic"]
-            actual = float(mod_lmm.AIC)
-            np.testing.assert_allclose(actual, expected, atol=1e-3)
+        expected = EXPECTED_RANDOM_REG["aic"]
+        actual = float(mod_lmm.AIC)
+        np.testing.assert_allclose(actual, expected, atol=1e-3)
