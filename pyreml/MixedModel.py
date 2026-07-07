@@ -175,7 +175,7 @@ class MixedModel:
         dtype = torch.double,
         device = "cpu",
     ):
-        self.type = dtype
+        self.dtype = dtype
         self.device = device
 
         if W is None:
@@ -271,13 +271,21 @@ class MixedModel:
     def REML(
         self,
         n_epoch: int = 10_000,
-        convergence: float = 1.0e-10,
+        convergence: float | None = None,
     ):
         """
         Restricted maximum likelihood estimation of the variance components + beta
         - n_epochs: the number of epochs
         - convergence; the convergence criterion.
         """
+        if convergence is None:
+            match self.dtype:
+                case torch.double:
+                    convergence = 1e-10
+                case torch.float:
+                    convergence = 1e-6
+                case _:
+                    raise ValueError(f"Unsupported dtype for REML: use torch.float or torch.double")
 
         self.opti_REML.run(
             n_epoch=n_epoch,
