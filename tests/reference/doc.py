@@ -339,7 +339,9 @@ Dn   = inv(sqrtm(np.diag(np.diag(S))))
 cor  = Dn @ S @ Dn
 dist = 1 - cor
 np.fill_diagonal(dist, 0)
-Z = linkage(squareform(np.round(dist, 10)), method="average")
+dist = np.round(dist, 10)
+dist = dist + dist.T * 0.5
+Z = linkage(dist, method="average")
 
 PC   = Dn @ Gamma
 expl = Lam / np.trace(S)
