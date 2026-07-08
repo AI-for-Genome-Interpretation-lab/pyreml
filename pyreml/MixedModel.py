@@ -208,13 +208,23 @@ class MixedModel:
         if Z is not None:
             self.uhat = nn.Parameter(torch.zeros(self.Z.shape[1], 1, dtype=torch.double, device = device))
 
+    def migrate(self, dtype: torch.dtype):
+        pass
+
     def fit(self):
 
-        self.OLS(terminate=not self.do_REML)
-
         if self.do_REML:
-            self.REML()
+            self.migrate(torch.float)
+            self.OLS(terminate = False)
+            self.REML(convergence = 1e-5)
+
+            self.migrate(torch.double)
+            self.REML(convergence = 1e-10)
             self.HMME()
+        
+        else:
+            self.migrate(torch.double)
+            self.OLS(terminate = True)
 
         return self
 
