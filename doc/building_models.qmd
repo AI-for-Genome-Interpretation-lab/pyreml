@@ -36,7 +36,7 @@ model.fit()
 | `fixed`    | A patsy formula; the intercept is `"1"`. Applied per response.                               |
 | `random`   | A `Random` object or a list of them. See [variance structures](variance_structures.qmd) and [random regression](random_regression.qmd). |
 | `residual` | A `Residual` object; defaults to `iid`. See [variance structures](variance_structures.qmd). |
-| `dtype`    | The PyTorch floating-point dtype for every tensor of the model. Defaults to `torch.float` for computational speed and GPU compatibility. Upgrade to `torch.double` for extra precision.|
+| `dtype`    | The PyTorch floating-point dtype for every tensor of the model. Defaults to `torch.double` for maximal precision. Downgrade to `torch.double` for computational speed and common GPU compatibility.|
 | `device`   | The device the model lives and trains on. Defaults to `"cpu"`, use `"cuda"` for [GPU acceleration](http://www.nvidia.com/cuda). |
 
 Each argument maps onto a term of the model: `fixed` builds $\mathbf{X}$, each
