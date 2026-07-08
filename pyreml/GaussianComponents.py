@@ -736,7 +736,7 @@ class GaussianComponent:
         k, c, d = self.k, self.c, self.d
 
         if self.jitter > 0:
-            S = self.build_S()
+            S = self.core_S()
             abs_jitter = self.jitter * torch.eye(S.shape[0], dtype=S.dtype, device=S.device)
             rel_jitter = self.jitter * torch.diag_embed(torch.diagonal(S))
             S = S + abs_jitter + rel_jitter
