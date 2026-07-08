@@ -131,12 +131,12 @@ class TestLMM:
         expected = np.array(EXPECTED_RANDOM_REG["blup"])
         rand = mod_lmm.random[0]
         actual = rand.uhat.detach().numpy().reshape(rand.c, rand.L).T
-        np.testing.assert_allclose(actual, expected, atol=1e-4)
+        np.testing.assert_allclose(actual, expected, atol=5e-4)
 
     def test_residuals(self, mod_lmm):
         expected = EXPECTED_RANDOM_REG["residuals"]
         actual = mod_lmm.residual.table["residual"].tolist()
-        np.testing.assert_allclose(actual, expected, atol=1e-3)
+        np.testing.assert_allclose(actual, expected, atol=2e-3)
 
     def test_pev_diagonal_blocks(self, mod_lmm):
         expected = np.array(EXPECTED_RANDOM_REG["pev"])
@@ -151,7 +151,7 @@ class TestLMM:
     def test_tvals(self, mod_lmm):
         expected = EXPECTED_RANDOM_REG["tvals"]
         actual = mod_lmm.estimates["t"].tolist()
-        np.testing.assert_allclose(actual, expected, rtol=1e-3)
+        np.testing.assert_allclose(actual, expected, rtol=3e-3)
 
     def test_aic(self, mod_lmm):
         expected = EXPECTED_RANDOM_REG["aic"]

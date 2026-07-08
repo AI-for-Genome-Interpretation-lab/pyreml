@@ -243,8 +243,13 @@ class MixedModel:
         self.beta.data.copy_(b)
 
         if terminate:
-
-            self.residual.log_S.data.copy_(torch.log(sigma2))
+            sd = self.residual.scale_d()
+            if sd is None:
+                log_s0 = torch.log(sigma2)
+            else:
+                log_s0 = torch.log(sigma2) - 2.0 * torch.log(sd.reshape(()))
+            
+            self.residual.log_S.data.copy_(log_s0)
             self.residual.format_variance()
 
             self.EEV = EEV
@@ -263,8 +268,8 @@ class MixedModel:
                 f"got {self.residual.log_S.numel()} elements."
             )
         
-        s2  = torch.exp(self.residual.log_S).squeeze()
-        s2_ML = s2 * (self.n - self.p) / self.n  
+        s2  = self.residual.build_S().reshape(())
+        s2_ML = s2 * (self.n - self.p) / self.n
         const = self.n * math.log(2*math.pi)
         logdet_V = self.n * torch.log(s2_ML)
         quad = self.n
