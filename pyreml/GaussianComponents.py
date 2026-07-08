@@ -168,26 +168,25 @@ class GaussianComponent:
         else:
             self.effect_label = "(" + ", ".join(map(str, self.unit)) + ")"
 
-    def _scale_init(self, init, scale_d):
+    def scale_d(self):
         """
-        Map a natural-units `init` into the scaled space where log_S lives, so
-        the stored parameter is O(1). scale_d is the per-component SD (the
-        per-response scale repeated over the c formula columns).
+        Per-component scale on the S axis (d = k*c), response-outer / column-inner,
+        matching log_S ordering. Composes the response scale (sd of each response,
+        set by from_dataframe) with the per-column scale (dispersion of each formula
+        column, set by make_Z): factor of component (r, e) is sd_r / colscale_e.
 
-            covariance matrix : init[i,j] / (scale_d[i] * scale_d[j])
-            diagonal vector   : init[i]   / scale_d[i]**2
-            iid scalar        : init / geomean(scale_d**2)  (exact iff scale uniform)
-
-        The element-wise matrix form commutes with the bl_*/kr_* block
-        extractions, so every branch can read the returned object unchanged.
+        Returns None when no response scale is set (low-level constructor: natural
+        scale, no rescaling). colscale defaults to ones when absent (residual and
+        any effect without a design formula), so those keep the response-only
+        behavior.
         """
-        init = np.asarray(init, dtype=float)
-        sd = np.asarray(scale_d, dtype=float)
-        if init.ndim == 0:
-            return init / np.exp(np.mean(np.log(sd ** 2)))
-        if init.ndim == 1:
-            return init / sd ** 2
-        return init / np.outer(sd, sd)
+        if self.scale is None:
+            return None
+        resp = np.asarray(self.scale, dtype=float)                     # (k,)
+        col = getattr(self, "colscale", np.ones(self.c, dtype=float))  # (c,)
+        return torch.as_tensor(
+            np.outer(resp, 1.0 / col).ravel(), dtype=self.dtype, device=self.device
+        )
 
     def init_varparams(self) -> None:
         """
@@ -217,11 +216,23 @@ class GaussianComponent:
         ]
         k, c, d = self.k, self.c, self.d
 
-        if self.scale is not None:
-            scale_d = np.repeat(np.asarray(self.scale, dtype=float), c)
-            init_src = None if self.init is None else self._scale_init(self.init, scale_d)
-        else:
+        sd = self.scale_d()
+        if sd is None or self.init is None:
             init_src = self.init
+        else:
+            # map natural-units init into the scaled space where log_S lives.
+            # element-wise forms commute with the bl_*/kr_* block extractions,
+            # so every branch below reads init_src unchanged:
+            #   matrix   init[i,j] / (sd_i sd_j) ; vector init[i] / sd_i**2 ;
+            #   scalar   init / geomean(sd**2)   (exact iff scale uniform)
+            sd_np = sd.detach().cpu().numpy()
+            init_arr = np.asarray(self.init, dtype=float)
+            if init_arr.ndim == 0:
+                init_src = init_arr / np.exp(np.mean(np.log(sd_np ** 2)))
+            elif init_arr.ndim == 1:
+                init_src = init_arr / sd_np ** 2
+            else:
+                init_src = init_arr / np.outer(sd_np, sd_np)
 
         # --- left-hand factor S ---------------------------------------------
         match self.left_hand:
@@ -636,9 +647,9 @@ class GaussianComponent:
 
     def build_S(self):
         S = self.core_S()
-        if self.scale is not None:
-            scale_d = torch.as_tensor(self.scale, dtype=self.dtype, device=self.device).repeat_interleave(self.c)
-            S = scale_d[:, None] * S * scale_d[None, :]
+        sd = self.scale_d()
+        if sd is not None:
+            S = sd[:, None] * S * sd[None, :]
         return S
 
     def build_K(
@@ -839,11 +850,11 @@ class GaussianComponent:
 
     def build_Sinv(self):
         Sinv, logdet = self.core_Sinv()
-        if self.scale is not None:
-            scale_d = torch.as_tensor(self.scale, dtype=self.dtype, device=self.device).repeat_interleave(self.c)
-            inv = 1.0 / scale_d
+        sd = self.scale_d()
+        if sd is not None:
+            inv = 1.0 / sd
             Sinv = inv[:, None] * Sinv * inv[None, :]
-            logdet = logdet + 2.0 * torch.sum(torch.log(scale_d))
+            logdet = logdet + 2.0 * torch.sum(torch.log(sd))
         return Sinv, logdet
 
     def build_Kinv(self) -> tuple[torch.Tensor, torch.Tensor]:
@@ -961,10 +972,10 @@ class GaussianComponent:
         with torch.no_grad():
             S = self.build_S().detach().cpu().numpy()   # natural units
 
+            sd = self.scale_d()
             scale_d = (
-                np.repeat(np.asarray(self.scale, dtype=float), self.c)
-                if self.scale is not None
-                else np.ones(self.d, dtype=float)
+                np.ones(self.d, dtype=float) if sd is None
+                else sd.detach().cpu().numpy()
             )
 
             metadata = {
