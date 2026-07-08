@@ -48,8 +48,6 @@ class OptiMix(Optimizer):
     ):
         super().__init__(params, closure)
 
-        self.monitor_idx = list(range(len(params)))
-
         self.adam_lr              = adam_lr
         self.lbfgs_lr             = lbfgs_lr
         self.lbfgs_line_search_fn = lbfgs_line_search_fn
@@ -86,7 +84,7 @@ class OptiMix(Optimizer):
 
             self.delta = max(
                 (self.params[i].detach() - self.snap[i]).abs().max().item()
-                for i in self.monitor_idx
+                for i in range(len(self.params))
             )
             if self.delta < self.criterion:
                 self.converged = True
