@@ -648,8 +648,19 @@ class GaussianComponent:
     def build_S(self):
         S = self.core_S()
         sd = self.scale_d()
+
         if sd is not None:
-            S = sd[:, None] * S * sd[None, :]
+            if self.left_hand == "fa":
+                """
+                FA axes are identifiable only up to rotations in the scaled fitting
+                frame. A diagonal response-wise rescaling changes the latent geometry.
+                Internal scaling should be invisible to the user
+                """
+                s = torch.mean(sd)
+                S = (s ** 2) * S
+            else:
+                S = sd[:, None] * S * sd[None, :]
+
         return S
 
     def build_K(
@@ -851,10 +862,17 @@ class GaussianComponent:
     def build_Sinv(self):
         Sinv, logdet = self.core_Sinv()
         sd = self.scale_d()
+
         if sd is not None:
-            inv = 1.0 / sd
-            Sinv = inv[:, None] * Sinv * inv[None, :]
-            logdet = logdet + 2.0 * torch.sum(torch.log(sd))
+            if self.left_hand == "fa":
+                s = torch.mean(sd)
+                Sinv = Sinv / (s ** 2)
+                logdet = logdet + 2.0 * self.d * torch.log(s)
+            else:
+                inv = 1.0 / sd
+                Sinv = inv[:, None] * Sinv * inv[None, :]
+                logdet = logdet + 2.0 * torch.sum(torch.log(sd))
+
         return Sinv, logdet
 
     def build_Kinv(self) -> tuple[torch.Tensor, torch.Tensor]:
@@ -1042,23 +1060,27 @@ class GaussianComponent:
 
                     # same QR + sign convention as core_S (reporting)
                     Q, R = torch.linalg.qr(M)
-                    s = torch.sign(torch.diagonal(R))
-                    s = torch.where(s == 0, torch.ones_like(s), s)
-                    Q = (Q * s).detach().cpu().numpy()
+                    sgn = torch.sign(torch.diagonal(R))
+                    sgn = torch.where(sgn == 0, torch.ones_like(sgn), sgn)
+                    Q = (Q * sgn).detach().cpu().numpy()
+
                     Lambda = torch.exp(log_Lambda).detach().cpu().numpy()
                     Psi = torch.exp(log_Psi).detach().cpu().numpy()
-                    Gamma = (scale_d[:, None] * Q) * np.sqrt(Lambda)[None, :]
-                    Lambda_nat = np.sum(Gamma ** 2, axis=0)
-                    Q_nat = Gamma / np.sqrt(Lambda_nat)[None, :]
-                    Psi_nat = scale_d ** 2 * Psi
 
-                    # canonical order: decreasing natural inertia
+                    scale_s = float(np.mean(scale_d))
+
+                    Lambda_nat = (scale_s ** 2) * Lambda
+                    Psi_nat = (scale_s ** 2) * Psi
+                    Gamma_nat = Q @ np.diag(np.sqrt(Lambda_nat))
+
+                    # Canonical reporting order: decreasing natural inertia.
                     order = np.argsort(Lambda_nat)[::-1]
+
                     metadata["fa"] = {
                         "n_axes": int(q),
-                        "Q": Q_nat[:, order],
-                        "Lambda": Lambda_nat[order],
+                        "Q": Q[:, order],
                         "Psi": Psi_nat,
+                        "Lambda": Lambda_nat[order],
                     }
 
                 case _:

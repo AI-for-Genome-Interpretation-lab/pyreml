@@ -261,6 +261,25 @@ class TestFA:
             err = abs(rel_hat - true_rel[ax])
             assert err <= 0.25
 
+    def test_fa_Sigma(self, fitted_fa):
+        """FA metadata must reconstruct the reported natural covariance."""
+        fitted_fa.random[0].format_variance()
+
+        fa = fitted_fa.random[0].variance["metadata"]["fa"]
+        Q = np.asarray(fa["Q"])
+        Lambda = np.asarray(fa["Lambda"])
+        Psi = np.asarray(fa["Psi"])
+
+        S_from_metadata = Q @ np.diag(Lambda) @ Q.T + np.diag(Psi)
+        S_from_model = fitted_fa.random[0].build_S().detach().cpu().numpy()
+
+        np.testing.assert_allclose(
+            S_from_metadata,
+            S_from_model,
+            rtol=1e-3,
+            atol=1e-3,
+        )
+
     def test_residual_variances(self, fitted_fa, sim):
         fitted_fa.residual.format_variance()
         S_r_hat = np.diag(fitted_fa.residual.variance["sigma"])
