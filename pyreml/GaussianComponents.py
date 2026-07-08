@@ -1285,6 +1285,19 @@ class Random(GaussianComponent):
         for j in range(c):
             self.Z[rows, j * L + codes] = Z_base[:, j]
 
+        # per-column scale: dispersion of each formula column on its non-zero
+        # rows. Dummy/intercept (all non-zero values equal) -> std 0 -> factor 1;
+        # a continuous covariate gets its unit absorbed. Agnostic to content.
+        colscale = np.ones(c, dtype=float)
+        for e in range(c):
+            col = Z_base[:, e]
+            nz = col[col != 0.0]
+            if nz.size:
+                s = float(np.std(nz))
+                if np.isfinite(s) and s > 0.0:
+                    colscale[e] = s
+        self.colscale = colscale
+
     def format_pred(
         self,
         uhat: torch.Tensor,
@@ -1447,7 +1460,6 @@ class Random(GaussianComponent):
                     for i, (resp, comp) in enumerate(self.components)
                 ]
             return pd.DataFrame(rows, columns=cols)
-
 
 class Residual(GaussianComponent):
 
