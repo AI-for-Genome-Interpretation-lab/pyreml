@@ -23,7 +23,6 @@ class MixedModel:
         random: None | Random | list[Random] = None,
         residual: Residual | None = None,
         SMW: bool | None = None,
-        dtype = torch.double,
         device: str = "cpu",
     ):
 
@@ -88,7 +87,7 @@ class MixedModel:
         varparams = []
 
         for r in random:
-            Z_base = r.design(data, response, scale=scale, device = device, dtype = dtype)
+            Z_base = r.design(data, response, scale=scale, device = device)
             Z_e = block_diag(*[Z_base[m] for m in masks])
 
             Z_blocks.append(Z_e)
@@ -101,16 +100,16 @@ class MixedModel:
         else:
             Z = None
 
-        W_blocks = residual.design(data, response, scale=scale, device = device, dtype = dtype)
+        W_blocks = residual.design(data, response, scale=scale, device = device)
         W = block_diag(*[W_blocks[m] for m in masks])
         residual.check_Rtrick(W)
 
         varparams.extend(residual.varparams)
 
-        X = torch.as_tensor(X, dtype=dtype, device=device)
-        Z = torch.as_tensor(Z, dtype=dtype, device=device) if Z is not None else None
-        W = torch.as_tensor(W, dtype=dtype, device=device)
-        y = torch.as_tensor(y, dtype=dtype, device=device).reshape(-1, 1)
+        X = torch.as_tensor(X, dtype=torch.double, device=device)
+        Z = torch.as_tensor(Z, dtype=torch.double, device=device) if Z is not None else None
+        W = torch.as_tensor(W, dtype=torch.double, device=device)
+        y = torch.as_tensor(y, dtype=torch.double, device=device).reshape(-1, 1)
 
         do_REML = (
             Z is not None
@@ -148,7 +147,6 @@ class MixedModel:
             varmeth_inv = varmeth_inv,
             varparams=varparams,
             do_REML=do_REML,
-            dtype = dtype,
             device = device,
         )
         mm.response = response
@@ -174,10 +172,8 @@ class MixedModel:
         varmeth: Callable | None = None,
         varmeth_inv: Callable | None = None,
         do_REML: bool = True,
-        dtype = torch.double,
         device = "cpu",
     ):
-        self.dtype = dtype
         self.device = device
 
         if W is None:
@@ -198,7 +194,7 @@ class MixedModel:
         else:                                # les deux : on choisit par dimension
             self.SMW = (self.q < self.n)
 
-        self.beta = nn.Parameter(torch.zeros(self.X.shape[1], 1, dtype=dtype, device = device))
+        self.beta = nn.Parameter(torch.zeros(self.X.shape[1], 1, dtype=torch.double, device = device))
 
         self.varparams   = varparams
         self.do_REML     = do_REML
@@ -210,7 +206,7 @@ class MixedModel:
             closure=self.REML_closure,
         )
         if Z is not None:
-            self.uhat = nn.Parameter(torch.zeros(self.Z.shape[1], 1, dtype=dtype, device = device))
+            self.uhat = nn.Parameter(torch.zeros(self.Z.shape[1], 1, dtype=torch.double, device = device))
 
     def fit(self):
 
@@ -278,21 +274,13 @@ class MixedModel:
     def REML(
         self,
         n_epoch: int = 10_000,
-        convergence: float | None = None,
+        convergence: float = 1e-10,
     ):
         """
         Restricted maximum likelihood estimation of the variance components + beta
         - n_epochs: the number of epochs
         - convergence; the convergence criterion.
         """
-        if convergence is None:
-            match self.dtype:
-                case torch.double:
-                    convergence = 1e-10
-                case torch.float:
-                    convergence = 1e-6
-                case _:
-                    raise ValueError(f"Unsupported dtype for REML: use torch.float or torch.double")
 
         self.opti_REML.run(
             n_epoch=n_epoch,

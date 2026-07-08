@@ -185,7 +185,7 @@ class GaussianComponent:
         resp = np.asarray(self.scale, dtype=float)                     # (k,)
         col = getattr(self, "colscale", np.ones(self.c, dtype=float))  # (c,)
         return torch.as_tensor(
-            np.outer(resp, 1.0 / col).ravel(), dtype=self.dtype, device=self.device
+            np.outer(resp, 1.0 / col).ravel(), dtype=torch.double, device=self.device
         )
 
     def init_varparams(self) -> None:
@@ -239,31 +239,31 @@ class GaussianComponent:
 
             case "iid":
                 if init_src is None:
-                    log_S0 = torch.zeros((), dtype = self.dtype, device = self.device)
+                    log_S0 = torch.zeros((), dtype = torch.double, device = self.device)
                 else:
                     init = np.asarray(init_src, dtype=float)
                     if init.size != 1:
                         raise ValueError("init for left_hand='iid' must be a scalar.")
-                    log_S0 = torch.as_tensor(np.log(float(init)), dtype = self.dtype, device = self.device)
+                    log_S0 = torch.as_tensor(np.log(float(init)), dtype = torch.double, device = self.device)
                 self.log_S = nn.Parameter(log_S0)
                 n_left = 1
 
             case "full":
                 if init_src is None:
-                    log_S0 = torch.zeros(d, d, dtype = self.dtype, device = self.device)
+                    log_S0 = torch.zeros(d, d, dtype = torch.double, device = self.device)
                 else:
                     init = np.asarray(init_src, dtype=float)
-                    log_S0 = torch.as_tensor(np.real(logm(init)) / 2.0, dtype=self.dtype, device=self.device)
+                    log_S0 = torch.as_tensor(np.real(logm(init)) / 2.0, dtype=torch.double, device=self.device)
                 self.log_S = nn.Parameter(log_S0)
                 n_left = d * (d + 1) // 2
 
             case "diag":
                 if init_src is None:
-                    log_S0 = torch.zeros(d, dtype = self.dtype, device = self.device)
+                    log_S0 = torch.zeros(d, dtype = torch.double, device = self.device)
                 else:
                     init = np.asarray(init_src, dtype=float)
                     diag = np.diag(init) if init.ndim == 2 else init
-                    log_S0 = torch.as_tensor(np.log(diag), dtype = self.dtype, device = self.device)
+                    log_S0 = torch.as_tensor(np.log(diag), dtype = torch.double, device = self.device)
                 self.log_S = nn.Parameter(log_S0)
                 n_left = d
             
@@ -276,14 +276,14 @@ class GaussianComponent:
 
                 # target covariance S0: identity by default, else the user matrix
                 if init_src is None:
-                    S0 = torch.eye(d, dtype = self.dtype, device = self.device)
+                    S0 = torch.eye(d, dtype = torch.double, device = self.device)
                 else:
                     init = np.asarray(init_src, dtype=float)
                     if init.shape != (d, d):
                         raise ValueError(
                             f"init for left_hand='fa' must be a ({d}, {d}) covariance matrix."
                         )
-                    S0 = torch.as_tensor(init, dtype = self.dtype, device = self.device)
+                    S0 = torch.as_tensor(init, dtype = torch.double, device = self.device)
 
                 # q dominant eigenpairs (eigh returns ascending order)
                 eigvals, eigvecs = torch.linalg.eigh(S0)
@@ -299,7 +299,7 @@ class GaussianComponent:
 
                 # M0 = Q0 @ R0, R0 upper-triangular of ones (positive diagonal):
                 # qr(M0) recovers Q0 up to column signs, which leave S unchanged.
-                R0 = torch.triu(torch.ones(q, q, dtype = self.dtype, device = self.device))
+                R0 = torch.triu(torch.ones(q, q, dtype = torch.double, device = self.device))
                 M0 = Q0 @ R0
 
                 flat0 = torch.cat([M0.reshape(-1), log_Lambda0, log_Psi0])
@@ -312,48 +312,48 @@ class GaussianComponent:
             case "bl_resp":
                 # k blocks of c x c, each parameterized like `full`
                 if init_src is None:
-                    log_S0 = torch.zeros(k, c, c, dtype=self.dtype, device=self.device)
+                    log_S0 = torch.zeros(k, c, c, dtype=torch.double, device=self.device)
                 else:
                     init = np.asarray(init_src, dtype=float)
                     blocks = [
                         np.real(logm(init[r * c:(r + 1) * c, r * c:(r + 1) * c])) / 2.0
                         for r in range(k)
                     ]
-                    log_S0 = torch.as_tensor(np.stack(blocks), dtype=self.dtype, device=self.device)
+                    log_S0 = torch.as_tensor(np.stack(blocks), dtype=torch.double, device=self.device)
                 self.log_S = nn.Parameter(log_S0)
                 n_left = k * c * (c + 1) // 2
 
             case "bl_form":
                 # c blocks of k x k (one per formula column)
                 if init_src is None:
-                    log_S0 = torch.zeros(c, k, k, dtype=self.dtype, device=self.device)
+                    log_S0 = torch.zeros(c, k, k, dtype=torch.double, device=self.device)
                 else:
                     init = np.asarray(init_src, dtype=float)
                     blocks = []
                     for e in range(c):
                         idx = [r * c + e for r in range(k)]
                         blocks.append(np.real(logm(init[np.ix_(idx, idx)])) / 2.0)
-                    log_S0 = torch.as_tensor(np.stack(blocks), dtype=self.dtype, device=self.device)
+                    log_S0 = torch.as_tensor(np.stack(blocks), dtype=torch.double, device=self.device)
                 self.log_S = nn.Parameter(log_S0)
                 n_left = c * k * (k + 1) // 2
 
             case "kr_resp":
                 # S = diag([1, exp(log_alpha)]) ⊗ Omega, Omega (c x c) full
                 if init_src is None:
-                    Bflat = torch.zeros(c * c, dtype=self.dtype, device=self.device)
-                    log_alpha = torch.zeros(k - 1, dtype=self.dtype, device=self.device)
+                    Bflat = torch.zeros(c * c, dtype=torch.double, device=self.device)
+                    log_alpha = torch.zeros(k - 1, dtype=torch.double, device=self.device)
                 else:
                     init = np.asarray(init_src, dtype=float)
                     Omega0 = init[:c, :c]
                     Bflat = torch.as_tensor(
-                        (np.real(logm(Omega0)) / 2.0).reshape(-1), dtype=self.dtype, device=self.device
+                        (np.real(logm(Omega0)) / 2.0).reshape(-1), dtype=torch.double, device=self.device
                     )
                     ratios = [
                         np.trace(init[r * c:(r + 1) * c, r * c:(r + 1) * c]) / np.trace(Omega0)
                         for r in range(1, k)
                     ]
                     log_alpha = torch.as_tensor(
-                        np.log(ratios) if ratios else np.zeros(0), dtype=self.dtype, device=self.device
+                        np.log(ratios) if ratios else np.zeros(0), dtype=torch.double, device=self.device
                     )
                 self.log_S = nn.Parameter(torch.cat([Bflat, log_alpha]))
                 n_left = c * (c + 1) // 2 + (k - 1)
@@ -361,21 +361,21 @@ class GaussianComponent:
             case "kr_form":
                 # S = A ⊗ diag([1, exp(log_omega)]), A (k x k) full
                 if init_src is None:
-                    Bflat = torch.zeros(k * k, dtype=self.dtype, device=self.device)
-                    log_omega = torch.zeros(c - 1, dtype=self.dtype, device=self.device)
+                    Bflat = torch.zeros(k * k, dtype=torch.double, device=self.device)
+                    log_omega = torch.zeros(c - 1, dtype=torch.double, device=self.device)
                 else:
                     init = np.asarray(init_src, dtype=float)
                     idx0 = [r * c + 0 for r in range(k)]
                     A0 = init[np.ix_(idx0, idx0)]
                     Bflat = torch.as_tensor(
-                        (np.real(logm(A0)) / 2.0).reshape(-1), dtype=self.dtype, device=self.device
+                        (np.real(logm(A0)) / 2.0).reshape(-1), dtype=torch.double, device=self.device
                     )
                     ratios = []
                     for e in range(1, c):
                         idx_e = [r * c + e for r in range(k)]
                         ratios.append(np.trace(init[np.ix_(idx_e, idx_e)]) / np.trace(A0))
                     log_omega = torch.as_tensor(
-                        np.log(ratios) if ratios else np.zeros(0), dtype=self.dtype, device=self.device
+                        np.log(ratios) if ratios else np.zeros(0), dtype=torch.double, device=self.device
                     )
                 self.log_S = nn.Parameter(torch.cat([Bflat, log_omega]))
                 n_left = k * (k + 1) // 2 + (c - 1)
@@ -400,7 +400,7 @@ class GaussianComponent:
             case "dist":
                 if self.distance is None:
                     raise ValueError("a distance matrix `distance` must be provided for right_hand='dist'")
-                self.log_rho = nn.Parameter(torch.zeros((), dtype=self.dtype, device=self.device))
+                self.log_rho = nn.Parameter(torch.zeros((), dtype=torch.double, device=self.device))
                 self.varparams.append({
                     "effect": self.effect_label,
                     "element": "rho",
@@ -415,7 +415,7 @@ class GaussianComponent:
                         "make_coords(data) must be called before init_varparams for "
                         f"right_hand='{self.right_hand}'."
                     )
-                self.log_rho = nn.Parameter(torch.zeros((), dtype=self.dtype, device=self.device))
+                self.log_rho = nn.Parameter(torch.zeros((), dtype=torch.double, device=self.device))
                 self.varparams.append({
                     "effect": self.effect_label,
                     "element": "rho",
@@ -429,7 +429,7 @@ class GaussianComponent:
                     raise ValueError(
                         "make_coords(data) must be called before init_varparams for right_hand='ar_ani'."
                     )
-                self.log_rho = nn.Parameter(torch.zeros(self.coord_dim, dtype=self.dtype, device=self.device))
+                self.log_rho = nn.Parameter(torch.zeros(self.coord_dim, dtype=torch.double, device=self.device))
                 self.varparams.append({
                     "effect": self.effect_label,
                     "element": "rho",
@@ -447,7 +447,7 @@ class GaussianComponent:
                     raise ValueError(
                         "make_V(data) must be called before init_varparams for right_hand='het'."
                     )
-                self.log_h = nn.Parameter(torch.zeros(self.n_het, dtype = self.dtype, device = self.device))
+                self.log_h = nn.Parameter(torch.zeros(self.n_het, dtype = torch.double, device = self.device))
                 self.varparams.append({
                     "effect": self.effect_label,
                     "element": "het",
@@ -505,7 +505,7 @@ class GaussianComponent:
         rest = [c for c in cols if c != "Intercept"]
         V_df = V_df[["Intercept"] + rest]
 
-        self.V = torch.tensor(V_df.to_numpy(), dtype=self.dtype, device=self.device)
+        self.V = torch.tensor(V_df.to_numpy(), dtype=torch.double, device=self.device)
         self.het_index = rest
         self.n_het = len(rest)
 
@@ -547,7 +547,7 @@ class GaussianComponent:
             P = np.asarray(self.index, dtype=float)
 
         self.coord_dim = P.shape[1]
-        self.coords_levels = torch.as_tensor(P, dtype=self.dtype, device=self.device)
+        self.coords_levels = torch.as_tensor(P, dtype=torch.double, device=self.device)
 
         if not checkerboard:
             # eucl: the levels remain the observed positions
@@ -558,7 +558,7 @@ class GaussianComponent:
         axes = Pint.shape[1]
         starts, stops = Pint.min(axis=0), Pint.max(axis=0)
         self.axis_grids = [
-            torch.arange(int(starts[a]), int(stops[a]) + 1, dtype=self.dtype, device=self.device)
+            torch.arange(int(starts[a]), int(stops[a]) + 1, dtype=torch.double, device=self.device)
             for a in range(axes)
         ]
         sizes = [int(stops[a] - starts[a] + 1) for a in range(axes)]
@@ -599,7 +599,7 @@ class GaussianComponent:
         match self.left_hand:
 
             case "iid":
-                return torch.exp(log_S) * torch.eye(d, dtype=self.dtype, device=self.device)
+                return torch.exp(log_S) * torch.eye(d, dtype=torch.double, device=self.device)
             
             case "full":
                 return torch.linalg.matrix_exp(log_S + log_S.T)
@@ -632,14 +632,14 @@ class GaussianComponent:
                 Bflat = log_S[: c * c].reshape(c, c)
                 log_alpha = log_S[c * c:]
                 Omega = torch.linalg.matrix_exp(Bflat + Bflat.T)
-                alpha = torch.cat([torch.ones(1, dtype=self.dtype, device=self.device), torch.exp(log_alpha)])
+                alpha = torch.cat([torch.ones(1, dtype=torch.double, device=self.device), torch.exp(log_alpha)])
                 return torch.kron(torch.diag(alpha).contiguous(), Omega.contiguous())
 
             case "kr_form":
                 Bflat = log_S[: k * k].reshape(k, k)
                 log_omega = log_S[k * k:]
                 Alpha = torch.linalg.matrix_exp(Bflat + Bflat.T)
-                omega = torch.cat([torch.ones(1, dtype=self.dtype, device=self.device), torch.exp(log_omega)])
+                omega = torch.cat([torch.ones(1, dtype=torch.double, device=self.device), torch.exp(log_omega)])
                 return torch.kron(Alpha.contiguous(), torch.diag(omega).contiguous())
 
             case _:
@@ -682,7 +682,7 @@ class GaussianComponent:
         match self.right_hand:
 
             case "iid":
-                return torch.eye(self.L, dtype=self.dtype, device=self.device)
+                return torch.eye(self.L, dtype=torch.double, device=self.device)
             
             case "dist":
                 rho = torch.exp(self.log_rho)
@@ -695,11 +695,11 @@ class GaussianComponent:
                 return self.covariance
             
             case "het":
-                h = torch.cat([torch.zeros(1, dtype=self.dtype, device=self.device), self.log_h])
+                h = torch.cat([torch.zeros(1, dtype=torch.double, device=self.device), self.log_h])
                 return torch.diag(torch.exp(self.V @ h))
             
             case "eucl":
-                P = self.coords_levels if coords is None else torch.as_tensor(coords, dtype=self.dtype, device=self.device)
+                P = self.coords_levels if coords is None else torch.as_tensor(coords, dtype=torch.double, device=self.device)
                 diff = P[:, None, :] - P[None, :, :]
                 D = torch.sqrt((diff ** 2).sum(-1))
                 return torch.exp(-torch.exp(self.log_rho) * D)
@@ -709,7 +709,7 @@ class GaussianComponent:
 
                 if coords is not None:
                     # prediction path: dense separable kernel over the supplied coords
-                    P = torch.as_tensor(coords, dtype=self.dtype, device=self.device)
+                    P = torch.as_tensor(coords, dtype=torch.double, device=self.device)
                     absdiff = (P[:, None, :] - P[None, :, :]).abs()    # (M, M, axes)
                     return torch.exp(-(absdiff * rho).sum(-1))         # rho broadcasts (iso/ani)
 
@@ -760,7 +760,7 @@ class GaussianComponent:
 
             case "iid":
                 # S = e^{log_S} I_d
-                Sinv = torch.exp(-log_S) * torch.eye(d, dtype = self.dtype, device = self.device)
+                Sinv = torch.exp(-log_S) * torch.eye(d, dtype = torch.double, device = self.device)
                 logdet = d * log_S
                 return Sinv, logdet
 
@@ -831,7 +831,7 @@ class GaussianComponent:
                 Bflat = log_S[: c * c].reshape(c, c)
                 log_alpha = log_S[c * c:]
                 Omega = torch.linalg.matrix_exp(Bflat + Bflat.T)
-                alpha = torch.cat([torch.ones(1, dtype=self.dtype, device=self.device), torch.exp(log_alpha)])
+                alpha = torch.cat([torch.ones(1, dtype=torch.double, device=self.device), torch.exp(log_alpha)])
 
                 Lom = torch.linalg.cholesky(Omega)
                 Omega_inv = torch.cholesky_inverse(Lom)
@@ -846,7 +846,7 @@ class GaussianComponent:
                 Bflat = log_S[: k * k].reshape(k, k)
                 log_omega = log_S[k * k:]
                 A = torch.linalg.matrix_exp(Bflat + Bflat.T)
-                omega = torch.cat([torch.ones(1, dtype=self.dtype, device=self.device), torch.exp(log_omega)])
+                omega = torch.cat([torch.ones(1, dtype=torch.double, device=self.device), torch.exp(log_omega)])
 
                 La = torch.linalg.cholesky(A)
                 A_inv = torch.cholesky_inverse(La)
@@ -885,8 +885,8 @@ class GaussianComponent:
 
             case "iid":
                 return (
-                    torch.eye(self.L, dtype=self.dtype, device=self.device),
-                    torch.zeros((), dtype=self.dtype, device=self.device),
+                    torch.eye(self.L, dtype=torch.double, device=self.device),
+                    torch.zeros((), dtype=torch.double, device=self.device),
                 )
             
             case "dist" | "eucl":
@@ -918,7 +918,7 @@ class GaussianComponent:
                     L = sizes[a]
                     phi_a = torch.exp(-rho_a)
                     if L == 1:
-                        return (torch.ones(1, 1, dtype=self.dtype, device=self.device),
+                        return (torch.ones(1, 1, dtype=torch.double, device=self.device),
                                 self.log_rho.new_zeros(()))
                     denom = 1.0 - phi_a * phi_a
                     edge = (1.0 / denom).reshape(1)
@@ -938,7 +938,7 @@ class GaussianComponent:
             
             case "het":
                 # K = diag(exp(V h)), h has a fixed 0 reference (first column)
-                h = torch.cat([torch.zeros(1, dtype = self.dtype, device = self.device), self.log_h])
+                h = torch.cat([torch.zeros(1, dtype = torch.double, device = self.device), self.log_h])
                 diag = self.V @ h                      # log-variances
                 Kinv = torch.diag(torch.exp(-diag))
                 logdet = torch.sum(diag)
@@ -1174,7 +1174,6 @@ class Random(GaussianComponent):
         self,
         data: pd.DataFrame,
         responses: list[str],
-        dtype = torch.double,
         device = "cpu",
         scale=None,
     ) -> np.ndarray:
@@ -1194,7 +1193,6 @@ class Random(GaussianComponent):
         Observed positions are kept in self._obs_levels for prediction.
         """
         self.device = device
-        self.dtype = dtype
         self.responses = list(responses)
         self.k = len(self.responses)
         self.scale = None if scale is None else np.asarray(scale, dtype=float)
@@ -1249,14 +1247,14 @@ class Random(GaussianComponent):
         # self.index now equals matrix_index for str/dist, so these already
         # align with self.index as-is: no permutation needed.
         if self.distance is not None:
-            self.distance = torch.as_tensor(np.asarray(self.distance), dtype=dtype, device=device)
+            self.distance = torch.as_tensor(np.asarray(self.distance), dtype=torch.double, device=device)
         if self.covariance is not None:
-            self.covariance = torch.as_tensor(np.asarray(self.covariance), dtype=dtype, device=device)
+            self.covariance = torch.as_tensor(np.asarray(self.covariance), dtype=torch.double, device=device)
         if self.precision is not None:
-            self.precision = torch.as_tensor(np.asarray(self.precision), dtype=dtype, device=device)
+            self.precision = torch.as_tensor(np.asarray(self.precision), dtype=torch.double, device=device)
 
         self.init_varparams()         # -> self.varparams, self.log_S, (self.log_rho)
-        self.uhat = torch.zeros(self.d * self.L, 1, dtype=dtype, device=device)
+        self.uhat = torch.zeros(self.d * self.L, 1, dtype=torch.double, device=device)
         return self.Z
 
     def make_Z(
@@ -1421,7 +1419,7 @@ class Random(GaussianComponent):
                 train_levels = [tuple(float(v) for v in r) for r in self._obs_levels]
                 coords_arr = np.asarray(matrix_index, dtype=float)
                 K_full = self.build_K(
-                    coords=torch.as_tensor(coords_arr, dtype=self.dtype, device=self.device)
+                    coords=torch.as_tensor(coords_arr, dtype=torch.double, device=self.device)
                 )
             else:
                 mi = list(matrix_index)
@@ -1429,13 +1427,13 @@ class Random(GaussianComponent):
                 if self.right_hand == "str":
                     if covariance is None:
                         raise ValueError("`covariance` is required to predict with right_hand='str'.")
-                    K_full = torch.as_tensor(np.asarray(covariance), dtype=self.dtype, device=self.device)
+                    K_full = torch.as_tensor(np.asarray(covariance), dtype=torch.double, device=self.device)
                 
                 else:  # dist
                     if distance is None:
                         raise ValueError("`distance` is required to predict with right_hand='dist'.")
                     K_full = self.build_K(
-                        distance=torch.as_tensor(np.asarray(distance), dtype=self.dtype, device=self.device)
+                        distance=torch.as_tensor(np.asarray(distance), dtype=torch.double, device=self.device)
                     )
 
             train_set = set(train_levels)
@@ -1554,7 +1552,6 @@ class Residual(GaussianComponent):
         self,
         data: pd.DataFrame,
         responses: list[str],
-        dtype = torch.double,
         device = "cpu",
         scale=None,
     ) -> np.ndarray:
@@ -1567,7 +1564,6 @@ class Residual(GaussianComponent):
         coordinate columns from `coords`, one coordinate per observation.
         """
         self.device = device
-        self.dtype = dtype
         self.responses = list(responses)
         self.k = len(self.responses)
         self.scale = None if scale is None else np.asarray(scale, dtype=float)
@@ -1592,11 +1588,11 @@ class Residual(GaussianComponent):
         self.d = self.k * self.c
 
         if self.distance is not None:
-            self.distance = torch.as_tensor(np.asarray(self.distance), dtype=self.dtype, device=self.device)
+            self.distance = torch.as_tensor(np.asarray(self.distance), dtype=torch.double, device=self.device)
         if self.covariance is not None:
-            self.covariance = torch.as_tensor(np.asarray(self.covariance), dtype=self.dtype, device=self.device)
+            self.covariance = torch.as_tensor(np.asarray(self.covariance), dtype=torch.double, device=self.device)
         if self.precision is not None:
-            self.precision = torch.as_tensor(np.asarray(self.precision), dtype=self.dtype, device=self.device)
+            self.precision = torch.as_tensor(np.asarray(self.precision), dtype=torch.double, device=self.device)
 
         self.init_varparams()         # -> self.varparams, self.log_S, (self.log_rho)
         return self.W

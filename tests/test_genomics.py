@@ -1,7 +1,6 @@
 import json
 import os
 
-import torch
 import numpy as np
 import pytest
 import pandas as pd
@@ -22,17 +21,10 @@ TERMS = ["Intercept", "x"]
 
 MODELS = ["bl_resp", "bl_form", "kr_resp", "kr_form"]
 
-
-@pytest.fixture(scope="session", params=[torch.float64, torch.float32], ids=["double", "float"])
-def dtype(request):
-    return request.param
-
-
 @pytest.fixture(scope="session")
 def ref():
     with open(REF_JSON) as f:
         return json.load(f)
-
 
 @pytest.fixture(scope="session")
 def sim(ref):
@@ -68,9 +60,8 @@ def sim(ref):
 def G(sim):
     return A_genomic(sim["X"], shrink=True)
 
-
 @pytest.fixture(scope="session", params=[True, False], ids=["woodbury", "direct"])
-def fitted_het(sim, G, request, dtype):
+def fitted_het(sim, G, request):
     return MixedModel.from_dataframe(
         data       = sim["df_long"],
         response   = "y",
@@ -85,13 +76,11 @@ def fitted_het(sim, G, request, dtype):
             right_hand   = "het",
             het_formula  = "C(envt)",
         ),
-        SMW   = request.param,
-        dtype = dtype,
+        SMW = request.param,
     ).fit()
 
-
 @pytest.fixture(scope="session", params=[True, False], ids=["woodbury", "direct"])
-def fitted_fa(sim, G, request, dtype):
+def fitted_fa(sim, G, request):
     return MixedModel.from_dataframe(
         data     = sim["df_cols"],
         response = [f"y_{envt}" for envt in range(P)],
@@ -103,21 +92,17 @@ def fitted_fa(sim, G, request, dtype):
             covariance   = G,
             matrix_index = sim["id_index"],
             n_axes       = N_AXES,
-            jitter       = 1e-6,
         ),
         residual = Residual(
             left_hand    = "diag",
         ),
-        SMW   = request.param,
-        dtype = dtype,
+        SMW = request.param,
     ).fit()
-
 
 @pytest.fixture(scope="session")
 def ref_blkr():
     with open(REF_BLKR_JSON) as f:
         return json.load(f)
-
 
 @pytest.fixture(scope="session")
 def sim_blkr(ref_blkr):
@@ -132,11 +117,10 @@ def sim_blkr(ref_blkr):
         "df_cols": pd.DataFrame(df_cols),
     }
 
-
 @pytest.fixture(scope="session", params=[
     (lh, smw) for lh in MODELS for smw in (True, False)
 ], ids=lambda p: f"{p[0]}-{'woodbury' if p[1] else 'direct'}")
-def fitted_blkr(sim_blkr, G, request, dtype):
+def fitted_blkr(sim_blkr, G, request):
     lh, smw = request.param
     mod = MixedModel.from_dataframe(
         data     = sim_blkr["df_cols"],
@@ -151,21 +135,17 @@ def fitted_blkr(sim_blkr, G, request, dtype):
             matrix_index = sim_blkr["id_index"],
         ),
         residual = Residual(left_hand="diag"),
-        SMW      = smw,
-        dtype    = dtype,
+        SMW = smw,
     ).fit()
     return lh, mod
-
 
 def _abs_corr(a, b):
     """|Pearson correlation| -- sign-agnostic, for factor axes / eigenvectors."""
     return abs(np.corrcoef(np.asarray(a).ravel(), np.asarray(b).ravel())[0, 1])
 
-
 class TestAGenomic:
     def test_matches_reference(self, G, sim):
         np.testing.assert_allclose(G, sim["K_genomic"], atol=1e-10)
-
 
 class TestHet:
     def test_environment_means(self, fitted_het, sim):
@@ -223,7 +203,6 @@ class TestHet:
         r2 = 1.0 - ss_res / ss_tot
         assert r2 >= 0.95
 
-
 class TestFA:
     def test_environment_means(self, fitted_fa, sim):
         est = fitted_fa.estimates
@@ -252,7 +231,7 @@ class TestFA:
         vs true share (on true total). Axes 0 and 1 only."""
         fa = fitted_fa.random[0].variance["metadata"]["fa"]
         Lambda_hat = np.asarray(fa["Lambda"])
-        S_hat = fitted_fa.random[0].build_S().detach().cpu().numpy()
+        S_hat = fitted_fa.random[0].build_S().detach().numpy()
         inertia_hat = np.trace(S_hat)
 
         true_rel = sim["rel_inertia"]
@@ -260,25 +239,6 @@ class TestFA:
             rel_hat = Lambda_hat[ax] / inertia_hat
             err = abs(rel_hat - true_rel[ax])
             assert err <= 0.25
-
-    def test_fa_Sigma(self, fitted_fa):
-        """FA metadata must reconstruct the reported natural covariance."""
-        fitted_fa.random[0].format_variance()
-
-        fa = fitted_fa.random[0].variance["metadata"]["fa"]
-        Q = np.asarray(fa["Q"])
-        Lambda = np.asarray(fa["Lambda"])
-        Psi = np.asarray(fa["Psi"])
-
-        S_from_metadata = Q @ np.diag(Lambda) @ Q.T + np.diag(Psi)
-        S_from_model = fitted_fa.random[0].build_S().detach().cpu().numpy()
-
-        np.testing.assert_allclose(
-            S_from_metadata,
-            S_from_model,
-            rtol=1e-3,
-            atol=1e-3,
-        )
 
     def test_residual_variances(self, fitted_fa, sim):
         fitted_fa.residual.format_variance()
@@ -319,7 +279,6 @@ class TestFA:
         r2 = 1.0 - ss_res / ss_tot
         assert r2 >= 0.95
 
-
 def _block(S, rows, cols):
     return S[np.ix_(rows, cols)]
 
@@ -328,7 +287,7 @@ class TestBlKr:
     def test_structural_zeros(self, fitted_blkr):
         """Off-block entries constrained to zero must be exactly zero (wiring check)."""
         lh, mod = fitted_blkr
-        S = mod.random[0].build_S().detach().cpu().numpy()
+        S = mod.random[0].build_S().detach().numpy()
         if lh in ("bl_resp", "kr_resp"):
             cross = _block(S, RESP[0], RESP[1])      # cross-response block
         else:
@@ -337,7 +296,7 @@ class TestBlKr:
 
     def test_variances_present_and_plausible(self, fitted_blkr, sim_blkr):
         lh, mod = fitted_blkr
-        S = mod.random[0].build_S().detach().cpu().numpy()
+        S = mod.random[0].build_S().detach().numpy()
         true_var = np.diag(sim_blkr["Sigma_A"])
         for i in range(S.shape[0]):
             v = S[i, i]

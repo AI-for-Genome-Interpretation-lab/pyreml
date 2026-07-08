@@ -20,6 +20,7 @@ class Optimizer:
     ):
         self.loss = []
         self.converged = False
+        self.previous = torch.inf
         self.criterion = convergence
 
         self.start = time.time()
@@ -82,11 +83,7 @@ class OptiMix(Optimizer):
             self.set_adam()
             self.adam_step = 0
 
-            self.delta = max(
-                (self.params[i].detach() - self.snap[i]).abs().max().item()
-                for i in range(len(self.params))
-            )
-            if self.delta < self.criterion:
+            if abs(loss.item() - self.previous) < self.criterion:
                 self.converged = True
 
         except RuntimeError:
@@ -100,3 +97,5 @@ class OptiMix(Optimizer):
             loss = self.closure()
             self.Adam.step()
             self.loss.append(loss.item())
+
+        self.previous = loss.item()

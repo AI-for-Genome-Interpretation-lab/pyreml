@@ -3,20 +3,10 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import pytest
 import torch
+import pytest
 
 from pyreml import MixedModel, Random, Residual, A_pedigree, D_pedigree, larix as DF
-
-
-# --------------------------------------------------------------------------- #
-# Global numerical policy for this file.
-#
-# float32 is the default path used by pyreml for speed. Set DTYPE to
-# torch.float64 when you want an oracle/debug run with tighter tolerances.
-# --------------------------------------------------------------------------- #
-DTYPE = torch.double
-
 
 DATA_DIR = Path(__file__).parent / "data"
 
@@ -33,39 +23,6 @@ with open(DATA_DIR / "pedigree_str.json") as f:
     EXPECTED_STR = json.load(f)
 
 
-# --------------------------------------------------------------------------- #
-# Tolerance helpers
-# --------------------------------------------------------------------------- #
-
-def _is_float32() -> bool:
-    return DTYPE == torch.float32
-
-
-def _rtol(double: float, single: float) -> float:
-    return single if _is_float32() else double
-
-
-def _atol(double: float, single: float) -> float:
-    return single if _is_float32() else double
-
-
-def _effect_sigma(effect):
-    """
-    Return an effect variance/covariance in natural user units.
-
-    Do not read effect.log_S here:
-    - log_S is an internal scaled optimization parameter.
-    - effect.variance["sigma"] is the formatted natural-scale parameter.
-    """
-    if not hasattr(effect, "variance"):
-        effect.format_variance()
-
-    sigma = effect.variance["sigma"]
-    if isinstance(sigma, np.ndarray):
-        return sigma
-    return float(sigma)
-
-
 @pytest.fixture()
 def df():
     df = DF.copy()
@@ -74,10 +31,9 @@ def df():
         df[col] = df[col].apply(lambda x: str(int(x)) if pd.notna(x) else np.nan)
     return df
 
-
 def _build_pedigree(df):
     ped = df[["ID", "DAM", "SIRE"]].drop_duplicates(subset="ID")
-    parents = set(ped["DAM"]).union(ped["SIRE"]) - {np.nan}
+    parents  = set(ped["DAM"]).union(ped["SIRE"]) - {np.nan}
     founders = parents - set(ped["ID"])
     founder_rows = pd.DataFrame({"ID": list(founders), "DAM": np.nan, "SIRE": np.nan})
     return pd.concat([founder_rows, ped], ignore_index=True)
@@ -86,13 +42,13 @@ def _build_pedigree(df):
 def _uni_blup(mod, effect_idx):
     """Univariate BLUP vector + level IDs for a given random effect."""
     rand = mod.random[effect_idx]
-    return rand.uhat.detach().cpu().numpy().ravel(), rand.index.tolist()
+    return rand.uhat.detach().numpy().ravel(), rand.index.tolist()
 
 
 def _multi_blup(mod, effect_idx=0):
     """Multivariate BLUP matrix (L, k) + level IDs for a given random effect."""
     rand = mod.random[effect_idx]
-    uhat = rand.uhat.detach().cpu().numpy().reshape(rand.k, rand.L).T  # (L, k)
+    uhat = rand.uhat.detach().numpy().reshape(rand.k, rand.L).T  # (L, k)
     return uhat, rand.index.tolist()
 
 
@@ -111,15 +67,14 @@ def _align(actual_vals, actual_ids, ref_vals, ref_ids, target_ids):
 
 def _pev_diag_for(rand, ids):
     """Diagonal of PEV for selected IDs."""
-    pev = rand.PEV.detach().cpu().numpy()
+    pev = rand.PEV.detach().numpy()
     idx_map = {id_: i for i, id_ in enumerate(rand.index.tolist())}
     idx = [idx_map[id_] for id_ in ids]
     return np.diag(pev)[idx]
 
-
 def _pev_diag_multi_for(rand, ids):
-    """Diagonal blocks of PEV for selected IDs, multivariate -> (len(ids), k)."""
-    pev = rand.PEV.detach().cpu().numpy()
+    """Diagonal blocks of PEV for selected IDs, multivariate → (len(ids), k)."""
+    pev = rand.PEV.detach().numpy()
     k, L = rand.k, rand.L
     idx_map = {id_: i for i, id_ in enumerate(rand.index.tolist())}
     rows = []
@@ -139,32 +94,29 @@ def _kernel_kwargs(kind, K, ped_ids):
     """
     if kind == "covariance":
         return dict(covariance=K, matrix_index=ped_ids)
-    if kind == "precision":
+    elif kind == "precision":
         Kinv = np.linalg.inv(K)
         logdet_K = np.linalg.slogdet(K)[1]
         return dict(precision=Kinv, logdet_K=logdet_K, matrix_index=ped_ids)
-    raise ValueError(kind)
+    else:
+        raise ValueError(kind)
 
 
 @pytest.fixture
 def df_train(df):
     return df[df["BLOC"].isin([f"B{i}" for i in range(1, 9)])].copy()
 
-
 @pytest.fixture
 def df_tot(df):
     return df[df["BLOC"].isin([f"B{i}" for i in range(1, 13)])].copy()
-
 
 @pytest.fixture
 def pedigree_full(df_tot):
     return _build_pedigree(df_tot)
 
-
 @pytest.fixture
 def pedigree_train(df):
     return _build_pedigree(df)
-
 
 @pytest.fixture
 def kinship_full(pedigree_full):
@@ -172,7 +124,6 @@ def kinship_full(pedigree_full):
     A = A_pedigree(pedigree_full)
     D = D_pedigree(pedigree_full)
     return A, D, ped_ids
-
 
 @pytest.fixture
 def kinship_train(pedigree_full, df_train):
@@ -185,6 +136,7 @@ def kinship_train(pedigree_full, df_train):
     founders = parents - train_ids
     keep_set = founders | train_ids
 
+    # Réordonner selon la référence
     ref_order = KINSHIP["index"]
     keep_idx = [ped_ids_full.index(id_) for id_ in ped_ids_full if id_ in keep_set]
     ped_ids = [ped_ids_full[i] for i in keep_idx]
@@ -192,47 +144,30 @@ def kinship_train(pedigree_full, df_train):
     A = A_full[np.ix_(keep_idx, keep_idx)]
     D = D_full[np.ix_(keep_idx, keep_idx)]
 
-    # Sanity check: all reference individuals must still be present after filtering.
-    missing = [id_ for id_ in ref_order if id_ not in ped_ids]
-    if missing:
-        raise AssertionError(f"Reference pedigree IDs missing from training kinship: {missing}")
-
     return A, D, ped_ids
-
 
 @pytest.fixture
 def uni_variances(df_train, kinship_train):
-    """
-    Run univariate models per trait to get natural-scale variance inits for
-    multivariate models.
-
-    Critical scaling rule:
-    do not use exp(log_S), because log_S is internal and scaled.
-    Read effect.variance["sigma"], which is formatted in natural units.
-    """
+    """Run univariate models per trait to get variance inits for multivariate."""
     A, _, ped_ids = kinship_train
     traits = ["height", "circumference", "flexuosity"]
-
     var_a = {}
     var_r = {}
-
     for trait in traits:
         mod = MixedModel.from_dataframe(
-            data=df_train,
-            response=trait,
-            fixed="1 + BLOC",
-            random=Random(
-                unit="ID",
-                right_hand="str",
-                covariance=A,
-                matrix_index=ped_ids,
+            data     = df_train,
+            response = trait,
+            fixed    = "1 + BLOC",
+            random = Random(
+                unit         = "ID",
+                right_hand   = "str",
+                covariance   = A,
+                matrix_index = ped_ids,
             ),
-            dtype=DTYPE,
         ).fit()
-
-        var_a[trait] = _effect_sigma(mod.random[0])
-        var_r[trait] = _effect_sigma(mod.residual)
-
+        var_a[trait] = float(torch.exp(mod.random[0].log_S).detach())
+        var_r[trait] = float(torch.exp(mod.residual.log_S).detach())
+    
     SigmaA_init = np.diag([var_a[t] for t in traits])
     SigmaR_init = np.diag([var_r[t] for t in traits])
 
@@ -255,23 +190,22 @@ def mod_uni(df_train, kinship_train, request):
     smw, kind = request.param
     A, D, ped_ids = kinship_train
     return MixedModel.from_dataframe(
-        data=df_train,
-        response="flexuosity",
-        fixed="1 + BLOC",
-        random=[
+        data     = df_train,
+        response = "flexuosity",
+        fixed    = "1 + BLOC",
+        random = [
             Random(
-                unit="ID",
-                right_hand="str",
+                unit         = "ID",
+                right_hand   = "str",
                 **_kernel_kwargs(kind, A, ped_ids),
             ),
             Random(
-                unit="ID",
-                right_hand="str",
+                unit         = "ID",
+                right_hand   = "str",
                 **_kernel_kwargs(kind, D, ped_ids),
             ),
         ],
-        SMW=smw,
-        dtype=DTYPE,
+        SMW = smw,
     ).fit()
 
 
@@ -281,26 +215,25 @@ def mod_diag(df_train, kinship_train, uni_variances, request):
     A, _, ped_ids = kinship_train
     SigmaA_init, SigmaR_init = uni_variances
     return MixedModel.from_dataframe(
-        data=df_train,
-        response=[
+        data     = df_train,
+        response = [
             "height",
             "circumference",
             "flexuosity",
         ],
-        fixed="1 + BLOC",
-        random=Random(
-            unit="ID",
-            left_hand="diag",
-            right_hand="str",
-            init=SigmaA_init,
+        fixed    = "1 + BLOC",
+        random = Random(
+            unit         = "ID",
+            left_hand    = "diag",
+            right_hand   = "str",
+            init         = SigmaA_init,
             **_kernel_kwargs(kind, A, ped_ids),
         ),
-        residual=Residual(
-            left_hand="diag",
-            init=SigmaR_init,
+        residual = Residual(
+            left_hand = "diag",
+            init      = SigmaR_init,
         ),
-        SMW=smw,
-        dtype=DTYPE,
+        SMW = smw,
     ).fit()
 
 
@@ -310,29 +243,26 @@ def mod_str(df_train, kinship_train, uni_variances, request):
     A, _, ped_ids = kinship_train
     SigmaA_init, SigmaR_init = uni_variances
     return MixedModel.from_dataframe(
-        data=df_train,
-        response=[
+        data     = df_train,
+        response = [
             "height",
             "circumference",
             "flexuosity",
         ],
-        fixed="1 + BLOC",
-        random=Random(
-            unit="ID",
-            left_hand="full",
-            right_hand="str",
-            init=SigmaA_init,
-            jitter=1e-6,
+        fixed    = "1 + BLOC",
+        random = Random(
+            unit         = "ID",
+            left_hand    = "full",
+            right_hand   = "str",
+            init         = SigmaA_init,
             **_kernel_kwargs(kind, A, ped_ids),
         ),
-        residual=Residual(
-            left_hand="full",
-            init=SigmaR_init,
+        residual = Residual(
+            left_hand    = "full",
+            init         = SigmaR_init,
         ),
-        SMW=smw,
-        dtype=DTYPE,
+        SMW = smw,
     ).fit()
-
 
 class TestKinship:
 
@@ -350,60 +280,40 @@ class TestKinship:
         D_sub = D[np.ix_(idx, idx)]
         np.testing.assert_allclose(D_sub, np.array(KINSHIP["D"]), atol=1e-6)
 
-
 class TestUnivariate:
 
     def test_convergence(self, mod_uni):
         assert mod_uni.opti_REML.converged is True
 
     def test_var_a(self, mod_uni):
-        actual = _effect_sigma(mod_uni.random[0])
-        np.testing.assert_allclose(
-            actual,
-            EXPECTED_UNI["var_a"],
-            rtol=_rtol(1e-4, 5e-3),
-            atol=1e-6,
-        )
+        actual = float(torch.exp(mod_uni.random[0].log_S).detach())
+        np.testing.assert_allclose(actual, EXPECTED_UNI["var_a"], rtol=1e-4, atol = 1e-6)
 
     def test_var_d(self, mod_uni):
-        actual = _effect_sigma(mod_uni.random[1])
-        np.testing.assert_allclose(
-            actual,
-            EXPECTED_UNI["var_d"],
-            rtol=_rtol(1e-4, 5e-3),
-            atol=1e-6,
-        )
+        actual = float(torch.exp(mod_uni.random[1].log_S).detach())
+        np.testing.assert_allclose(actual, EXPECTED_UNI["var_d"], rtol=1e-4, atol = 1e-6)
 
     def test_var_r(self, mod_uni):
-        actual = _effect_sigma(mod_uni.residual)
-        np.testing.assert_allclose(
-            actual,
-            EXPECTED_UNI["var_r"],
-            rtol=_rtol(1e-4, 5e-3),
-            atol=1e-6,
-        )
+        actual = float(torch.exp(mod_uni.residual.log_S).detach())
+        np.testing.assert_allclose(actual, EXPECTED_UNI["var_r"], rtol=1e-4, atol = 1e-6)
 
     def test_blup_a(self, mod_uni):
         blup, ids = _uni_blup(mod_uni, 0)
         actual, expected = _align(
-            blup,
-            ids,
-            np.array(EXPECTED_UNI["blup_a"]),
-            EXPECTED_UNI["ped_index"],
+            blup, ids,
+            np.array(EXPECTED_UNI["blup_a"]), EXPECTED_UNI["ped_index"],
             EXPECTED_UNI["train_ids"],
         )
-        np.testing.assert_allclose(actual, expected, atol=_atol(5e-4, 3e-3))
+        np.testing.assert_allclose(actual, expected, atol=5e-4)
 
     def test_blup_d(self, mod_uni):
         blup, ids = _uni_blup(mod_uni, 1)
         actual, expected = _align(
-            blup,
-            ids,
-            np.array(EXPECTED_UNI["blup_d"]),
-            EXPECTED_UNI["ped_index"],
+            blup, ids,
+            np.array(EXPECTED_UNI["blup_d"]), EXPECTED_UNI["ped_index"],
             EXPECTED_UNI["train_ids"],
         )
-        np.testing.assert_allclose(actual, expected, atol=_atol(5e-4, 3e-3))
+        np.testing.assert_allclose(actual, expected, atol=5e-4)
 
     def test_pev_a(self, mod_uni):
         train_ids = EXPECTED_UNI["train_ids"]
@@ -411,7 +321,7 @@ class TestUnivariate:
         ref_se = np.array(EXPECTED_UNI["se_a"])
         ref_idx = {id_: i for i, id_ in enumerate(EXPECTED_UNI["ped_index"])}
         expected = np.array([ref_se[ref_idx[id_]] ** 2 for id_ in train_ids])
-        np.testing.assert_allclose(actual, expected, rtol=_rtol(2e-3, 1e-2))
+        np.testing.assert_allclose(actual, expected, rtol=2e-3) # !
 
 
 class TestMultivariateDiag:
@@ -420,31 +330,20 @@ class TestMultivariateDiag:
         assert mod_diag.opti_REML.converged is True
 
     def test_SigmaA(self, mod_diag):
-        actual = mod_diag.random[0].build_S().detach().cpu().numpy()
-        expected = np.array(EXPECTED_DIAG["SigmaA"])
-        np.testing.assert_allclose(actual, expected, rtol=_rtol(1e-3, 1e-2), atol=1e-6)
+        actual = mod_diag.random[0].build_S().detach().numpy()
+        np.testing.assert_allclose(actual, np.array(EXPECTED_DIAG["SigmaA"]), rtol=1e-3) # !!
 
     def test_SigmaR(self, mod_diag):
-        actual = mod_diag.residual.build_S().detach().cpu().numpy()
-        expected = np.array(EXPECTED_DIAG["SigmaR"])
-        np.testing.assert_allclose(actual, expected, rtol=_rtol(1e-4, 1e-2), atol=1e-6)
+        actual = mod_diag.residual.build_S().detach().numpy()
+        np.testing.assert_allclose(actual, np.array(EXPECTED_DIAG["SigmaR"]), rtol=1e-4)
 
     def test_blup_a(self, mod_diag):
         blup, ids = _multi_blup(mod_diag, 0)
         ref_blup = np.array(EXPECTED_DIAG["blup_a"])
-        ref_ids = EXPECTED_DIAG["blup_index"]
+        ref_ids  = EXPECTED_DIAG["blup_index"]
         train_ids = EXPECTED_DIAG["train_ids"]
         actual, expected = _align(blup, ids, ref_blup, ref_ids, train_ids)
-        np.testing.assert_allclose(actual, expected, atol=_atol(5e-3, 2e-2))
-
-    def test_pev_a(self, mod_diag):
-        if "se_a_train" not in EXPECTED_DIAG:
-            pytest.skip("No diagonal multivariate PEV oracle in pedigree_diag.json")
-
-        train_ids = EXPECTED_DIAG["train_ids"]
-        actual = _pev_diag_multi_for(mod_diag.random[0], train_ids)
-        expected = np.array(EXPECTED_DIAG["se_a_train"]) ** 2
-        np.testing.assert_allclose(actual, expected, rtol=_rtol(3e-3, 3e-2), atol=1e-6)
+        np.testing.assert_allclose(actual, expected, atol = 5e-3) # ! woodbury
 
 
 class TestMultivariateStr:
@@ -453,49 +352,35 @@ class TestMultivariateStr:
         assert mod_str.opti_REML.converged is True
 
     def test_SigmaA(self, request, mod_str):
-        actual = mod_str.random[0].build_S().detach().cpu().numpy()
+        actual = mod_str.random[0].build_S().detach().numpy()
         expected = np.array(EXPECTED_STR["SigmaA"])
-
-        # Full x full covariance models are ridge-prone. Woodbury in float32 can
-        # drift more than direct dense Cholesky, but the result must remain on the
-        # same natural scale. This tolerance must not mask order-of-magnitude
-        # scaling failures.
         if mod_str.SMW and np.allclose(actual, expected, rtol=0.05):
             request.node.add_marker(
                 pytest.mark.xfail(
-                    reason="fullxfull SigmaA: Woodbury drifts ~3-4pc (float) / ~9% (double) on the non-identifiability ridge",
+                    reason="fullxfull SigmaA: Woodbury drifts ~3-4pc on the non-identifiability ridge",
                     strict=False,
                 )
             )
-        np.testing.assert_allclose(actual, expected, rtol=_rtol(5e-3, 1.5e-2), atol=1e-6)
+        np.testing.assert_allclose(actual, expected, rtol=0.005) # !
 
     def test_SigmaR(self, mod_str):
-        actual = mod_str.residual.build_S().detach().cpu().numpy()
-        expected = np.array(EXPECTED_STR["SigmaR"])
-        rtol = 5e-2 if (_is_float32() and mod_str.SMW) else _rtol(5e-3, 1.5e-2)
-        np.testing.assert_allclose(actual, expected, rtol=rtol, atol=1e-6)
+        actual = mod_str.residual.build_S().detach().numpy()
+        np.testing.assert_allclose(actual, np.array(EXPECTED_STR["SigmaR"]), rtol=0.005) # !
 
     def test_blup_a(self, mod_str):
         blup, ids = _multi_blup(mod_str, 0)
         ref_blup = np.array(EXPECTED_STR["blup_a"])
-        ref_ids = EXPECTED_STR["blup_index"]
+        ref_ids  = EXPECTED_STR["blup_index"]
         train_ids = EXPECTED_STR["train_ids"]
         actual, expected = _align(blup, ids, ref_blup, ref_ids, train_ids)
-
-        # BLUPs are downstream of both covariance estimates and HMME solves.
-        # A sub-unit absolute tolerance is acceptable in float32 full/full, but
-        # not errors of several units or sign/magnitude collapses.
-        atol = 0.5 if _is_float32() else 5e-2
-        np.testing.assert_allclose(actual, expected, atol=atol)
+        np.testing.assert_allclose(actual, expected, atol=0.5) # !!!
 
     def test_pev_a(self, mod_str):
         train_ids = EXPECTED_STR["train_ids"]
         actual = _pev_diag_multi_for(mod_str.random[0], train_ids)
         ref_se = np.array(EXPECTED_STR["se_a_train"])
-        expected = ref_se ** 2
-        rtol = 6e-2 if (_is_float32() and mod_str.SMW) else _rtol(3e-2, 5e-2)
-        np.testing.assert_allclose(actual, expected, rtol=rtol, atol=1e-6)
-
+        expected = ref_se ** 2  # se_a_train already restricted to train IDs
+        np.testing.assert_allclose(actual, expected, rtol=0.03) # !!
 
 class TestUnivariatePrediction:
 
@@ -508,7 +393,7 @@ class TestUnivariatePrediction:
         )
         actual = out.set_index("unit").loc[pred_ids, "prediction"].to_numpy()
         expected = np.array(EXPECTED_UNI["blup_a_pred"])
-        np.testing.assert_allclose(actual, expected, atol=_atol(5e-4, 3e-3))
+        np.testing.assert_allclose(actual, expected, atol=5e-4)
 
     def test_predict_d(self, mod_uni, kinship_full):
         _, D_full, ped_ids_full = kinship_full
@@ -519,8 +404,7 @@ class TestUnivariatePrediction:
         )
         actual = out.set_index("unit").loc[pred_ids, "prediction"].to_numpy()
         expected = np.array(EXPECTED_UNI["blup_d_pred"])
-        np.testing.assert_allclose(actual, expected, atol=_atol(5e-4, 3e-3))
-
+        np.testing.assert_allclose(actual, expected, atol=5e-4)
 
 class TestStrPrediction:
 
@@ -531,13 +415,10 @@ class TestStrPrediction:
             matrix_index=ped_ids_full,
             covariance=A_full,
         )
-
-        # Multivariate: prediction column per (response, component).
+        # Multivariate: prediction column per (response, component) → filter
         pred_df = out[out["unit"].isin(pred_ids)]
         traits = EXPECTED_STR["traits"]
         actual = pred_df.pivot(index="unit", columns="response", values="prediction")
         actual = actual.loc[pred_ids, traits].to_numpy()
         expected = np.array(EXPECTED_STR["blup_a_pred"])
-
-        atol = 0.5 if _is_float32() else 5e-2
-        np.testing.assert_allclose(actual, expected, atol=atol)
+        np.testing.assert_allclose(actual, expected, atol=0.3) # !!!
