@@ -59,7 +59,7 @@ Check for convergence of the `REML · double` step before interpreting the model
 All times are expressed in seconds.
 
 ```txt
-2026-07-09T12:21:27Z
+2026-07-09T15:25:05Z
 ╭────────────────────────────────────────────────────────────────────╮
 │   platform                                                         │
 │   ────────                                                         │
@@ -78,28 +78,28 @@ All times are expressed in seconds.
 ├────────────────────────────────────────────────────────────────────┤
 │   OLS · float                                                      │
 │   ───────────                                                      │
-│     time                 0.0621917                                 │
+│     time                 0.0893919                                 │
 ├────────────────────────────────────────────────────────────────────┤
 │   REML · float                                                     │
 │   ────────────                                                     │
-│     time                 1.51022                                   │
+│     time                 0.374678                                  │
 │     convergence          True                                      │
-│     n steps total        11                                        │
+│     n steps total        4                                         │
 │     n steps adam         0                                         │
-│     REML loss            2147.4914215542                           │
+│     REML loss            2147.5263671875                           │
 ├────────────────────────────────────────────────────────────────────┤
 │   REML · double                                                    │
 │   ─────────────                                                    │
-│     time                 0.369489                                  │
+│     time                 1.31649                                   │
 │     convergence          True                                      │
-│     n steps total        6                                         │
+│     n steps total        12                                        │
 │     n steps adam         0                                         │
-│     REML loss            2147.4914173168                           │
+│     REML loss            2147.4914174515                           │
 ├────────────────────────────────────────────────────────────────────┤
 │   HMME · double                                                    │
 │   ─────────────                                                    │
-│     time                 0.0221238                                 │
-│     REML loss            2147.4914172826                           │
+│     time                 0.0218399                                 │
+│     REML loss            2147.4914172840                           │
 ╰────────────────────────────────────────────────────────────────────╯
 ```
 

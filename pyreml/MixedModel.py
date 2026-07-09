@@ -129,7 +129,7 @@ class MixedModel:
             return G, R
 
         def varmeth_inv(self):
-            Rinv, logdet_R = residual.varmeth_inv()(self.W)
+            Rinv, logdet_R = residual.varmeth_inv()(self._W)
 
             if not random_blocks_inv:
                 return None, Rinv, None, logdet_R
