@@ -95,6 +95,7 @@ def fitted_fa(sim, G, request):
             covariance   = G,
             matrix_index = sim["id_index"],
             n_axes       = N_AXES,
+            jitter       = 1e-6,
         ),
         residual = Residual(
             left_hand    = "diag",
@@ -231,6 +232,19 @@ class TestFA:
             r = _abs_corr(Q_hat[:, ax], Q_true[:, ax])
             assert r >= 0.85
 
+    def test_relative_inertia(self, fitted_fa, sim):
+        """Per-axis relative inertia: estimated share (on estimated total)
+        vs true share (on true total). Axes 0 and 1 only."""
+        fa = fitted_fa.random[0].variance["metadata"]["fa"]
+        Lambda_hat = np.asarray(fa["Lambda"])
+        S_hat = fitted_fa.random[0].build_S().detach().cpu().numpy()
+        inertia_hat = np.trace(S_hat)
+
+        true_rel = sim["rel_inertia"]
+        for ax in range(N_AXES):
+            rel_hat = Lambda_hat[ax] / inertia_hat
+            err = abs(rel_hat - true_rel[ax])
+            assert err <= 0.25
 
     def test_fa_Sigma(self, fitted_fa):
         """FA metadata must reconstruct the reported natural covariance."""
@@ -250,20 +264,6 @@ class TestFA:
             rtol=1e-3,
             atol=1e-3,
         )
-
-    def test_relative_inertia(self, fitted_fa, sim):
-        """Per-axis relative inertia: estimated share (on estimated total)
-        vs true share (on true total). Axes 0 and 1 only."""
-        fa = fitted_fa.random[0].variance["metadata"]["fa"]
-        Lambda_hat = np.asarray(fa["Lambda"])
-        S_hat = fitted_fa.random[0].build_S().detach().numpy()
-        inertia_hat = np.trace(S_hat)
-
-        true_rel = sim["rel_inertia"]
-        for ax in range(N_AXES):
-            rel_hat = Lambda_hat[ax] / inertia_hat
-            err = abs(rel_hat - true_rel[ax])
-            assert err <= 0.25
 
     def test_residual_variances(self, fitted_fa, sim):
         fitted_fa.residual.format_variance()
@@ -312,7 +312,7 @@ class TestBlKr:
     def test_structural_zeros(self, fitted_blkr):
         """Off-block entries constrained to zero must be exactly zero (wiring check)."""
         lh, mod = fitted_blkr
-        S = mod.random[0].build_S().detach().numpy()
+        S = mod.random[0].build_S().detach().cpu().numpy()
         if lh in ("bl_resp", "kr_resp"):
             cross = _block(S, RESP[0], RESP[1])      # cross-response block
         else:
@@ -321,7 +321,7 @@ class TestBlKr:
 
     def test_variances_present_and_plausible(self, fitted_blkr, sim_blkr):
         lh, mod = fitted_blkr
-        S = mod.random[0].build_S().detach().numpy()
+        S = mod.random[0].build_S().detach().cpu().numpy()
         true_var = np.diag(sim_blkr["Sigma_A"])
         for i in range(S.shape[0]):
             v = S[i, i]
