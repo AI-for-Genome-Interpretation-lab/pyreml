@@ -209,6 +209,8 @@ class MixedModel:
         if Z is not None:
             self.uhat = nn.Parameter(torch.zeros(self.Z.shape[1], 1, dtype=torch.double, device = device))
 
+        self.migrate(torch.double)
+
     def migrate(self, dtype: torch.dtype):
         pass
 
@@ -466,21 +468,21 @@ class MixedModel:
             
             else:
                 Z = self.Z
-                P  = Ginv + Z.T @ Rinv @ Z                        # (q, q) capacitance
-                Lp = torch.linalg.cholesky(P)
-                logdet_P = 2.0 * torch.sum(torch.log(torch.diagonal(Lp)))
-                logdet_V = logdet_R + logdet_G + logdet_P         # determinant lemma
+                C  = Ginv + Z.T @ Rinv @ Z                        # (q, q) capacitance
+                Lc = torch.linalg.cholesky(C)
+                logdet_C = 2.0 * torch.sum(torch.log(torch.diagonal(Lc)))
+                logdet_V = logdet_R + logdet_G + logdet_C         # determinant lemma
 
-                # r' V^-1 r = r'R⁻¹r − (Z'R⁻¹r)' P⁻¹ (Z'R⁻¹r)
+                # r' V^-1 r = r'R⁻¹r − (Z'R⁻¹r)' C⁻¹ (Z'R⁻¹r)
                 Rir   = Rinv @ r
                 ZtRir = Z.T @ Rir
                 quad  = (r.T @ Rir).squeeze() \
-                    - (ZtRir.T @ torch.cholesky_solve(ZtRir, Lp)).squeeze()
+                    - (ZtRir.T @ torch.cholesky_solve(ZtRir, Lc)).squeeze()
 
-                # X' V^-1 X = X'R⁻¹X − (Z'R⁻¹X)' P⁻¹ (Z'R⁻¹X)
+                # X' V^-1 X = X'R⁻¹X − (Z'R⁻¹X)' C⁻¹ (Z'R⁻¹X)
                 RiX   = Rinv @ self.X
                 ZtRiX = Z.T @ RiX
-                XtViX = self.X.T @ RiX - ZtRiX.T @ torch.cholesky_solve(ZtRiX, Lp)
+                XtViX = self.X.T @ RiX - ZtRiX.T @ torch.cholesky_solve(ZtRiX, Lc)
                 k_reml = torch.logdet(XtViX)
 
         else:
