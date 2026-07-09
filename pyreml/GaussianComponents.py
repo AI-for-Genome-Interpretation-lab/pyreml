@@ -186,7 +186,7 @@ class GaussianComponent:
         resp = np.asarray(self.scale, dtype=float)                     # (k,)
         col = getattr(self, "colscale", np.ones(self.c, dtype=float))  # (c,)
         return torch.as_tensor(
-            np.outer(resp, 1.0 / col).ravel(), dtype=torch.double, device=self.device
+            np.outer(resp, 1.0 / col).ravel(), dtype=self.dtype, device=self.device
         )
 
     def init_varparams(self) -> None:
@@ -591,16 +591,18 @@ class GaussianComponent:
 
     def core_S(self) -> torch.Tensor:
         """
-        Rebuild the left-hand factor S from its log-parameterization.
-        Differentiable in self.log_S.
+        Rebuild the left-hand factor S from its log-parameterization, at the
+        working dtype. log_S is cast up front so the whole construction (QR,
+        matrix_exp, Kronecker) runs in self.dtype. Differentiable in self.log_S.
         """
-        log_S = self.log_S
+        log_S = self.log_S.to(self.dtype)
         k, c, d = self.k, self.c, self.d
-
+        dt, dev = self.dtype, self.device
+ 
         match self.left_hand:
 
             case "iid":
-                return torch.exp(log_S) * torch.eye(d, dtype=torch.double, device=self.device)
+                return torch.exp(log_S) * torch.eye(d, dtype=dt, device=dev)
             
             case "full":
                 return torch.linalg.matrix_exp(log_S + log_S.T)
@@ -626,21 +628,21 @@ class GaussianComponent:
             case "bl_form":
                 blocks = torch.linalg.matrix_exp(log_S + log_S.transpose(-1, -2))  # (c, k, k)
                 S_form = torch.block_diag(*blocks)                                  # formula-outer
-                perm = torch.arange(self.d, device=self.device).reshape(self.c, self.k).T.reshape(-1)
+                perm = torch.arange(self.d, device=dev).reshape(self.c, self.k).T.reshape(-1)
                 return S_form[perm][:, perm]
 
             case "kr_resp":
                 Bflat = log_S[: c * c].reshape(c, c)
                 log_alpha = log_S[c * c:]
                 Omega = torch.linalg.matrix_exp(Bflat + Bflat.T)
-                alpha = torch.cat([torch.ones(1, dtype=torch.double, device=self.device), torch.exp(log_alpha)])
+                alpha = torch.cat([torch.ones(1, dtype=dt, device=dev), torch.exp(log_alpha)])
                 return torch.kron(torch.diag(alpha).contiguous(), Omega.contiguous())
 
             case "kr_form":
                 Bflat = log_S[: k * k].reshape(k, k)
                 log_omega = log_S[k * k:]
                 Alpha = torch.linalg.matrix_exp(Bflat + Bflat.T)
-                omega = torch.cat([torch.ones(1, dtype=torch.double, device=self.device), torch.exp(log_omega)])
+                omega = torch.cat([torch.ones(1, dtype=dt, device=dev), torch.exp(log_omega)])
                 return torch.kron(Alpha.contiguous(), torch.diag(omega).contiguous())
 
             case _:
@@ -670,65 +672,81 @@ class GaussianComponent:
         coords: None | torch.Tensor = None,
     ) -> torch.Tensor:
         """
-        Build the right-hand factor K. Differentiable when the structure carries
-        trainable parameters (dist, eucl, ar_iso, ar_ani, het), constant
-        otherwise (iid, str).
-
-        `covariance` / `distance` / `coords` default to the training inputs stored
-        on the effect; passing new ones (over a superset of levels) lets `predict`
-        reuse the same kernel logic for kriging.
+        Build the right-hand factor K, at the working dtype. Differentiable when
+        the structure carries trainable parameters (dist, eucl, ar_iso, ar_ani,
+        het), constant otherwise (iid, str).
+ 
+        The sanctuarized constants (distance, covariance, coords_levels,
+        axis_grids) are created once in double and read through their cast cache
+        self._<name> at self.dtype. Trainable parameters (log_rho, log_h) are cast
+        on the fly.
+ 
+        Passing `distance` / `coords` selects the PREDICTION path: a fresh dense
+        kernel over the supplied levels, kept in double (called under no_grad by
+        predict), never touching the training caches.
         """
-        distance = self.distance if distance is None else distance
+        dt, dev = self.dtype, self.device
 
         match self.right_hand:
 
             case "iid":
-                return torch.eye(self.L, dtype=self.dtype, device=self.device)
+                return torch.eye(self.L, dtype=dt, device=dev)
             
             case "dist":
+                if distance is not None:
+                    # prediction path (double, no_grad)
+                    rho_p = torch.exp(self.log_rho)
+                    return torch.exp(-rho_p * distance)
                 if self._distance is None:
-                    self._distance = self.distance.to(self.dtype)
-                rho = torch.exp(self.log_rho.to(self.dtype))
+                    self._distance = self.distance.to(dt)
+                rho = torch.exp(self.log_rho.to(dt))
                 return torch.exp(-rho * self._distance)
             
             case "str":
+                # covariance derived once in double from the sanctuarized precision
                 if self.covariance is None:
-                    Lkm = torch.linalg.cholesky(self.precision)      # double, sanctuarized
+                    Lkm = torch.linalg.cholesky(self.precision)
                     self.covariance = torch.cholesky_inverse(Lkm)
                 if self._covariance is None:
-                    self._covariance = self.covariance.to(self.dtype)
+                    self._covariance = self.covariance.to(dt)
                 return self._covariance
             
             case "het":
-                _log_h = self.log_h.to(self.dtype)
-                h = torch.cat([torch.zeros(1, dtype=self.dtype, device=self.device), _log_h])
                 if self._V is None:
-                    self._V = self.V.to(self.dtype)
+                    self._V = self.V.to(dt)
+                h = torch.cat([torch.zeros(1, dtype=dt, device=dev), self.log_h.to(dt)])
                 return torch.diag(torch.exp(self._V @ h))
             
             case "eucl":
-                if self.distance is None:
-                    P = self.coords_levels if coords is None else torch.as_tensor(coords, dtype=torch.double, device=self.device)
+                if coords is not None:
+                    # prediction path (double, no_grad)
+                    P = torch.as_tensor(coords, dtype=torch.double, device=dev)
                     diff = P[:, None, :] - P[None, :, :]
-                    self.distance = torch.sqrt((diff ** 2).sum(-1))   # double, sanctuarized
+                    D = torch.sqrt((diff ** 2).sum(-1))
+                    rho_p = torch.exp(self.log_rho)
+                    return torch.exp(-rho_p * D)
+                # distance derived once in double from the observed coordinates
+                if self.distance is None:
+                    P = self.coords_levels
+                    diff = P[:, None, :] - P[None, :, :]
+                    self.distance = torch.sqrt((diff ** 2).sum(-1))
                 if self._distance is None:
-                    self._distance = self.distance.to(self.dtype)
-                rho = torch.exp(self.log_rho.to(self.dtype))
+                    self._distance = self.distance.to(dt)
+                rho = torch.exp(self.log_rho.to(dt))
                 return torch.exp(-rho * self._distance)
 
             case "ar_iso" | "ar_ani":
-                rho = torch.exp(self.log_rho.to(self.dtype))          # scalar (iso) or (axes,) (ani)
-
                 if coords is not None:
-                    # prediction path: dense separable kernel over the supplied coords (double, no_grad)
+                    # prediction path: dense separable kernel (double, no_grad)
                     rho_p = torch.exp(self.log_rho)
-                    P = torch.as_tensor(coords, dtype=self.dtype, device=self.device)
+                    P = torch.as_tensor(coords, dtype=torch.double, device=dev)
                     absdiff = (P[:, None, :] - P[None, :, :]).abs()    # (M, M, axes)
                     return torch.exp(-(absdiff * rho_p).sum(-1))       # rho broadcasts (iso/ani)
 
                 # training path: K = ⊗_a exp(-rho_a |dx_a|) over the per-axis grids
-                if getattr(self, "_axis_grids", None) is None:
-                    self._axis_grids = [g.to(self.dtype) for g in self.axis_grids]
+                rho = torch.exp(self.log_rho.to(dt))                   # scalar (iso) or (axes,) (ani)
+                if self._axis_grids is None:
+                    self._axis_grids = [g.to(dt) for g in self.axis_grids]
                 K = None
                 for a, g in enumerate(self._axis_grids):
                     rho_a = rho[a] if self.right_hand == "ar_ani" else rho
@@ -742,7 +760,8 @@ class GaussianComponent:
     def varmeth(self) -> Callable:
         """
         Return the unitary function for this effect: a closure that builds this
-        effect's block S ⊗ K.
+        effect's block S ⊗ K, at the working dtype (S and K are already emitted in
+        self.dtype, so the jitter and the Kronecker follow).
         """
         def block() -> torch.Tensor:
             S = self.build_S()
@@ -755,11 +774,14 @@ class GaussianComponent:
 
     def core_Sinv(self) -> tuple[torch.Tensor, torch.Tensor]:
         """
-        Return (S^{-1}, logdet S). Structured per left_hand; falls back to a dense
-        regularized inverse when jitter > 0 (jitter breaks the structure).
+        Return (S^{-1}, logdet S) at the working dtype. log_S is cast up front so
+        the structured inverse (QR + capacitance solve for fa, block Choleskys,
+        Kronecker) runs in self.dtype. Falls back to a dense regularized inverse
+        when jitter > 0 (jitter breaks the structure).
         """
-        log_S = self.log_S
         k, c, d = self.k, self.c, self.d
+        dt, dev = self.dtype, self.device
+        log_S = self.log_S.to(dt)
 
         if self.jitter > 0:
             S = self.core_S()
@@ -775,7 +797,7 @@ class GaussianComponent:
 
             case "iid":
                 # S = e^{log_S} I_d
-                Sinv = torch.exp(-log_S) * torch.eye(d, dtype = torch.double, device = self.device)
+                Sinv = torch.exp(-log_S) * torch.eye(d, dtype=dt, device=dev)
                 logdet = d * log_S
                 return Sinv, logdet
 
@@ -838,7 +860,7 @@ class GaussianComponent:
                     invs.append(torch.cholesky_inverse(Lb))
                     logdet = logdet + 2.0 * torch.sum(torch.log(torch.diagonal(Lb)))
                 Sinv_form = torch.block_diag(*invs)
-                perm = torch.arange(self.d, device=self.device).reshape(self.c, self.k).T.reshape(-1)
+                perm = torch.arange(self.d, device=dev).reshape(self.c, self.k).T.reshape(-1)
                 return Sinv_form[perm][:, perm], logdet
 
             case "kr_resp":
@@ -846,7 +868,7 @@ class GaussianComponent:
                 Bflat = log_S[: c * c].reshape(c, c)
                 log_alpha = log_S[c * c:]
                 Omega = torch.linalg.matrix_exp(Bflat + Bflat.T)
-                alpha = torch.cat([torch.ones(1, dtype=torch.double, device=self.device), torch.exp(log_alpha)])
+                alpha = torch.cat([torch.ones(1, dtype=dt, device=dev), torch.exp(log_alpha)])
 
                 Lom = torch.linalg.cholesky(Omega)
                 Omega_inv = torch.cholesky_inverse(Lom)
@@ -861,7 +883,7 @@ class GaussianComponent:
                 Bflat = log_S[: k * k].reshape(k, k)
                 log_omega = log_S[k * k:]
                 A = torch.linalg.matrix_exp(Bflat + Bflat.T)
-                omega = torch.cat([torch.ones(1, dtype=torch.double, device=self.device), torch.exp(log_omega)])
+                omega = torch.cat([torch.ones(1, dtype=dt, device=dev), torch.exp(log_omega)])
 
                 La = torch.linalg.cholesky(A)
                 A_inv = torch.cholesky_inverse(La)
@@ -892,20 +914,31 @@ class GaussianComponent:
 
     def build_Kinv(self) -> tuple[torch.Tensor, torch.Tensor]:
         """
-        Return (K^{-1}, logdet K). For str, both are precomputed once (cached);
-        the dense decay kernels are factored every step; the autoregressive
-        kernels use the closed-form per-axis AR(1) inverse combined by Kronecker.
+        Return (K^{-1}, logdet K) at the working dtype.
+ 
+        - iid: identity.
+        - dist / eucl: K depends on the trained rate; build_K emits it in
+          self.dtype, factored every step.
+        - ar_iso / ar_ani: closed-form per-axis AR(1) tridiagonal inverse and
+          log-determinant, combined by Kronecker; log_rho and the grids are cast
+          to self.dtype up front.
+        - het: diagonal, cast on the fly.
+        - str: precision and logdet_K derived ONCE in double from the sanctuarized
+          structure, then read through the cast caches self._precision /
+          self._logdet_K at self.dtype.
         """
+        dt, dev = self.dtype, self.device
+
         match self.right_hand:
 
             case "iid":
                 return (
-                    torch.eye(self.L, dtype=torch.double, device=self.device),
-                    torch.zeros((), dtype=torch.double, device=self.device),
+                    torch.eye(self.L, dtype=dt, device=dev),
+                    torch.zeros((), dtype=dt, device=dev),
                 )
             
             case "dist" | "eucl":
-                # K depends on the trained rate: factor each step (dense).
+                # K depends on the trained rate: factor each step (dense), in self.dtype.
                 K = self.build_K()
                 Lk = torch.linalg.cholesky(K)
                 Kinv = torch.cholesky_inverse(Lk)
@@ -917,10 +950,10 @@ class GaussianComponent:
                 # closed-form tridiagonal inverse and log-determinant, so the
                 # across-level inverse needs no factorization:
                 #   K^-1 = ⊗_a K_a^-1,  logdet K = Σ_a (L / L_a) logdet K_a.
-                rho = torch.exp(self.log_rho)
+                rho = torch.exp(self.log_rho.to(dt))
                 sizes = [len(g) for g in self.axis_grids]
                 Kinv = None
-                logdet = self.log_rho.new_zeros(())
+                logdet = torch.zeros((), dtype=dt, device=dev)
                 for a in range(len(self.axis_grids)):
                     rho_a = rho[a] if self.right_hand == "ar_ani" else rho
 
@@ -933,8 +966,8 @@ class GaussianComponent:
                     L = sizes[a]
                     phi_a = torch.exp(-rho_a)
                     if L == 1:
-                        return (torch.ones(1, 1, dtype=torch.double, device=self.device),
-                                self.log_rho.new_zeros(()))
+                        return (torch.ones(1, 1, dtype=dt, device=dev),
+                                torch.zeros((), dtype=dt, device=dev))
                     denom = 1.0 - phi_a * phi_a
                     edge = (1.0 / denom).reshape(1)
                     if L == 2:
@@ -953,13 +986,16 @@ class GaussianComponent:
             
             case "het":
                 # K = diag(exp(V h)), h has a fixed 0 reference (first column)
-                h = torch.cat([torch.zeros(1, dtype = torch.double, device = self.device), self.log_h])
-                diag = self.V @ h                      # log-variances
+                if self._V is None:
+                    self._V = self.V.to(dt)
+                h = torch.cat([torch.zeros(1, dtype=dt, device=dev), self.log_h.to(dt)])
+                diag = self._V @ h                     # log-variances
                 Kinv = torch.diag(torch.exp(-diag))
                 logdet = torch.sum(diag)
                 return Kinv, logdet
 
             case "str":
+                # precision and logdet_K derived once in double, sanctuarized.
                 if self.precision is None:
                     Lk = torch.linalg.cholesky(self.covariance)
                     self.precision = torch.cholesky_inverse(Lk)
@@ -968,7 +1004,13 @@ class GaussianComponent:
                     Lp = torch.linalg.cholesky(self.precision)
                     logdet_precision = 2.0 * torch.sum(torch.log(torch.diagonal(Lp)))
                     self.logdet_K = -logdet_precision
-                return self.precision, self.logdet_K
+
+                # cast caches read at the working dtype
+                if self._precision is None:
+                    self._precision = self.precision.to(dt)
+                if self._logdet_K is None:
+                    self._logdet_K = torch.as_tensor(self.logdet_K, dtype=dt, device=dev)
+                return self._precision, self._logdet_K
             
             case _:
                 raise ValueError(f"unsupported right hand type: {self.right_hand}")
@@ -977,6 +1019,8 @@ class GaussianComponent:
         """
         Return the closure producing this effect's inverse block and logdet:
             () -> (S^{-1} ⊗ K^{-1},  L·logdet S + d·logdet K)
+        at the working dtype (Sinv, Kinv and both logdets are already emitted in
+        self.dtype).
         """
         d = self.d
 
@@ -1153,11 +1197,13 @@ class GaussianComponent:
 
     def migrate(self, dtype: torch.dtype = torch.double):
         self.dtype = dtype
-        self._distance = None if self.distance is None else self.distance.to(dtype)
-        self._covariance = None if self.covariance is None else self.covariance.to(dtype)
-        self._precision = None if self.precision is None else self.precision.to(dtype)
-        self._V = None if self.V is None else self.V.to(dtype)
-        self._logdet_K = None if self.logdet_K is None else torch.as_tensor(self.logdet_K, dtype=dtype, device=self.device)
+        self._distance = None
+        self._covariance = None
+        self._precision = None
+        self._logdet_K = None
+        self._V = None
+        self._axis_grids = None
+        self._coords_levels = None
 
 class Random(GaussianComponent):
 
