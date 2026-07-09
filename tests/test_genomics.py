@@ -7,6 +7,8 @@ import pandas as pd
 
 from pyreml import MixedModel, Random, Residual, A_genomic
 
+DEVICE = "cuda"
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 REF_JSON = os.path.join(HERE, "data", "genomic_sim.json")
 REF_BLKR_JSON = os.path.join(HERE, "data", "genomic_blkr.json")
@@ -77,6 +79,7 @@ def fitted_het(sim, G, request):
             het_formula  = "C(envt)",
         ),
         SMW = request.param,
+        device = DEVICE,
     ).fit()
 
 @pytest.fixture(scope="session", params=[True, False], ids=["woodbury", "direct"])
@@ -97,6 +100,7 @@ def fitted_fa(sim, G, request):
             left_hand    = "diag",
         ),
         SMW = request.param,
+        device = DEVICE,
     ).fit()
 
 @pytest.fixture(scope="session")
@@ -136,6 +140,7 @@ def fitted_blkr(sim_blkr, G, request):
         ),
         residual = Residual(left_hand="diag"),
         SMW = smw,
+        device = DEVICE,
     ).fit()
     return lh, mod
 
@@ -225,6 +230,26 @@ class TestFA:
         for ax in range(N_AXES):
             r = _abs_corr(Q_hat[:, ax], Q_true[:, ax])
             assert r >= 0.85
+
+
+    def test_fa_Sigma(self, fitted_fa):
+        """FA metadata must reconstruct the reported natural covariance."""
+        fitted_fa.random[0].format_variance()
+
+        fa = fitted_fa.random[0].variance["metadata"]["fa"]
+        Q = np.asarray(fa["Q"])
+        Lambda = np.asarray(fa["Lambda"])
+        Psi = np.asarray(fa["Psi"])
+
+        S_from_metadata = Q @ np.diag(Lambda) @ Q.T + np.diag(Psi)
+        S_from_model = fitted_fa.random[0].build_S().detach().cpu().numpy()
+
+        np.testing.assert_allclose(
+            S_from_metadata,
+            S_from_model,
+            rtol=1e-3,
+            atol=1e-3,
+        )
 
     def test_relative_inertia(self, fitted_fa, sim):
         """Per-axis relative inertia: estimated share (on estimated total)

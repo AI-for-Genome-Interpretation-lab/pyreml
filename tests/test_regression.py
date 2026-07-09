@@ -8,6 +8,8 @@ import pytest
 
 from pyreml import MixedModel, Random, larix as DF
 
+DEVICE = "cuda"
+
 DATA_DIR = Path(__file__).parent / "data"
 
 with open(DATA_DIR / "regression_fixed.json") as f:
@@ -35,6 +37,7 @@ def mod_ols(df):
         data=df,
         response="height",
         fixed="1 + BLOC + circumference",
+        device = DEVICE,
     ).fit()
 
 
@@ -50,6 +53,7 @@ def mod_lmm(df, request):
             left_hand="full",
         ),
         SMW=request.param,
+        device = DEVICE,
     ).fit()
 
 class TestOLS:

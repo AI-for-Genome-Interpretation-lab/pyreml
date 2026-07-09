@@ -8,6 +8,8 @@ import pytest
 
 from pyreml import MixedModel, Random, Residual, A_pedigree, D_pedigree, larix as DF
 
+DEVICE = "cuda"
+
 DATA_DIR = Path(__file__).parent / "data"
 
 with open(DATA_DIR / "pedigree_kinship.json") as f:
@@ -146,34 +148,6 @@ def kinship_train(pedigree_full, df_train):
 
     return A, D, ped_ids
 
-@pytest.fixture
-def uni_variances(df_train, kinship_train):
-    """Run univariate models per trait to get variance inits for multivariate."""
-    A, _, ped_ids = kinship_train
-    traits = ["height", "circumference", "flexuosity"]
-    var_a = {}
-    var_r = {}
-    for trait in traits:
-        mod = MixedModel.from_dataframe(
-            data     = df_train,
-            response = trait,
-            fixed    = "1 + BLOC",
-            random = Random(
-                unit         = "ID",
-                right_hand   = "str",
-                covariance   = A,
-                matrix_index = ped_ids,
-            ),
-        ).fit()
-        var_a[trait] = float(torch.exp(mod.random[0].log_S).detach())
-        var_r[trait] = float(torch.exp(mod.residual.log_S).detach())
-    
-    SigmaA_init = np.diag([var_a[t] for t in traits])
-    SigmaR_init = np.diag([var_r[t] for t in traits])
-
-    return SigmaA_init, SigmaR_init
-
-
 _SMW_KERNEL_PARAMS = [
     (smw, kind)
     for smw in (True, False)
@@ -206,14 +180,14 @@ def mod_uni(df_train, kinship_train, request):
             ),
         ],
         SMW = smw,
+        device = DEVICE,
     ).fit()
 
 
 @pytest.fixture(params=_SMW_KERNEL_PARAMS, ids=_SMW_KERNEL_IDS)
-def mod_diag(df_train, kinship_train, uni_variances, request):
+def mod_diag(df_train, kinship_train, request):
     smw, kind = request.param
     A, _, ped_ids = kinship_train
-    SigmaA_init, SigmaR_init = uni_variances
     return MixedModel.from_dataframe(
         data     = df_train,
         response = [
@@ -226,22 +200,20 @@ def mod_diag(df_train, kinship_train, uni_variances, request):
             unit         = "ID",
             left_hand    = "diag",
             right_hand   = "str",
-            init         = SigmaA_init,
             **_kernel_kwargs(kind, A, ped_ids),
         ),
         residual = Residual(
             left_hand = "diag",
-            init      = SigmaR_init,
         ),
         SMW = smw,
+        device = DEVICE,
     ).fit()
 
 
 @pytest.fixture(params=_SMW_KERNEL_PARAMS, ids=_SMW_KERNEL_IDS)
-def mod_str(df_train, kinship_train, uni_variances, request):
+def mod_str(df_train, kinship_train, request):
     smw, kind = request.param
     A, _, ped_ids = kinship_train
-    SigmaA_init, SigmaR_init = uni_variances
     return MixedModel.from_dataframe(
         data     = df_train,
         response = [
@@ -254,14 +226,13 @@ def mod_str(df_train, kinship_train, uni_variances, request):
             unit         = "ID",
             left_hand    = "full",
             right_hand   = "str",
-            init         = SigmaA_init,
             **_kernel_kwargs(kind, A, ped_ids),
         ),
         residual = Residual(
             left_hand    = "full",
-            init         = SigmaR_init,
         ),
         SMW = smw,
+        device = DEVICE,
     ).fit()
 
 class TestKinship:

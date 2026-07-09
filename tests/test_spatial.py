@@ -58,6 +58,7 @@ import torch
 
 from pyreml import MixedModel, Random, larix as DF
 
+DEVICE = "cuda"
 
 DATA_DIR = Path(__file__).parent / "data"
 
@@ -265,6 +266,7 @@ def mod(run, expected):
         fixed="1",
         random=eff,
         SMW=run.smw,
+        device = DEVICE,
     ).fit()
 
 

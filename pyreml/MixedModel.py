@@ -8,6 +8,7 @@ import patsy
 import torch
 import torch.nn as nn
 import math
+import time
 
 from .Optimizer import OptiMix
 from .GaussianComponents import Random, Residual
@@ -211,20 +212,115 @@ class MixedModel:
     def migrate(self, dtype: torch.dtype):
         pass
 
+    def log(self):
+        if not self._log:
+            print("(no log)")
+            return
+
+        head, entries = self._log[0], self._log[1:]
+
+        # préambule
+        dev = head.get("device", "")
+        t0 = head.get("t0")
+        started = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(t0)) if t0 else ""
+        print(f"device: {dev}   started: {started}")
+
+        if not entries:
+            return
+
+        cols = []
+        for e in entries:
+            for k in e:
+                if k not in cols:
+                    cols.append(k)
+
+        def fmt(v):
+            if isinstance(v, bool):
+                return str(v)
+            if isinstance(v, float):
+                return f"{v:.4g}"
+            if v is None:
+                return ""
+            return str(v)
+
+        rows = [[fmt(e.get(c, "")) for c in cols] for e in entries]
+        widths = [max(len(cols[i]), *(len(r[i]) for r in rows)) for i in range(len(cols))]
+
+        def line(char, sep):
+            return sep.join(char * (w + 2) for w in widths)
+
+        def row(cells):
+            return "│".join(f" {c:<{widths[i]}} " for i, c in enumerate(cells))
+
+        print("┌" + line("─", "┬") + "┐")
+        print("│" + row(cols) + "│")
+        print("├" + line("─", "┼") + "┤")
+        for r in rows:
+            print("│" + row(r) + "│")
+        print("└" + line("─", "┴") + "┘")
+        
     def fit(self):
 
+        t0 = time.time()
+        self._log = [{"device": self.device, "t0": t0}]
+
         if self.do_REML:
+
             self.migrate(torch.float)
             self.OLS(terminate = False)
+            t1 = time.time()
+            self._log.append({
+                "step": "OLS",
+                "dtype": "float",
+                "time": t1 - t0,
+            })
+
             self.REML(convergence = 1e-5)
+            t2 = time.time()
+            self._log.append({
+                "step": "REML",
+                "dtype": "float",
+                "time": t2 - t1,
+                "convergence": self.opti_REML.converged,
+                "n steps total": len(self.opti_REML.loss),
+                "n steps adam": self.opti_REML.adam_total,
+                "REML loss": self.opti_REML.loss[-1],
+            })
 
             self.migrate(torch.double)
             self.REML(convergence = 1e-10)
+            t3 = time.time()
+            self._log.append({
+                "step": "REML",
+                "dtype": "double",
+                "time": t3 - t2,
+                "convergence": self.opti_REML.converged,
+                "n steps total": len(self.opti_REML.loss),
+                "n steps adam": self.opti_REML.adam_total,
+                "REML loss": self.opti_REML.loss[-1],
+            })
+            
             self.HMME()
+            self._log.append({
+                "step": "HMME",
+                "dtype": "double",
+                "time": time.time() - t3,
+                "REML loss": self.neg2loglik,
+                "n fixed params": self.df_beta,
+                "n random params": self.df_var,
+            })
         
         else:
             self.migrate(torch.double)
             self.OLS(terminate = True)
+            self._log.append({
+                "step": "OLS",
+                "dtype": "double",
+                "time": time.time() - t0,
+                "ML loss": self.neg2loglik,
+                "n fixed params": self.df_beta,
+                "n random params": self.df_var,
+            })
 
         return self
 
@@ -491,12 +587,12 @@ class MixedModel:
         if getattr(self, "residual", None) is None:
             return
         
-        df_beta = len(self.beta)
+        self.df_beta = len(self.beta)
         randoms = getattr(self, "random", [])
         residual = getattr(self, "residual", None)
-        df_var = sum(c.n_params for c in randoms)
-        df_var += residual.n_params
-        self.n_params = df_beta + df_var
+        self.df_var = sum(c.n_params for c in randoms)
+        self.df_var += residual.n_params
+        self.n_params = self.df_beta + self.df_var
         
         with torch.no_grad():
             if REML:
