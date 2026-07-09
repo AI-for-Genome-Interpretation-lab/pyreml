@@ -54,8 +54,8 @@ own set of observed rows, and unbalanced designs are handled out of the box.
 
 ### Logs
 
-After a `.fit()`, [pyreml]{.pyreml} provides logs using the method `.log()`.
-Check for convergence of the `REML · double` step before interpreting the model outputs.
+[pyreml]{.pyreml} provides the logs after fitting a model.
+Check for convergence of the last REML step before interpreting the model outputs.
 All times are expressed in seconds.
 
 ```txt

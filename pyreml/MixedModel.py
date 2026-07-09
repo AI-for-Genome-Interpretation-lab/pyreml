@@ -1,5 +1,5 @@
 import types
-from typing import Callable
+from typing import Callable, Literal
 
 import numpy as np
 from scipy.linalg import block_diag
@@ -308,7 +308,11 @@ class MixedModel:
                 print(pad("    " + k.ljust(w_k) + "  " + v))
         print(bottom())
 
-    def fit(self):
+    def fit(
+        self,
+        dtype: Literal["mixed", "float", "double"] = "mixed",
+        verbose = True,
+    ):
 
         t0 = time.time()
         info = {
@@ -329,61 +333,151 @@ class MixedModel:
         _log = []
 
         if self.do_REML:
+            match dtype:
 
-            self.migrate(torch.float)
-            self.OLS(terminate = False)
-            t1 = time.time()
-            _log.append({
-                "step": "OLS",
-                "dtype": "float",
-                "time": t1 - t0,
-            })
+                case "mixed":
 
-            self.REML(convergence = 1e-5)
-            t2 = time.time()
-            _log.append({
-                "step": "REML",
-                "dtype": "float",
-                "time": t2 - t1,
-                "convergence": self.opti_REML.converged,
-                "n steps total": len(self.opti_REML.loss),
-                "n steps adam": self.opti_REML.adam_total,
-                "REML loss": self.opti_REML.loss[-1],
-            })
+                    self.migrate(torch.float)
+                    self.OLS(terminate = False)
+                    t1 = time.time()
+                    _log.append({
+                        "step": "OLS",
+                        "dtype": "float",
+                        "time": t1 - t0,
+                    })
 
-            self.migrate(torch.double)
-            self.REML(convergence = 1e-10)
-            t3 = time.time()
-            _log.append({
-                "step": "REML",
-                "dtype": "double",
-                "time": t3 - t2,
-                "convergence": self.opti_REML.converged,
-                "n steps total": len(self.opti_REML.loss),
-                "n steps adam": self.opti_REML.adam_total,
-                "REML loss": self.opti_REML.loss[-1],
-            })
-            
-            self.HMME()
-            _log.append({
-                "step": "HMME",
-                "dtype": "double",
-                "time": time.time() - t3,
-                "REML loss": self.neg2loglik,
-            })
-        
+                    self.REML(convergence = 1e-5)
+                    t2 = time.time()
+                    _log.append({
+                        "step": "REML",
+                        "dtype": "float",
+                        "time": t2 - t1,
+                        "convergence": self.opti_REML.converged,
+                        "n steps total": len(self.opti_REML.loss),
+                        "n steps adam": self.opti_REML.adam_total,
+                        "REML loss": self.opti_REML.loss[-1],
+                    })
+
+                    self.migrate(torch.double)
+                    self.REML(convergence = 1e-10)
+                    t3 = time.time()
+                    _log.append({
+                        "step": "REML",
+                        "dtype": "double",
+                        "time": t3 - t2,
+                        "convergence": self.opti_REML.converged,
+                        "n steps total": len(self.opti_REML.loss),
+                        "n steps adam": self.opti_REML.adam_total,
+                        "REML loss": self.opti_REML.loss[-1],
+                    })
+                    
+                    self.HMME()
+                    _log.append({
+                        "step": "HMME",
+                        "dtype": "double",
+                        "time": time.time() - t3,
+                        "REML loss": self.neg2loglik,
+                    })
+
+                case "double" | "float64" | torch.double:
+
+                    self.migrate(torch.double)
+
+                    self.OLS(terminate = False)
+                    t1 = time.time()
+                    _log.append({
+                        "step": "OLS",
+                        "dtype": "double",
+                        "time": t1 - t0,
+                    })
+
+                    self.REML(convergence = 1e-5)
+                    t2 = time.time()
+                    _log.append({
+                        "step": "REML",
+                        "dtype": "double",
+                        "time": t2 - t1,
+                        "convergence": self.opti_REML.converged,
+                        "n steps total": len(self.opti_REML.loss),
+                        "n steps adam": self.opti_REML.adam_total,
+                        "REML loss": self.opti_REML.loss[-1],
+                    })
+                    
+                    self.HMME()
+                    _log.append({
+                        "step": "HMME",
+                        "dtype": "double",
+                        "time": time.time() - t2,
+                        "REML loss": self.neg2loglik,
+                    })
+
+                case "float" | "float32" | torch.float:
+
+                    self.migrate(torch.float)
+
+                    self.OLS(terminate = False)
+                    t1 = time.time()
+                    _log.append({
+                        "step": "OLS",
+                        "dtype": "float",
+                        "time": t1 - t0,
+                    })
+
+                    self.REML(convergence = 1e-5)
+                    t2 = time.time()
+                    _log.append({
+                        "step": "REML",
+                        "dtype": "float",
+                        "time": t2 - t1,
+                        "convergence": self.opti_REML.converged,
+                        "n steps total": len(self.opti_REML.loss),
+                        "n steps adam": self.opti_REML.adam_total,
+                        "REML loss": self.opti_REML.loss[-1],
+                    })
+                    
+                    self.HMME()
+                    _log.append({
+                        "step": "HMME",
+                        "dtype": "float",
+                        "time": time.time() - t2,
+                        "REML loss": self.neg2loglik,
+                    })
+                
+                case _:
+                    raise ValueError(f'Allowed types are "mixed" (default), "double" and "float".')
+
         else:
-            self.migrate(torch.double)
-            self.OLS(terminate = True)
-            _log.append({
-                "step": "OLS",
-                "dtype": "double",
-                "time": time.time() - t0,
-                "ML loss": self.neg2loglik,
-            })
+
+            match dtype:
+
+                case "mixed" | "double" | "float64" | torch.double:
+                    self.migrate(torch.double)
+                    self.OLS(terminate = True)
+                    _log.append({
+                        "step": "OLS",
+                        "dtype": "double",
+                        "time": time.time() - t0,
+                        "ML loss": self.neg2loglik,
+                    })
+
+                case "float" | "float32" | torch.float:
+                    self.migrate(torch.float)
+                    self.OLS(terminate = True)
+                    _log.append({
+                        "step": "OLS",
+                        "dtype": "float",
+                        "time": time.time() - t0,
+                        "ML loss": self.neg2loglik,
+                    }) 
+                
+                case _:
+                    raise ValueError(f'Allowed types are "mixed" (default), "double" and "float".')
 
         info["n variance parameters"] = self.df_var
         self._log = [info] + _log
+
+        if verbose :
+            self.log()
 
         return self
 
@@ -577,10 +671,13 @@ class MixedModel:
             # Fixed effects: labelled table if high-level, raw beta + EEV otherwise.
             self.format_fixed()
 
+            beta = self.beta.to(self.dtype)
+
             if self._Z is None:
-                y_hat = self._X @ self.beta
+                y_hat = self._X @ beta
             else:
-                y_hat = self._X @ self.beta + self._Z @ self.uhat
+                uhat = self.uhat.to(self.dtype)
+                y_hat = self._X @ beta + self._Z @ uhat
 
             residuals = (self._y - y_hat).flatten()
 
