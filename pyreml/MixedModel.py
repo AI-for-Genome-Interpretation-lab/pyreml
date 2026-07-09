@@ -209,10 +209,27 @@ class MixedModel:
         if Z is not None:
             self.uhat = nn.Parameter(torch.zeros(self.Z.shape[1], 1, dtype=torch.double, device = device))
 
-        self.migrate(torch.double)
+        self.migrate()
 
-    def migrate(self, dtype: torch.dtype):
-        pass
+    def migrate(self, dtype: torch.dtype = torch.double):
+
+        self.dtype = dtype
+
+        if dtype == torch.double:
+            self._y, self._X, self._Z, self._W = self.y, self.X, self.Z, self.W
+
+        else:
+            self._y = self.y.to(dtype)
+            self._X = self.X.to(dtype)
+            self._Z = self.Z.to(dtype) if self.Z is not None else None
+            self._W = self.W.to(dtype)
+
+        for rand in getattr(self, "random", []):
+            rand.migrate(dtype)
+            
+        residual = getattr(self, "residual", None)
+        if residual is not None:
+            residual.migrate(dtype)
 
     def log(self):
         if not self._log:
@@ -377,12 +394,12 @@ class MixedModel:
         """
         with torch.no_grad():
 
-            XtX = self.X.T @ self.X
-            Xty = self.X.T @ self.y
+            XtX = self._X.T @ self._X
+            Xty = self._X.T @ self._y
 
             b = torch.linalg.solve(XtX, Xty)
 
-            resid = self.y - self.X @ b
+            resid = self._y - self._X @ b
             sigma2 = (resid.T @ resid).squeeze() / (self.n - self.p)
             EEV = sigma2 * torch.linalg.inv(XtX)
 
@@ -401,8 +418,8 @@ class MixedModel:
             self.EEV = EEV
             self.format_fixed()
 
-            residuals = (self.y - self.X @ self.beta).flatten()
-            self.residual.format_residuals(residuals, self.W)
+            residuals = (self._y - self._X @ self.beta).flatten()
+            self.residual.format_residuals(residuals, self._W)
 
             self.compute_AIC(REML = False)
     
@@ -454,20 +471,21 @@ class MixedModel:
 
     def REML_loss(self):
 
-        r = self.y - self.X @ self.beta
+        beta = self.beta.to(self.dtype)
+        r = self._y - self._X @ beta
         const    = (self.n - self.p) * math.log(2 * math.pi)
 
         if self.SMW:
             # ---- Sherman–Morrison–Woodbury: from structured inverses, V never formed ----
             Ginv, Rinv, logdet_G, logdet_R = self.varmeth_inv()
 
-            if self.Z is None:
+            if self._Z is None:
                 logdet_V = logdet_R
                 quad     = (r.T @ Rinv @ r).squeeze()
-                k_reml   = torch.logdet(self.X.T @ Rinv @ self.X)
+                k_reml   = torch.logdet(self._X.T @ Rinv @ self._X)
             
             else:
-                Z = self.Z
+                Z = self._Z
                 C  = Ginv + Z.T @ Rinv @ Z                        # (q, q) capacitance
                 Lc = torch.linalg.cholesky(C)
                 logdet_C = 2.0 * torch.sum(torch.log(torch.diagonal(Lc)))
@@ -480,23 +498,23 @@ class MixedModel:
                     - (ZtRir.T @ torch.cholesky_solve(ZtRir, Lc)).squeeze()
 
                 # X' V^-1 X = X'R⁻¹X − (Z'R⁻¹X)' C⁻¹ (Z'R⁻¹X)
-                RiX   = Rinv @ self.X
+                RiX   = Rinv @ self._X
                 ZtRiX = Z.T @ RiX
-                XtViX = self.X.T @ RiX - ZtRiX.T @ torch.cholesky_solve(ZtRiX, Lc)
+                XtViX = self._X.T @ RiX - ZtRiX.T @ torch.cholesky_solve(ZtRiX, Lc)
                 k_reml = torch.logdet(XtViX)
 
         else:
             # ---- Direct: single Cholesky of V = ZGZ' + R ----
             G, R = self.varmeth()
 
-            V = R if self.Z is None else self.Z @ G @ self.Z.T + R
+            V = R if self._Z is None else self._Z @ G @ self._Z.T + R
 
             Lv = torch.linalg.cholesky(V)
             M  = torch.linalg.solve_triangular(Lv, r, upper=False)
 
             logdet_V = 2.0 * torch.sum(torch.log(torch.diag(Lv)))
             quad     = (M.T @ M).squeeze()
-            k_reml   = torch.logdet(self.X.T @ torch.cholesky_solve(self.X, Lv))
+            k_reml   = torch.logdet(self._X.T @ torch.cholesky_solve(self._X, Lv))
         
         return logdet_V + quad + k_reml + const
 
@@ -518,13 +536,13 @@ class MixedModel:
                 Ginv = torch.linalg.inv(G)
                 Rinv = torch.linalg.inv(R)
 
-            if self.Z is None:
-                LH = self.X.T @ Rinv @ self.X
-                RH = self.X.T @ Rinv @ self.y
+            if self._Z is None:
+                LH = self._X.T @ Rinv @ self._X
+                RH = self._X.T @ Rinv @ self._y
             else:
-                XtRiX = self.X.T @ Rinv @ self.X
-                XtRiZ = self.X.T @ Rinv @ self.Z
-                ZtRiZ = self.Z.T @ Rinv @ self.Z
+                XtRiX = self._X.T @ Rinv @ self._X
+                XtRiZ = self._X.T @ Rinv @ self._Z
+                ZtRiZ = self._Z.T @ Rinv @ self._Z
 
                 LH = torch.cat([
                         torch.cat([XtRiX, XtRiZ], dim=1),
@@ -533,8 +551,8 @@ class MixedModel:
                     dim=0,
                 )
                 RH = torch.cat([
-                        self.X.T @ Rinv @ self.y,
-                        self.Z.T @ Rinv @ self.y
+                        self._X.T @ Rinv @ self._y,
+                        self._Z.T @ Rinv @ self._y
                     ],
                     dim=0
                 )
@@ -550,19 +568,19 @@ class MixedModel:
             self.beta.data.copy_(sol[:p])
             self.EEV = C[:p, :p]
 
-            if self.Z is not None:
+            if self._Z is not None:
                 self.uhat.data.copy_(sol[p:])
                 PEV = C[p:, p:]
 
             # Fixed effects: labelled table if high-level, raw beta + EEV otherwise.
             self.format_fixed()
 
-            if self.Z is None:
-                y_hat = self.X @ self.beta
+            if self._Z is None:
+                y_hat = self._X @ self.beta
             else:
-                y_hat = self.X @ self.beta + self.Z @ self.uhat
+                y_hat = self._X @ self.beta + self._Z @ self.uhat
 
-            residuals = (self.y - y_hat).flatten()
+            residuals = (self._y - y_hat).flatten()
 
             random = getattr(self, "random", None)
             residual = getattr(self, "residual", None)
@@ -578,7 +596,7 @@ class MixedModel:
                 self.PEV = PEV
                 
             if residual is not None:
-                residual.format_residuals(residuals, self.W)
+                residual.format_residuals(residuals, self._W)
             else:
                 self.residuals = residuals
 

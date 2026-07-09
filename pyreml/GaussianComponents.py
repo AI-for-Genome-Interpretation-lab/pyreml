@@ -94,6 +94,7 @@ class GaussianComponent:
         self.init = init
         self.jitter = jitter
         self.scale = None 
+        self.dtype = torch.double
 
         # check "dist"
         if self.right_hand == "dist":
@@ -682,40 +683,54 @@ class GaussianComponent:
         match self.right_hand:
 
             case "iid":
-                return torch.eye(self.L, dtype=torch.double, device=self.device)
+                return torch.eye(self.L, dtype=self.dtype, device=self.device)
             
             case "dist":
-                rho = torch.exp(self.log_rho)
-                return torch.exp(-rho * distance)
+                if self._distance is None:
+                    self._distance = self.distance.to(self.dtype)
+                rho = torch.exp(self.log_rho.to(self.dtype))
+                return torch.exp(-rho * self._distance)
             
             case "str":
                 if self.covariance is None:
-                    Lkm = torch.linalg.cholesky(self.precision)
+                    Lkm = torch.linalg.cholesky(self.precision)      # double, sanctuarized
                     self.covariance = torch.cholesky_inverse(Lkm)
-                return self.covariance
+                if self._covariance is None:
+                    self._covariance = self.covariance.to(self.dtype)
+                return self._covariance
             
             case "het":
-                h = torch.cat([torch.zeros(1, dtype=torch.double, device=self.device), self.log_h])
-                return torch.diag(torch.exp(self.V @ h))
+                _log_h = self.log_h.to(self.dtype)
+                h = torch.cat([torch.zeros(1, dtype=self.dtype, device=self.device), _log_h])
+                if self._V is None:
+                    self._V = self.V.to(self.dtype)
+                return torch.diag(torch.exp(self._V @ h))
             
             case "eucl":
-                P = self.coords_levels if coords is None else torch.as_tensor(coords, dtype=torch.double, device=self.device)
-                diff = P[:, None, :] - P[None, :, :]
-                D = torch.sqrt((diff ** 2).sum(-1))
-                return torch.exp(-torch.exp(self.log_rho) * D)
+                if self.distance is None:
+                    P = self.coords_levels if coords is None else torch.as_tensor(coords, dtype=torch.double, device=self.device)
+                    diff = P[:, None, :] - P[None, :, :]
+                    self.distance = torch.sqrt((diff ** 2).sum(-1))   # double, sanctuarized
+                if self._distance is None:
+                    self._distance = self.distance.to(self.dtype)
+                rho = torch.exp(self.log_rho.to(self.dtype))
+                return torch.exp(-rho * self._distance)
 
             case "ar_iso" | "ar_ani":
-                rho = torch.exp(self.log_rho)                # scalar (iso) or (axes,) (ani)
+                rho = torch.exp(self.log_rho.to(self.dtype))          # scalar (iso) or (axes,) (ani)
 
                 if coords is not None:
-                    # prediction path: dense separable kernel over the supplied coords
-                    P = torch.as_tensor(coords, dtype=torch.double, device=self.device)
+                    # prediction path: dense separable kernel over the supplied coords (double, no_grad)
+                    rho_p = torch.exp(self.log_rho)
+                    P = torch.as_tensor(coords, dtype=self.dtype, device=self.device)
                     absdiff = (P[:, None, :] - P[None, :, :]).abs()    # (M, M, axes)
-                    return torch.exp(-(absdiff * rho).sum(-1))         # rho broadcasts (iso/ani)
+                    return torch.exp(-(absdiff * rho_p).sum(-1))       # rho broadcasts (iso/ani)
 
                 # training path: K = ⊗_a exp(-rho_a |dx_a|) over the per-axis grids
+                if getattr(self, "_axis_grids", None) is None:
+                    self._axis_grids = [g.to(self.dtype) for g in self.axis_grids]
                 K = None
-                for a, g in enumerate(self.axis_grids):
+                for a, g in enumerate(self._axis_grids):
                     rho_a = rho[a] if self.right_hand == "ar_ani" else rho
                     K_a = torch.exp(-rho_a * (g[:, None] - g[None, :]).abs())
                     K = K_a if K is None else torch.kron(K.contiguous(), K_a.contiguous())
@@ -1135,6 +1150,14 @@ class GaussianComponent:
                 "sigma": sigma,
                 "metadata": metadata,
             }
+
+    def migrate(self, dtype: torch.dtype = torch.double):
+        self.dtype = dtype
+        self._distance = None if self.distance is None else self.distance.to(dtype)
+        self._covariance = None if self.covariance is None else self.covariance.to(dtype)
+        self._precision = None if self.precision is None else self.precision.to(dtype)
+        self._V = None if self.V is None else self.V.to(dtype)
+        self._logdet_K = None if self.logdet_K is None else torch.as_tensor(self.logdet_K, dtype=dtype, device=self.device)
 
 class Random(GaussianComponent):
 
