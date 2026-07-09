@@ -120,7 +120,7 @@ class MixedModel:
 
         def varmeth(self):
             R_tot = residual.varmeth()
-            R = self.W @ R_tot() @ self.W.T
+            R = self._W @ R_tot() @ self._W.T
 
             if not random_blocks:
                 return None, R
