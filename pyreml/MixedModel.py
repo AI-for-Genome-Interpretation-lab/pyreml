@@ -242,6 +242,8 @@ class MixedModel:
         def fmt(key, v):
             if isinstance(v, bool):
                 return str(v)
+            if "time" in key and isinstance(v, (int, float)):
+                return f"{float(v):.2f}"
             if "loss" in key and isinstance(v, (int, float)):
                 return f"{float(v):.10f}"
             if isinstance(v, float):
@@ -266,7 +268,7 @@ class MixedModel:
 
         # model
         model_keys = ["n obs", "n fixed effects", "n random effects",
-                      "SMW", "variance parameters"]
+                      "n variance parameters", "SMW"]
         model = [(k, fmt(k, head[k])) for k in model_keys if k in head]
         blocks.append(("model", model))
 
@@ -380,7 +382,7 @@ class MixedModel:
                 "ML loss": self.neg2loglik,
             })
 
-        info["variance parameters"] = self.df_var
+        info["n variance parameters"] = self.df_var
         self._log = [info] + _log
 
         return self
