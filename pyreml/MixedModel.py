@@ -217,59 +217,102 @@ class MixedModel:
             print("(no log)")
             return
 
-        head, entries = self._log[0], self._log[1:]
+        head = self._log[0]
+        entries = self._log[1:]
 
-        # préambule
-        dev = head.get("device", "")
-        t0 = head.get("t0")
-        started = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(t0)) if t0 else ""
-        print(f"device: {dev}   started: {started}")
-
-        if not entries:
-            return
-
-        cols = []
-        for e in entries:
-            for k in e:
-                if k not in cols:
-                    cols.append(k)
-
-        def fmt(v):
+        def fmt(key, v):
             if isinstance(v, bool):
                 return str(v)
+            if "loss" in key and isinstance(v, (int, float)):
+                return f"{float(v):.10f}"
             if isinstance(v, float):
-                return f"{v:.4g}"
+                return f"{v:.6g}"
             if v is None:
                 return ""
             return str(v)
 
-        rows = [[fmt(e.get(c, "")) for c in cols] for e in entries]
-        widths = [max(len(cols[i]), *(len(r[i]) for r in rows)) for i in range(len(cols))]
+        # ---- blocs (titre, [(clé, valeur), ...]) ----
+        blocks = []
 
-        def line(char, sep):
-            return sep.join(char * (w + 2) for w in widths)
+        # platform
+        plat = [("device", str(head.get("device", "")))]
+        if "gpu" in head:
+            plat.append(("gpu", str(head["gpu"])))
+        if "threads" in head:
+            plat.append(("n threads", str(head["threads"])))
+        plat.append(("torch", str(head.get("torch", ""))))
+        if "cuda" in head:
+            plat.append(("cuda", str(head["cuda"])))
+        blocks.append(("platform", plat))
 
-        def row(cells):
-            return "│".join(f" {c:<{widths[i]}} " for i, c in enumerate(cells))
+        # model
+        model_keys = ["n obs", "n fixed effects", "n random effects",
+                      "SMW", "variance parameters"]
+        model = [(k, fmt(k, head[k])) for k in model_keys if k in head]
+        blocks.append(("model", model))
 
-        print("┌" + line("─", "┬") + "┐")
-        print("│" + row(cols) + "│")
-        print("├" + line("─", "┼") + "┤")
-        for r in rows:
-            print("│" + row(r) + "│")
-        print("└" + line("─", "┴") + "┘")
-        
+        # steps
+        for e in entries:
+            step = e.get("step", "")
+            dtype = e.get("dtype", "")
+            title = f"{step} · {dtype}" if dtype else step
+            kv = [(k, fmt(k, v)) for k, v in e.items()
+                  if k not in ("step", "dtype")]
+            blocks.append((title, kv))
+
+        # ---- largeurs ----
+        w_k = max(len(k) for _, kv in blocks for k, _ in kv)
+        w_v = max(len(v) for _, kv in blocks for _, v in kv)
+        content_w = 4 + w_k + 2 + w_v
+        titles_w = max(len(t) for t, _ in blocks) + 2
+        inner = max(content_w, titles_w, 58)      # 58 -> boîte de 60 avec bordures
+
+        def top():    return "╭" + "─" * (inner + 2) + "╮"
+        def bottom(): return "╰" + "─" * (inner + 2) + "╯"
+        def sep():    return "├" + "─" * (inner + 2) + "┤"
+        def pad(s):   return "│ " + s + " " * (inner - len(s)) + " │"
+
+        # ---- timestamp collé à gauche ----
+        t0 = head.get("t0")
+        stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t0)) if t0 else ""
+        print(stamp)
+
+        print(top())
+        for i, (title, kv) in enumerate(blocks):
+            if i > 0:
+                print(sep())
+            print(pad("  " + title))
+            print(pad("  " + "─" * len(title)))
+            for k, v in kv:
+                print(pad("    " + k.ljust(w_k) + "  " + v))
+        print(bottom())
+
     def fit(self):
 
         t0 = time.time()
-        self._log = [{"device": self.device, "t0": t0}]
+        info = {
+            "device": self.device,
+            "t0": t0,
+            "n obs": self.n,
+            "n fixed effects": self.p,
+            "n random effects": self.q,
+            "SMW": self.SMW,
+            "torch": torch.__version__,
+        }
+        if self.device == "cpu":
+            info["threads"] = torch.get_num_threads()
+        elif self.device.startswith("cuda"):
+            info["cuda"] = torch.version.cuda
+            info["gpu"] = torch.cuda.get_device_name(self.device)
+
+        _log = []
 
         if self.do_REML:
 
             self.migrate(torch.float)
             self.OLS(terminate = False)
             t1 = time.time()
-            self._log.append({
+            _log.append({
                 "step": "OLS",
                 "dtype": "float",
                 "time": t1 - t0,
@@ -277,7 +320,7 @@ class MixedModel:
 
             self.REML(convergence = 1e-5)
             t2 = time.time()
-            self._log.append({
+            _log.append({
                 "step": "REML",
                 "dtype": "float",
                 "time": t2 - t1,
@@ -290,7 +333,7 @@ class MixedModel:
             self.migrate(torch.double)
             self.REML(convergence = 1e-10)
             t3 = time.time()
-            self._log.append({
+            _log.append({
                 "step": "REML",
                 "dtype": "double",
                 "time": t3 - t2,
@@ -301,26 +344,25 @@ class MixedModel:
             })
             
             self.HMME()
-            self._log.append({
+            _log.append({
                 "step": "HMME",
                 "dtype": "double",
                 "time": time.time() - t3,
                 "REML loss": self.neg2loglik,
-                "n fixed params": self.df_beta,
-                "n random params": self.df_var,
             })
         
         else:
             self.migrate(torch.double)
             self.OLS(terminate = True)
-            self._log.append({
+            _log.append({
                 "step": "OLS",
                 "dtype": "double",
                 "time": time.time() - t0,
                 "ML loss": self.neg2loglik,
-                "n fixed params": self.df_beta,
-                "n random params": self.df_var,
             })
+
+        info["variance parameters"] = self.df_var
+        self._log = [info] + _log
 
         return self
 

@@ -52,7 +52,60 @@ own set of observed rows, and unbalanced designs are handled out of the box.
 
 ## The fitted model
 
-After `fit()` (see [training](training.qmd#the-fit-method)), the estimates are read off the model and its effects:
+### Logs
+
+After a `.fit()`, [pyreml]{.pyreml} provides logs using the method `.log()`.
+Check for convergence of the `REML · double` step before interpreting the model outputs.
+All times are expressed in seconds.
+
+```txt
+2026-07-09T12:21:27Z
+╭────────────────────────────────────────────────────────────────────╮
+│   platform                                                         │
+│   ────────                                                         │
+│     device               cuda                                      │
+│     gpu                  NVIDIA RTX 2000 Ada Generation Laptop GPU │
+│     torch                2.12.0+cu130                              │
+│     cuda                 13.0                                      │
+├────────────────────────────────────────────────────────────────────┤
+│   model                                                            │
+│   ─────                                                            │
+│     n obs                207                                       │
+│     n fixed effects      16                                        │
+│     n random effects     190                                       │
+│     SMW                  True                                      │
+│     variance parameters  17                                        │
+├────────────────────────────────────────────────────────────────────┤
+│   OLS · float                                                      │
+│   ───────────                                                      │
+│     time                 0.0621917                                 │
+├────────────────────────────────────────────────────────────────────┤
+│   REML · float                                                     │
+│   ────────────                                                     │
+│     time                 1.51022                                   │
+│     convergence          True                                      │
+│     n steps total        11                                        │
+│     n steps adam         0                                         │
+│     REML loss            2147.4914215542                           │
+├────────────────────────────────────────────────────────────────────┤
+│   REML · double                                                    │
+│   ─────────────                                                    │
+│     time                 0.369489                                  │
+│     convergence          True                                      │
+│     n steps total        6                                         │
+│     n steps adam         0                                         │
+│     REML loss            2147.4914173168                           │
+├────────────────────────────────────────────────────────────────────┤
+│   HMME · double                                                    │
+│   ─────────────                                                    │
+│     time                 0.0221238                                 │
+│     REML loss            2147.4914172826                           │
+╰────────────────────────────────────────────────────────────────────╯
+```
+
+### Model outputs
+
+After `.fit()` (see [training](training.qmd#the-fit-method)), the estimates are read off the model and its effects:
 
 | Accessor                   | Content                                                              |
 |----------------------------|---------------------------------------------------------------------|
