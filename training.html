@@ -284,6 +284,12 @@ window.Quarto = {
 <li><p><code>.HMME()</code>, <a href="#hmme">Henderson’s mixed model equations</a> (HMME) for the random-effect predictions.</p></li>
 </ul>
 <p>REML and HMME are engaged whenever the model carries random effects, a residual variance structure, or several responses ; otherwise the fitting process stops at the OLS step.</p>
+<p>The <code>fit</code> method takes a <code>dtype</code> argument:</p>
+<ul>
+<li><p><code>"mixed"</code> (default): OLS and a first REML pass run in <code>float32</code> to approach the optimum cheaply, then a second REML pass and HMME run in <code>float64</code> to refine the estimate and produce reliable outputs.</p></li>
+<li><p><code>"double"</code>: all three steps (OLS, REML, HMME) run in <code>float64</code> (<span class="math inline">\(=\)</span> <code>torch.double</code>). This option is intended for GPUs optimized for <code>float64</code> where the <code>float32</code> warm-up is not useful.</p></li>
+<li><p><code>"float"</code>: all three steps run in <code>float32</code>. Fastest, but all output are single-precision and in some cases the REML solver can go off-track badly.</p></li>
+</ul>
 </section>
 <section id="ols" class="level2">
 <h2 class="anchored" data-anchor-id="ols">OLS</h2>

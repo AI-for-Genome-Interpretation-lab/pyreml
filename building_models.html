@@ -217,7 +217,11 @@ window.Quarto = {
   <ul>
   <li><a href="#the-from_dataframe-constructor" id="toc-the-from_dataframe-constructor" class="nav-link active" data-scroll-target="#the-from_dataframe-constructor">The <code>from_dataframe</code> constructor</a></li>
   <li><a href="#data-layout-and-missing-values" id="toc-data-layout-and-missing-values" class="nav-link" data-scroll-target="#data-layout-and-missing-values">Data layout and missing values</a></li>
-  <li><a href="#the-fitted-model" id="toc-the-fitted-model" class="nav-link" data-scroll-target="#the-fitted-model">The fitted model</a></li>
+  <li><a href="#the-fitted-model" id="toc-the-fitted-model" class="nav-link" data-scroll-target="#the-fitted-model">The fitted model</a>
+  <ul class="collapse">
+  <li><a href="#logs" id="toc-logs" class="nav-link" data-scroll-target="#logs">Logs</a></li>
+  <li><a href="#model-outputs" id="toc-model-outputs" class="nav-link" data-scroll-target="#model-outputs">Model outputs</a></li>
+  </ul></li>
   <li><a href="#low-level-constructor" id="toc-low-level-constructor" class="nav-link" data-scroll-target="#low-level-constructor">Low-level constructor</a>
   <ul class="collapse">
   <li><a href="#the-varmeth-contract" id="toc-the-varmeth-contract" class="nav-link" data-scroll-target="#the-varmeth-contract">The <code>varmeth</code> contract</a></li>
@@ -299,10 +303,6 @@ window.Quarto = {
 <td>A <code>Residual</code> object; defaults to <code>iid</code>. See <a href="./variance_structures.html">variance structures</a>.</td>
 </tr>
 <tr class="even">
-<td><code>dtype</code></td>
-<td>The PyTorch floating-point dtype for every tensor of the model. Defaults to <code>torch.double</code> for maximal precision. Downgrade to <code>torch.float</code> for computational speed.</td>
-</tr>
-<tr class="odd">
 <td><code>device</code></td>
 <td>The device the model lives and trains on. Defaults to <code>"cpu"</code>, use <code>"cuda"</code> for <a href="http://www.nvidia.com/cuda">GPU acceleration</a>.</td>
 </tr>
@@ -316,7 +316,55 @@ window.Quarto = {
 </section>
 <section id="the-fitted-model" class="level2">
 <h2 class="anchored" data-anchor-id="the-fitted-model">The fitted model</h2>
-<p>After <code>fit()</code> (see <a href="./training.html#the-fit-method">training</a>), the estimates are read off the model and its effects:</p>
+<section id="logs" class="level3">
+<h3 class="anchored" data-anchor-id="logs">Logs</h3>
+<p><span class="pyreml">pyreml</span> provides the logs after fitting a model. Check for convergence of the last REML step before interpreting the model outputs. All times are expressed in seconds.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode txt code-with-copy"><code class="sourceCode default"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>2026-07-10T07:55:21Z</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>╭────────────────────────────────────────────────────────────╮</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>│   platform                                                 │</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>│   ────────                                                 │</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>│     device                 cuda:3                          │</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>│     gpu                    NVIDIA L40S                     │</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>│     torch                  2.11.0+cu130                    │</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>│     cuda                   13.0                            │</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>├────────────────────────────────────────────────────────────┤</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>│   model                                                    │</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>│   ─────                                                    │</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>│     n obs                  15000                           │</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>│     n fixed effects        1                               │</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>│     n random effects       15000                           │</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>│     n variance parameters  2                               │</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>│     SMW                    False                           │</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>├────────────────────────────────────────────────────────────┤</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>│   OLS · float                                              │</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>│   ───────────                                              │</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>│     time                   0.01                            │</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>├────────────────────────────────────────────────────────────┤</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>│   REML · float                                             │</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>│   ────────────                                             │</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>│     time                   62.58                           │</span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>│     convergence            True                            │</span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>│     n steps total          3                               │</span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>│     n steps adam           0                               │</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>│     REML loss              78561.6250000000                │</span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>├────────────────────────────────────────────────────────────┤</span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>│   REML · double                                            │</span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>│   ─────────────                                            │</span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>│     time                   489.75                          │</span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>│     convergence            True                            │</span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>│     n steps total          3                               │</span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>│     n steps adam           0                               │</span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>│     REML loss              78561.6262563271                │</span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>├────────────────────────────────────────────────────────────┤</span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>│   HMME · double                                            │</span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>│   ─────────────                                            │</span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>│     time                   81.73                           │</span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>│     REML loss              78561.6262563271                │</span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>╰────────────────────────────────────────────────────────────╯</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="model-outputs" class="level3">
+<h3 class="anchored" data-anchor-id="model-outputs">Model outputs</h3>
+<p>After <code>.fit()</code> (see <a href="./training.html#the-fit-method">training</a>), the estimates are read off the model and its effects:</p>
 <table class="caption-top table">
 <thead>
 <tr class="header">
@@ -357,34 +405,35 @@ window.Quarto = {
 </table>
 <p><span class="pyreml">pyreml</span> does not compute p-values for the fixed effects. However, as an approximation, the <code>t</code> column can be compared to a <span class="math inline">\(\mathcal{N}(0,1)\)</span> distribution. This approximation asymptotically improves with the sample size.</p>
 </section>
+</section>
 <section id="low-level-constructor" class="level2">
 <h2 class="anchored" data-anchor-id="low-level-constructor">Low-level constructor</h2>
 <p><span class="pyreml">pyreml</span> provides a low-level constructor for application cases that are not implemented. The low-level constructor builds directly from the response vector <code>y</code>, the design matrices <code>X</code> and <code>Z</code>, and a “residual incidence” matrix <code>W</code> that masks useless elements of <code>R</code>. It must also be provided a list of PyTorch variance parameters <code>varparams</code> and at least one differentiable variance method: <code>varmeth</code>, <code>varmeth_inv</code>, or both.</p>
 <p>Like <code>from_dataframe</code>, it accepts <code>dtype</code> and <code>device</code>. Every tensor inside <code>varmeth</code> / <code>varmeth_inv</code> must match them.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pyreml <span class="im">import</span> MixedModel</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>dtype  <span class="op">=</span> torch.double</span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>device <span class="op">=</span> <span class="st">"cuda"</span></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>log_su <span class="op">=</span> torch.zeros((), dtype<span class="op">=</span>dtype, device<span class="op">=</span>device, requires_grad<span class="op">=</span><span class="va">True</span>)</span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>log_se <span class="op">=</span> torch.zeros((), dtype<span class="op">=</span>dtype, device<span class="op">=</span>device, requires_grad<span class="op">=</span><span class="va">True</span>)</span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>varparams <span class="op">=</span> [{<span class="st">"tensor"</span>: log_su}, {<span class="st">"tensor"</span>: log_se}]</span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> varmeth(<span class="va">self</span>):</span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    G <span class="op">=</span> torch.exp(log_su) <span class="op">*</span> torch.eye(<span class="va">self</span>.Z.shape[<span class="dv">1</span>], dtype<span class="op">=</span><span class="va">self</span>.dtype, device<span class="op">=</span><span class="va">self</span>.device)</span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    R <span class="op">=</span> torch.exp(log_se) <span class="op">*</span> torch.eye(<span class="va">self</span>.n, dtype<span class="op">=</span><span class="va">self</span>.dtype, device<span class="op">=</span><span class="va">self</span>.device)</span>
-<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> G, R</span>
-<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>model <span class="op">=</span> MixedModel(</span>
-<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    y, X, Z, W<span class="op">=</span><span class="va">None</span>,</span>
-<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    varmeth<span class="op">=</span>varmeth,</span>
-<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    varparams<span class="op">=</span>varparams,</span>
-<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    dtype<span class="op">=</span>dtype,</span>
-<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    device<span class="op">=</span>device,</span>
-<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>model.fit()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pyreml <span class="im">import</span> MixedModel</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>dtype  <span class="op">=</span> torch.double</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>device <span class="op">=</span> <span class="st">"cuda"</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>log_su <span class="op">=</span> torch.zeros((), dtype<span class="op">=</span>dtype, device<span class="op">=</span>device, requires_grad<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>log_se <span class="op">=</span> torch.zeros((), dtype<span class="op">=</span>dtype, device<span class="op">=</span>device, requires_grad<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>varparams <span class="op">=</span> [{<span class="st">"tensor"</span>: log_su}, {<span class="st">"tensor"</span>: log_se}]</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> varmeth(<span class="va">self</span>):</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    G <span class="op">=</span> torch.exp(log_su) <span class="op">*</span> torch.eye(<span class="va">self</span>.Z.shape[<span class="dv">1</span>], dtype<span class="op">=</span><span class="va">self</span>.dtype, device<span class="op">=</span><span class="va">self</span>.device)</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    R <span class="op">=</span> torch.exp(log_se) <span class="op">*</span> torch.eye(<span class="va">self</span>.n, dtype<span class="op">=</span><span class="va">self</span>.dtype, device<span class="op">=</span><span class="va">self</span>.device)</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> G, R</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>model <span class="op">=</span> MixedModel(</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    y, X, Z, W<span class="op">=</span><span class="va">None</span>,</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    varmeth<span class="op">=</span>varmeth,</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    varparams<span class="op">=</span>varparams,</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    dtype<span class="op">=</span>dtype,</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>    device<span class="op">=</span>device,</span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>model.fit()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <section id="the-varmeth-contract" class="level3">
 <h3 class="anchored" data-anchor-id="the-varmeth-contract">The <code>varmeth</code> contract</h3>
 <p><code>varmeth(self) -&gt; (G, R)</code> is bound as a method on the model, so it can read <code>self.Z</code>, <code>self.W</code>, <code>self.n</code>, <code>self.dtype</code>, <code>self.device</code>, … and returns the pair <span class="math inline">\((\mathbf{G}, \mathbf{R})\)</span> that forms <span class="math inline">\(\mathbf{V} = \mathbf{Z}\mathbf{G}
@@ -393,21 +442,21 @@ window.Quarto = {
 <section id="the-varmeth_inv-contract" class="level3">
 <h3 class="anchored" data-anchor-id="the-varmeth_inv-contract">The <code>varmeth_inv</code> contract</h3>
 <p><code>varmeth_inv(self) -&gt; (Ginv, Rinv, logdet_G, logdet_R)</code> is the inverse-side alternative. Rather than forming <span class="math inline">\(\mathbf{V}\)</span> and factoring it, it supplies the structured inverses <span class="math inline">\(\mathbf{G}^{-1}\)</span> and <span class="math inline">\(\mathbf{R}^{-1}\)</span> together with the log-determinants <span class="math inline">\(\log|\mathbf{G}|\)</span> and <span class="math inline">\(\log|\mathbf{R}|\)</span>, from which the likelihood is evaluated without ever assembling <span class="math inline">\(\mathbf{V}\)</span> (see <a href="./training.html#smw">SMW</a>). Like <code>varmeth</code>, it is bound as a method and must be differentiable in the <code>varparams</code> tensors. <code>Ginv</code> and <code>logdet_G</code> may both be <code>None</code> when the model has no random effect.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> varmeth_inv(<span class="va">self</span>):</span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    Ginv <span class="op">=</span> torch.exp(<span class="op">-</span>log_su) <span class="op">*</span> torch.eye(<span class="va">self</span>.Z.shape[<span class="dv">1</span>], dtype<span class="op">=</span><span class="va">self</span>.dtype, device<span class="op">=</span><span class="va">self</span>.device)</span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    Rinv <span class="op">=</span> torch.exp(<span class="op">-</span>log_se) <span class="op">*</span> torch.eye(<span class="va">self</span>.n, dtype<span class="op">=</span><span class="va">self</span>.dtype, device<span class="op">=</span><span class="va">self</span>.device)</span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    logdet_G <span class="op">=</span> <span class="va">self</span>.Z.shape[<span class="dv">1</span>] <span class="op">*</span> log_su</span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    logdet_R <span class="op">=</span> <span class="va">self</span>.n <span class="op">*</span> log_se</span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> Ginv, Rinv, logdet_G, logdet_R</span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>model <span class="op">=</span> MixedModel(</span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    y, X, Z, W<span class="op">=</span><span class="va">None</span>,</span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    varmeth_inv<span class="op">=</span>varmeth_inv,</span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    varparams<span class="op">=</span>varparams,</span>
-<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    dtype<span class="op">=</span>dtype,</span>
-<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    device<span class="op">=</span>device,</span>
-<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>model.fit()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> varmeth_inv(<span class="va">self</span>):</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    Ginv <span class="op">=</span> torch.exp(<span class="op">-</span>log_su) <span class="op">*</span> torch.eye(<span class="va">self</span>.Z.shape[<span class="dv">1</span>], dtype<span class="op">=</span><span class="va">self</span>.dtype, device<span class="op">=</span><span class="va">self</span>.device)</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    Rinv <span class="op">=</span> torch.exp(<span class="op">-</span>log_se) <span class="op">*</span> torch.eye(<span class="va">self</span>.n, dtype<span class="op">=</span><span class="va">self</span>.dtype, device<span class="op">=</span><span class="va">self</span>.device)</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    logdet_G <span class="op">=</span> <span class="va">self</span>.Z.shape[<span class="dv">1</span>] <span class="op">*</span> log_su</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    logdet_R <span class="op">=</span> <span class="va">self</span>.n <span class="op">*</span> log_se</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> Ginv, Rinv, logdet_G, logdet_R</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>model <span class="op">=</span> MixedModel(</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    y, X, Z, W<span class="op">=</span><span class="va">None</span>,</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    varmeth_inv<span class="op">=</span>varmeth_inv,</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    varparams<span class="op">=</span>varparams,</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    dtype<span class="op">=</span>dtype,</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    device<span class="op">=</span>device,</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>model.fit()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Either method alone is sufficient and fixes the solving path; supplying both lets the model choose (see <a href="./training.html#smw">SMW</a>).</p>
 </section>
 <section id="the-varparams-format" class="level3">
