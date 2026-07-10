@@ -7,6 +7,8 @@ import pandas as pd
 
 from pyreml import MixedModel, Random, Residual, A_genomic
 
+DEVICE = "cuda"
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 REF_JSON = os.path.join(HERE, "data", "genomic_sim.json")
 REF_BLKR_JSON = os.path.join(HERE, "data", "genomic_blkr.json")
@@ -77,6 +79,7 @@ def fitted_het(sim, G, request):
             het_formula  = "C(envt)",
         ),
         SMW = request.param,
+        device = DEVICE,
     ).fit()
 
 @pytest.fixture(scope="session", params=[True, False], ids=["woodbury", "direct"])
@@ -92,11 +95,13 @@ def fitted_fa(sim, G, request):
             covariance   = G,
             matrix_index = sim["id_index"],
             n_axes       = N_AXES,
+            jitter       = 1e-6,
         ),
         residual = Residual(
             left_hand    = "diag",
         ),
         SMW = request.param,
+        device = DEVICE,
     ).fit()
 
 @pytest.fixture(scope="session")
@@ -136,6 +141,7 @@ def fitted_blkr(sim_blkr, G, request):
         ),
         residual = Residual(left_hand="diag"),
         SMW = smw,
+        device = DEVICE,
     ).fit()
     return lh, mod
 
@@ -231,7 +237,7 @@ class TestFA:
         vs true share (on true total). Axes 0 and 1 only."""
         fa = fitted_fa.random[0].variance["metadata"]["fa"]
         Lambda_hat = np.asarray(fa["Lambda"])
-        S_hat = fitted_fa.random[0].build_S().detach().numpy()
+        S_hat = fitted_fa.random[0].build_S().detach().cpu().numpy()
         inertia_hat = np.trace(S_hat)
 
         true_rel = sim["rel_inertia"]
@@ -239,6 +245,25 @@ class TestFA:
             rel_hat = Lambda_hat[ax] / inertia_hat
             err = abs(rel_hat - true_rel[ax])
             assert err <= 0.25
+
+    def test_fa_Sigma(self, fitted_fa):
+        """FA metadata must reconstruct the reported natural covariance."""
+        fitted_fa.random[0].format_variance()
+
+        fa = fitted_fa.random[0].variance["metadata"]["fa"]
+        Q = np.asarray(fa["Q"])
+        Lambda = np.asarray(fa["Lambda"])
+        Psi = np.asarray(fa["Psi"])
+
+        S_from_metadata = Q @ np.diag(Lambda) @ Q.T + np.diag(Psi)
+        S_from_model = fitted_fa.random[0].build_S().detach().cpu().numpy()
+
+        np.testing.assert_allclose(
+            S_from_metadata,
+            S_from_model,
+            rtol=1e-3,
+            atol=1e-3,
+        )
 
     def test_residual_variances(self, fitted_fa, sim):
         fitted_fa.residual.format_variance()
@@ -287,7 +312,7 @@ class TestBlKr:
     def test_structural_zeros(self, fitted_blkr):
         """Off-block entries constrained to zero must be exactly zero (wiring check)."""
         lh, mod = fitted_blkr
-        S = mod.random[0].build_S().detach().numpy()
+        S = mod.random[0].build_S().detach().cpu().numpy()
         if lh in ("bl_resp", "kr_resp"):
             cross = _block(S, RESP[0], RESP[1])      # cross-response block
         else:
@@ -296,7 +321,7 @@ class TestBlKr:
 
     def test_variances_present_and_plausible(self, fitted_blkr, sim_blkr):
         lh, mod = fitted_blkr
-        S = mod.random[0].build_S().detach().numpy()
+        S = mod.random[0].build_S().detach().cpu().numpy()
         true_var = np.diag(sim_blkr["Sigma_A"])
         for i in range(S.shape[0]):
             v = S[i, i]

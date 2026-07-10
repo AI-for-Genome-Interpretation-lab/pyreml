@@ -58,6 +58,7 @@ import torch
 
 from pyreml import MixedModel, Random, larix as DF
 
+DEVICE = "cuda"
 
 DATA_DIR = Path(__file__).parent / "data"
 
@@ -265,15 +266,15 @@ def mod(run, expected):
         fixed="1",
         random=eff,
         SMW=run.smw,
+        device = DEVICE,
     ).fit()
 
 
 def _Vu(mod):
-    return float(torch.exp(mod.random[0].log_S).detach().numpy())
-
+    return float(mod.random[0].variance["sigma"])
 
 def _Ve(mod):
-    return float(torch.exp(mod.residual.log_S).detach().numpy())
+    return float(mod.residual.variance["sigma"])
 
 
 def _observed(mod, vec):
@@ -290,7 +291,7 @@ def _observed(mod, vec):
 
 def _blup(mod):
     # Decay kernels: k = c = 1, so uhat is ordered by level only.
-    u = mod.random[0].uhat.detach().numpy().ravel()
+    u = mod.random[0].uhat.detach().cpu().numpy().ravel()
     return _observed(mod, u)
 
 
@@ -350,7 +351,7 @@ class TestSpatial:
         np.testing.assert_allclose(_blup(mod), expected["blup"], rtol=1e-3)
 
     def test_pev_diag(self, run, mod, expected):
-        pev = mod.random[0].PEV.detach().numpy()
+        pev = mod.random[0].PEV.detach().cpu().numpy()
         diag = _observed(mod, np.diag(pev))
         np.testing.assert_allclose(diag, expected["pev_diag"], rtol = 2e-3)
 

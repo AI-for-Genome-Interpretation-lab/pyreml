@@ -25,6 +25,19 @@ This runs the full pipeline, calling this series of methods:
 REML and HMME are engaged whenever the model carries random effects, a residual variance structure,
 or several responses ; otherwise the fitting process stops at the OLS step.
 
+The `fit` method takes a `dtype` argument:
+
+- `"mixed"` (default): OLS and a first REML pass run in `float32` to approach
+the optimum cheaply, then a second REML pass and HMME run in `float64` to refine
+the estimate and produce reliable outputs.
+
+- `"double"`: all three steps (OLS, REML, HMME) run in `float64`
+($=$ `torch.double`). This option is intended for GPUs optimized for `float64`
+where the `float32` warm-up is not useful.
+
+- `"float"`: all three steps run in `float32`. Fastest, but all output
+are single-precision and in some cases the REML solver can go off-track badly.
+
 ## OLS
 
 The fixed effects are first estimated by ordinary least squares,
