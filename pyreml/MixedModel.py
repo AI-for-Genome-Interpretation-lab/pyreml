@@ -1,5 +1,5 @@
 import types
-from typing import Callable
+from typing import Callable, Literal
 
 import numpy as np
 from scipy.linalg import block_diag
@@ -8,6 +8,7 @@ import patsy
 import torch
 import torch.nn as nn
 import math
+import time
 
 from .Optimizer import OptiMix
 from .GaussianComponents import Random, Residual
@@ -23,7 +24,6 @@ class MixedModel:
         random: None | Random | list[Random] = None,
         residual: Residual | None = None,
         SMW: bool | None = None,
-        dtype = torch.double,
         device: str = "cpu",
     ):
 
@@ -66,6 +66,8 @@ class MixedModel:
         y = np.hstack(
             [data.loc[m, resp].to_numpy() for resp, m in zip(response, masks)]
         )
+        scale = np.array([float(data[resp].std()) for resp in response], dtype=float)
+        scale = np.where(np.isfinite(scale) & (scale > 0.0), scale, 1.0)
 
         ## Build X
         dm = patsy.dmatrix(fixed, data=data, return_type="dataframe")
@@ -86,7 +88,7 @@ class MixedModel:
         varparams = []
 
         for r in random:
-            Z_base = r.design(data, response, device = device, dtype = dtype)
+            Z_base = r.design(data, response, scale=scale, device = device)
             Z_e = block_diag(*[Z_base[m] for m in masks])
 
             Z_blocks.append(Z_e)
@@ -99,16 +101,16 @@ class MixedModel:
         else:
             Z = None
 
-        W_blocks = residual.design(data, response, device = device, dtype = dtype)
+        W_blocks = residual.design(data, response, scale=scale, device = device)
         W = block_diag(*[W_blocks[m] for m in masks])
         residual.check_Rtrick(W)
 
         varparams.extend(residual.varparams)
 
-        X = torch.as_tensor(X, dtype=dtype, device=device)
-        Z = torch.as_tensor(Z, dtype=dtype, device=device) if Z is not None else None
-        W = torch.as_tensor(W, dtype=dtype, device=device)
-        y = torch.as_tensor(y, dtype=dtype, device=device).reshape(-1, 1)
+        X = torch.as_tensor(X, dtype=torch.double, device=device)
+        Z = torch.as_tensor(Z, dtype=torch.double, device=device) if Z is not None else None
+        W = torch.as_tensor(W, dtype=torch.double, device=device)
+        y = torch.as_tensor(y, dtype=torch.double, device=device).reshape(-1, 1)
 
         do_REML = (
             Z is not None
@@ -118,7 +120,7 @@ class MixedModel:
 
         def varmeth(self):
             R_tot = residual.varmeth()
-            R = self.W @ R_tot() @ self.W.T
+            R = self._W @ R_tot() @ self._W.T
 
             if not random_blocks:
                 return None, R
@@ -127,7 +129,7 @@ class MixedModel:
             return G, R
 
         def varmeth_inv(self):
-            Rinv, logdet_R = residual.varmeth_inv()(self.W)
+            Rinv, logdet_R = residual.varmeth_inv()(self._W)
 
             if not random_blocks_inv:
                 return None, Rinv, None, logdet_R
@@ -146,7 +148,6 @@ class MixedModel:
             varmeth_inv = varmeth_inv,
             varparams=varparams,
             do_REML=do_REML,
-            dtype = dtype,
             device = device,
         )
         mm.response = response
@@ -172,10 +173,8 @@ class MixedModel:
         varmeth: Callable | None = None,
         varmeth_inv: Callable | None = None,
         do_REML: bool = True,
-        dtype = torch.double,
         device = "cpu",
     ):
-        self.type = dtype
         self.device = device
 
         if W is None:
@@ -196,7 +195,7 @@ class MixedModel:
         else:                                # les deux : on choisit par dimension
             self.SMW = (self.q < self.n)
 
-        self.beta = nn.Parameter(torch.zeros(self.X.shape[1], 1, dtype=dtype, device = device))
+        self.beta = nn.Parameter(torch.zeros(self.X.shape[1], 1, dtype=torch.double, device = device))
 
         self.varparams   = varparams
         self.do_REML     = do_REML
@@ -208,15 +207,277 @@ class MixedModel:
             closure=self.REML_closure,
         )
         if Z is not None:
-            self.uhat = nn.Parameter(torch.zeros(self.Z.shape[1], 1, dtype=dtype, device = device))
+            self.uhat = nn.Parameter(torch.zeros(self.Z.shape[1], 1, dtype=torch.double, device = device))
 
-    def fit(self):
+        self.migrate()
 
-        self.OLS(terminate=not self.do_REML)
+    def migrate(self, dtype: torch.dtype = torch.double):
+
+        self.dtype = dtype
+
+        if dtype == torch.double:
+            self._y, self._X, self._Z, self._W = self.y, self.X, self.Z, self.W
+
+        else:
+            self._y = self.y.to(dtype)
+            self._X = self.X.to(dtype)
+            self._Z = self.Z.to(dtype) if self.Z is not None else None
+            self._W = self.W.to(dtype)
+
+        for rand in getattr(self, "random", []):
+            rand.migrate(dtype)
+            
+        residual = getattr(self, "residual", None)
+        if residual is not None:
+            residual.migrate(dtype)
+
+    def log(self):
+        if not self._log:
+            print("(no log)")
+            return
+
+        head = self._log[0]
+        entries = self._log[1:]
+
+        def fmt(key, v):
+            if isinstance(v, bool):
+                return str(v)
+            if "time" in key and isinstance(v, (int, float)):
+                return f"{float(v):.2f}"
+            if "loss" in key and isinstance(v, (int, float)):
+                return f"{float(v):.10f}"
+            if isinstance(v, float):
+                return f"{v:.6g}"
+            if v is None:
+                return ""
+            return str(v)
+
+        # ---- blocs (titre, [(clé, valeur), ...]) ----
+        blocks = []
+
+        # platform
+        plat = [("device", str(head.get("device", "")))]
+        if "gpu" in head:
+            plat.append(("gpu", str(head["gpu"])))
+        if "threads" in head:
+            plat.append(("n threads", str(head["threads"])))
+        plat.append(("torch", str(head.get("torch", ""))))
+        if "cuda" in head:
+            plat.append(("cuda", str(head["cuda"])))
+        blocks.append(("platform", plat))
+
+        # model
+        model_keys = ["n obs", "n fixed effects", "n random effects",
+                      "n variance parameters", "SMW"]
+        model = [(k, fmt(k, head[k])) for k in model_keys if k in head]
+        blocks.append(("model", model))
+
+        # steps
+        for e in entries:
+            step = e.get("step", "")
+            dtype = e.get("dtype", "")
+            title = f"{step} · {dtype}" if dtype else step
+            kv = [(k, fmt(k, v)) for k, v in e.items()
+                  if k not in ("step", "dtype")]
+            blocks.append((title, kv))
+
+        # ---- largeurs ----
+        w_k = max(len(k) for _, kv in blocks for k, _ in kv)
+        w_v = max(len(v) for _, kv in blocks for _, v in kv)
+        content_w = 4 + w_k + 2 + w_v
+        titles_w = max(len(t) for t, _ in blocks) + 2
+        inner = max(content_w, titles_w, 58)      # 58 -> boîte de 60 avec bordures
+
+        def top():    return "╭" + "─" * (inner + 2) + "╮"
+        def bottom(): return "╰" + "─" * (inner + 2) + "╯"
+        def sep():    return "├" + "─" * (inner + 2) + "┤"
+        def pad(s):   return "│ " + s + " " * (inner - len(s)) + " │"
+
+        # ---- timestamp collé à gauche ----
+        t0 = head.get("t0")
+        stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t0)) if t0 else ""
+        print(stamp)
+
+        print(top())
+        for i, (title, kv) in enumerate(blocks):
+            if i > 0:
+                print(sep())
+            print(pad("  " + title))
+            print(pad("  " + "─" * len(title)))
+            for k, v in kv:
+                print(pad("    " + k.ljust(w_k) + "  " + v))
+        print(bottom())
+
+    def fit(
+        self,
+        dtype: Literal["mixed", "float", "double"] = "mixed",
+        verbose = True,
+    ):
+
+        t0 = time.time()
+        info = {
+            "device": self.device,
+            "t0": t0,
+            "n obs": self.n,
+            "n fixed effects": self.p,
+            "n random effects": self.q,
+            "SMW": self.SMW,
+            "torch": torch.__version__,
+        }
+        if self.device == "cpu":
+            info["threads"] = torch.get_num_threads()
+        elif self.device.startswith("cuda"):
+            info["cuda"] = torch.version.cuda
+            info["gpu"] = torch.cuda.get_device_name(self.device)
+
+        _log = []
 
         if self.do_REML:
-            self.REML()
-            self.HMME()
+            match dtype:
+
+                case "mixed":
+
+                    self.migrate(torch.float)
+                    self.OLS(terminate = False)
+                    t1 = time.time()
+                    _log.append({
+                        "step": "OLS",
+                        "dtype": "float",
+                        "time": t1 - t0,
+                    })
+
+                    self.REML(convergence = 1e-5)
+                    t2 = time.time()
+                    _log.append({
+                        "step": "REML",
+                        "dtype": "float",
+                        "time": t2 - t1,
+                        "convergence": self.opti_REML.converged,
+                        "n steps total": len(self.opti_REML.loss),
+                        "n steps adam": self.opti_REML.adam_total,
+                        "REML loss": self.opti_REML.loss[-1],
+                    })
+
+                    self.migrate(torch.double)
+                    self.REML(convergence = 1e-10)
+                    t3 = time.time()
+                    _log.append({
+                        "step": "REML",
+                        "dtype": "double",
+                        "time": t3 - t2,
+                        "convergence": self.opti_REML.converged,
+                        "n steps total": len(self.opti_REML.loss),
+                        "n steps adam": self.opti_REML.adam_total,
+                        "REML loss": self.opti_REML.loss[-1],
+                    })
+                    
+                    self.HMME()
+                    _log.append({
+                        "step": "HMME",
+                        "dtype": "double",
+                        "time": time.time() - t3,
+                        "REML loss": self.neg2loglik,
+                    })
+
+                case "double" | "float64" | torch.double:
+
+                    self.migrate(torch.double)
+
+                    self.OLS(terminate = False)
+                    t1 = time.time()
+                    _log.append({
+                        "step": "OLS",
+                        "dtype": "double",
+                        "time": t1 - t0,
+                    })
+
+                    self.REML(convergence = 1e-5)
+                    t2 = time.time()
+                    _log.append({
+                        "step": "REML",
+                        "dtype": "double",
+                        "time": t2 - t1,
+                        "convergence": self.opti_REML.converged,
+                        "n steps total": len(self.opti_REML.loss),
+                        "n steps adam": self.opti_REML.adam_total,
+                        "REML loss": self.opti_REML.loss[-1],
+                    })
+                    
+                    self.HMME()
+                    _log.append({
+                        "step": "HMME",
+                        "dtype": "double",
+                        "time": time.time() - t2,
+                        "REML loss": self.neg2loglik,
+                    })
+
+                case "float" | "float32" | torch.float:
+
+                    self.migrate(torch.float)
+
+                    self.OLS(terminate = False)
+                    t1 = time.time()
+                    _log.append({
+                        "step": "OLS",
+                        "dtype": "float",
+                        "time": t1 - t0,
+                    })
+
+                    self.REML(convergence = 1e-5)
+                    t2 = time.time()
+                    _log.append({
+                        "step": "REML",
+                        "dtype": "float",
+                        "time": t2 - t1,
+                        "convergence": self.opti_REML.converged,
+                        "n steps total": len(self.opti_REML.loss),
+                        "n steps adam": self.opti_REML.adam_total,
+                        "REML loss": self.opti_REML.loss[-1],
+                    })
+                    
+                    self.HMME()
+                    _log.append({
+                        "step": "HMME",
+                        "dtype": "float",
+                        "time": time.time() - t2,
+                        "REML loss": self.neg2loglik,
+                    })
+                
+                case _:
+                    raise ValueError(f'Allowed types are "mixed" (default), "double" and "float".')
+
+        else:
+
+            match dtype:
+
+                case "mixed" | "double" | "float64" | torch.double:
+                    self.migrate(torch.double)
+                    self.OLS(terminate = True)
+                    _log.append({
+                        "step": "OLS",
+                        "dtype": "double",
+                        "time": time.time() - t0,
+                        "ML loss": self.neg2loglik,
+                    })
+
+                case "float" | "float32" | torch.float:
+                    self.migrate(torch.float)
+                    self.OLS(terminate = True)
+                    _log.append({
+                        "step": "OLS",
+                        "dtype": "float",
+                        "time": time.time() - t0,
+                        "ML loss": self.neg2loglik,
+                    }) 
+                
+                case _:
+                    raise ValueError(f'Allowed types are "mixed" (default), "double" and "float".')
+
+        info["n variance parameters"] = self.df_var
+        self._log = [info] + _log
+
+        if verbose :
+            self.log()
 
         return self
 
@@ -229,27 +490,32 @@ class MixedModel:
         """
         with torch.no_grad():
 
-            XtX = self.X.T @ self.X
-            Xty = self.X.T @ self.y
+            XtX = self._X.T @ self._X
+            Xty = self._X.T @ self._y
 
             b = torch.linalg.solve(XtX, Xty)
 
-            resid = self.y - self.X @ b
+            resid = self._y - self._X @ b
             sigma2 = (resid.T @ resid).squeeze() / (self.n - self.p)
             EEV = sigma2 * torch.linalg.inv(XtX)
 
         self.beta.data.copy_(b)
 
         if terminate:
-
-            self.residual.log_S.data.copy_(torch.log(sigma2))
+            sd = self.residual.scale_d()
+            if sd is None:
+                log_s0 = torch.log(sigma2)
+            else:
+                log_s0 = torch.log(sigma2) - 2.0 * torch.log(sd.reshape(()))
+            
+            self.residual.log_S.data.copy_(log_s0)
             self.residual.format_variance()
 
             self.EEV = EEV
             self.format_fixed()
 
-            residuals = (self.y - self.X @ self.beta).flatten()
-            self.residual.format_residuals(residuals, self.W)
+            residuals = (self._y - self._X @ self.beta).flatten()
+            self.residual.format_residuals(residuals, self._W)
 
             self.compute_AIC(REML = False)
     
@@ -261,8 +527,8 @@ class MixedModel:
                 f"got {self.residual.log_S.numel()} elements."
             )
         
-        s2  = torch.exp(self.residual.log_S).squeeze()
-        s2_ML = s2 * (self.n - self.p) / self.n  
+        s2  = self.residual.build_S().reshape(())
+        s2_ML = s2 * (self.n - self.p) / self.n
         const = self.n * math.log(2*math.pi)
         logdet_V = self.n * torch.log(s2_ML)
         quad = self.n
@@ -271,7 +537,7 @@ class MixedModel:
     def REML(
         self,
         n_epoch: int = 10_000,
-        convergence: float = 1.0e-10,
+        convergence: float = 1e-10,
     ):
         """
         Restricted maximum likelihood estimation of the variance components + beta
@@ -301,49 +567,50 @@ class MixedModel:
 
     def REML_loss(self):
 
-        r = self.y - self.X @ self.beta
+        beta = self.beta.to(self.dtype)
+        r = self._y - self._X @ beta
         const    = (self.n - self.p) * math.log(2 * math.pi)
 
         if self.SMW:
             # ---- Sherman–Morrison–Woodbury: from structured inverses, V never formed ----
             Ginv, Rinv, logdet_G, logdet_R = self.varmeth_inv()
 
-            if self.Z is None:
+            if self._Z is None:
                 logdet_V = logdet_R
                 quad     = (r.T @ Rinv @ r).squeeze()
-                k_reml   = torch.logdet(self.X.T @ Rinv @ self.X)
+                k_reml   = torch.logdet(self._X.T @ Rinv @ self._X)
             
             else:
-                Z = self.Z
-                P  = Ginv + Z.T @ Rinv @ Z                        # (q, q) capacitance
-                Lp = torch.linalg.cholesky(P)
-                logdet_P = 2.0 * torch.sum(torch.log(torch.diagonal(Lp)))
-                logdet_V = logdet_R + logdet_G + logdet_P         # determinant lemma
+                Z = self._Z
+                C  = Ginv + Z.T @ Rinv @ Z                        # (q, q) capacitance
+                Lc = torch.linalg.cholesky(C)
+                logdet_C = 2.0 * torch.sum(torch.log(torch.diagonal(Lc)))
+                logdet_V = logdet_R + logdet_G + logdet_C         # determinant lemma
 
-                # r' V^-1 r = r'R⁻¹r − (Z'R⁻¹r)' P⁻¹ (Z'R⁻¹r)
+                # r' V^-1 r = r'R⁻¹r − (Z'R⁻¹r)' C⁻¹ (Z'R⁻¹r)
                 Rir   = Rinv @ r
                 ZtRir = Z.T @ Rir
                 quad  = (r.T @ Rir).squeeze() \
-                    - (ZtRir.T @ torch.cholesky_solve(ZtRir, Lp)).squeeze()
+                    - (ZtRir.T @ torch.cholesky_solve(ZtRir, Lc)).squeeze()
 
-                # X' V^-1 X = X'R⁻¹X − (Z'R⁻¹X)' P⁻¹ (Z'R⁻¹X)
-                RiX   = Rinv @ self.X
+                # X' V^-1 X = X'R⁻¹X − (Z'R⁻¹X)' C⁻¹ (Z'R⁻¹X)
+                RiX   = Rinv @ self._X
                 ZtRiX = Z.T @ RiX
-                XtViX = self.X.T @ RiX - ZtRiX.T @ torch.cholesky_solve(ZtRiX, Lp)
+                XtViX = self._X.T @ RiX - ZtRiX.T @ torch.cholesky_solve(ZtRiX, Lc)
                 k_reml = torch.logdet(XtViX)
 
         else:
             # ---- Direct: single Cholesky of V = ZGZ' + R ----
             G, R = self.varmeth()
 
-            V = R if self.Z is None else self.Z @ G @ self.Z.T + R
+            V = R if self._Z is None else self._Z @ G @ self._Z.T + R
 
             Lv = torch.linalg.cholesky(V)
             M  = torch.linalg.solve_triangular(Lv, r, upper=False)
 
             logdet_V = 2.0 * torch.sum(torch.log(torch.diag(Lv)))
             quad     = (M.T @ M).squeeze()
-            k_reml   = torch.logdet(self.X.T @ torch.cholesky_solve(self.X, Lv))
+            k_reml   = torch.logdet(self._X.T @ torch.cholesky_solve(self._X, Lv))
         
         return logdet_V + quad + k_reml + const
 
@@ -365,13 +632,13 @@ class MixedModel:
                 Ginv = torch.linalg.inv(G)
                 Rinv = torch.linalg.inv(R)
 
-            if self.Z is None:
-                LH = self.X.T @ Rinv @ self.X
-                RH = self.X.T @ Rinv @ self.y
+            if self._Z is None:
+                LH = self._X.T @ Rinv @ self._X
+                RH = self._X.T @ Rinv @ self._y
             else:
-                XtRiX = self.X.T @ Rinv @ self.X
-                XtRiZ = self.X.T @ Rinv @ self.Z
-                ZtRiZ = self.Z.T @ Rinv @ self.Z
+                XtRiX = self._X.T @ Rinv @ self._X
+                XtRiZ = self._X.T @ Rinv @ self._Z
+                ZtRiZ = self._Z.T @ Rinv @ self._Z
 
                 LH = torch.cat([
                         torch.cat([XtRiX, XtRiZ], dim=1),
@@ -380,8 +647,8 @@ class MixedModel:
                     dim=0,
                 )
                 RH = torch.cat([
-                        self.X.T @ Rinv @ self.y,
-                        self.Z.T @ Rinv @ self.y
+                        self._X.T @ Rinv @ self._y,
+                        self._Z.T @ Rinv @ self._y
                     ],
                     dim=0
                 )
@@ -397,19 +664,22 @@ class MixedModel:
             self.beta.data.copy_(sol[:p])
             self.EEV = C[:p, :p]
 
-            if self.Z is not None:
+            if self._Z is not None:
                 self.uhat.data.copy_(sol[p:])
                 PEV = C[p:, p:]
 
             # Fixed effects: labelled table if high-level, raw beta + EEV otherwise.
             self.format_fixed()
 
-            if self.Z is None:
-                y_hat = self.X @ self.beta
-            else:
-                y_hat = self.X @ self.beta + self.Z @ self.uhat
+            beta = self.beta.to(self.dtype)
 
-            residuals = (self.y - y_hat).flatten()
+            if self._Z is None:
+                y_hat = self._X @ beta
+            else:
+                uhat = self.uhat.to(self.dtype)
+                y_hat = self._X @ beta + self._Z @ uhat
+
+            residuals = (self._y - y_hat).flatten()
 
             random = getattr(self, "random", None)
             residual = getattr(self, "residual", None)
@@ -425,7 +695,7 @@ class MixedModel:
                 self.PEV = PEV
                 
             if residual is not None:
-                residual.format_residuals(residuals, self.W)
+                residual.format_residuals(residuals, self._W)
             else:
                 self.residuals = residuals
 
@@ -478,12 +748,12 @@ class MixedModel:
         if getattr(self, "residual", None) is None:
             return
         
-        df_beta = len(self.beta)
+        self.df_beta = len(self.beta)
         randoms = getattr(self, "random", [])
         residual = getattr(self, "residual", None)
-        df_var = sum(c.n_params for c in randoms)
-        df_var += residual.n_params
-        self.n_params = df_beta + df_var
+        self.df_var = sum(c.n_params for c in randoms)
+        self.df_var += residual.n_params
+        self.n_params = self.df_beta + self.df_var
         
         with torch.no_grad():
             if REML:

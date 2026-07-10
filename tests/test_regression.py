@@ -8,6 +8,8 @@ import pytest
 
 from pyreml import MixedModel, Random, larix as DF
 
+DEVICE = "cuda"
+
 DATA_DIR = Path(__file__).parent / "data"
 
 with open(DATA_DIR / "regression_fixed.json") as f:
@@ -35,6 +37,7 @@ def mod_ols(df):
         data=df,
         response="height",
         fixed="1 + BLOC + circumference",
+        device = DEVICE,
     ).fit()
 
 
@@ -50,6 +53,7 @@ def mod_lmm(df, request):
             left_hand="full",
         ),
         SMW=request.param,
+        device = DEVICE,
     ).fit()
 
 class TestOLS:
@@ -70,7 +74,7 @@ class TestOLS:
 
     def test_eev(self, mod_ols):
         expected = EXPECTED_FIXED_REG["eev"]
-        actual = mod_ols.EEV.detach().numpy()
+        actual = mod_ols.EEV.detach().cpu().numpy()
         np.testing.assert_allclose(actual, expected, atol=1e-10)
 
     def test_residuals(self, mod_ols):
@@ -106,24 +110,24 @@ class TestLMM:
 
     def test_eev(self, mod_lmm):
         expected = EXPECTED_RANDOM_REG["eev"]
-        actual = mod_lmm.EEV.detach().numpy()
+        actual = mod_lmm.EEV.detach().cpu().numpy()
         np.testing.assert_allclose(actual, expected, atol=1e-4)
 
     def test_varcorr(self, mod_lmm):
         expected = EXPECTED_RANDOM_REG["varcorr"]
-        actual = mod_lmm.random[0].build_S().detach().numpy()
+        actual = mod_lmm.random[0].build_S().detach().cpu().numpy()
         np.testing.assert_allclose(actual, expected, atol=1e-4)
 
     def test_sigma_r(self, mod_lmm):
         expected = EXPECTED_RANDOM_REG["sigma_r"]
-        actual = float(torch.exp(mod_lmm.residual.log_S).detach().numpy())
+        actual = float(mod_lmm.residual.variance["sigma"])
         np.testing.assert_allclose(actual, expected, atol=1e-4)
 
     def test_blup(self, mod_lmm):
         expected = np.array(EXPECTED_RANDOM_REG["blup"])  # (n_levels, n_components)
         rand = mod_lmm.random[0]
         # pyreml: (n_components * n_levels,) -> reshape to (n_components, n_levels) -> T
-        actual = rand.uhat.detach().numpy().reshape(rand.c, rand.L).T
+        actual = rand.uhat.detach().cpu().numpy().reshape(rand.c, rand.L).T
         np.testing.assert_allclose(actual, expected, atol=1e-4)
 
     def test_residuals(self, mod_lmm):
@@ -134,20 +138,20 @@ class TestLMM:
     def test_pev_diagonal_blocks(self, mod_lmm):
         expected = np.array(EXPECTED_RANDOM_REG["pev"])  # (2, 2, n_levels)
         rand = mod_lmm.random[0]
-        pev = rand.PEV.detach().numpy()  # (k*c*L, k*c*L)
+        pev = rand.PEV.detach().cpu().numpy()  # (k*c*L, k*c*L)
         c, L = rand.c, rand.L
         for i in range(L):
             # diagonal block for level i: rows/cols i, i+L (component-outer, level-inner)
             idx = [i + j * L for j in range(c)]
             block = pev[np.ix_(idx, idx)]
-            np.testing.assert_allclose(block, expected[:, :, i], atol=2.5e-3)  # !!
+            np.testing.assert_allclose(block, expected[:, :, i], atol=2.5e-3)
 
     def test_tvals(self, mod_lmm):
-            expected = EXPECTED_RANDOM_REG["tvals"]
-            actual = mod_lmm.estimates["t"].tolist()
-            np.testing.assert_allclose(actual, expected, rtol=1e-5) # woodbury
+        expected = EXPECTED_RANDOM_REG["tvals"]
+        actual = mod_lmm.estimates["t"].tolist()
+        np.testing.assert_allclose(actual, expected, rtol=1e-5) # woodbury
 
     def test_aic(self, mod_lmm):
-            expected = EXPECTED_RANDOM_REG["aic"]
-            actual = float(mod_lmm.AIC)
-            np.testing.assert_allclose(actual, expected, atol=1e-10)
+        expected = EXPECTED_RANDOM_REG["aic"]
+        actual = float(mod_lmm.AIC)
+        np.testing.assert_allclose(actual, expected, atol=1e-10)

@@ -84,6 +84,7 @@ model = MixedModel.from_dataframe(
 
 model.fit()
 
+pprint(model.estimates)
 pprint(model.random[0].variance)
 pprint(model.residual.variance)
 model.random[0].table.head()
