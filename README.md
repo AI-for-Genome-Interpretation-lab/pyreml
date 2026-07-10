@@ -83,7 +83,6 @@ model = MixedModel.from_dataframe(
 )
 
 model.fit()
-model.log()
 
 pprint(model.estimates)
 pprint(model.random[0].variance)
