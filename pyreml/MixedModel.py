@@ -514,7 +514,8 @@ class MixedModel:
             self.EEV = EEV
             self.format_fixed()
 
-            residuals = (self._y - self._X @ self.beta).flatten()
+            beta = self.beta.to(self.dtype)
+            residuals = (self._y - self._X @ beta).flatten()
             self.residual.format_residuals(residuals, self._W)
 
             self.compute_AIC(REML = False)
