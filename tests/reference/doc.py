@@ -255,6 +255,7 @@ plt.show()
 df = larix.copy()
 traits = ["height", "circumference", "flexuosity"]
 df = df[df["year"].isin([2000, 2014])]
+df[traits] = (df[traits] - df[traits].mean()) / df[traits].std()
 
 long = df.melt(
     id_vars=["ID", "DAM", "SIRE", "BLOC", "year"],
