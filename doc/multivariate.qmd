@@ -231,9 +231,12 @@ model = MixedModel.from_dataframe(
 A [jitter](variance_structures.qmd#jitter)
 is required as some specificities of the random effect
 $\operatorname{diag}(\mathbf{\Psi_a})$ are close to zero in this example.
+Also, it is a good practice to scale the different traits by their phenotypic
+mean and variance so that their difference in magnitude is not driving the FA
+decomposition.
 
 The factor-analytic can be read as a principal component analysis. Let us
-scale the covariance to correlation, interpret $\mathbf{\Lambda_a}$ as a raw
+scale the genetic covariance to genetic correlation, interpret $\mathbf{\Lambda_a}$ as a raw
 amount of $\mathbf{\Sigma_a}$ explained by each axis, and study the structure of
 the genetic component of the traits in their correlative space.
 
