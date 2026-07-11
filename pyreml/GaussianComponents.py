@@ -912,7 +912,7 @@ class GaussianComponent:
 
         return Sinv, logdet
 
-    def build_Kinv(self) -> tuple[torch.Tensor, torch.Tensor]:
+    def build_Kinv(self, sanctuarized: bool = False) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Return (K^{-1}, logdet K) at the working dtype.
  
@@ -1004,6 +1004,9 @@ class GaussianComponent:
                     Lp = torch.linalg.cholesky(self.precision)
                     logdet_precision = 2.0 * torch.sum(torch.log(torch.diagonal(Lp)))
                     self.logdet_K = -logdet_precision
+
+                if sanctuarized:
+                    return self.precision, self.logdet_K
 
                 # cast caches read at the working dtype
                 if self._precision is None:
@@ -1529,7 +1532,7 @@ class Random(GaussianComponent):
                 u_train = u_full
 
             if self.right_hand == "str":
-                Kinv_train, _ = self.build_Kinv()           # cached self.precision, training order
+                Kinv_train, _ = self.build_Kinv(sanctuarized = True)           # cached self.precision, training order
                 u_pred = (K_pred @ Kinv_train @ u_train.T).T.cpu().numpy()
             else:
                 u_pred = (K_pred @ torch.linalg.solve(K_train, u_train.T)).T.cpu().numpy()
