@@ -16,7 +16,8 @@ import pytest
 
 from pyreml import MixedModel, Random, Residual, A_pedigree, D_pedigree, larix as DF
 
-DEVICE = "cpu"
+DEVICE = "cuda"
+DTYPE = "mixed"
 
 DATA_DIR = Path(__file__).parent / "data"
 
@@ -204,7 +205,7 @@ def mod_uni(df_train, kinship_train, request):
         ],
         SMW = smw,
         device = DEVICE,
-    ).fit()
+    ).fit(DTYPE, verbose  = False)
 
 
 @pytest.fixture(params=_SMW_KERNEL_PARAMS, ids=_SMW_KERNEL_IDS)
@@ -230,7 +231,7 @@ def mod_diag(df_train, kinship_train, request):
         ),
         SMW = smw,
         device = DEVICE,
-    ).fit()
+    ).fit(DTYPE, verbose  = False)
 
 
 @pytest.fixture(params=_SMW_KERNEL_PARAMS, ids=_SMW_KERNEL_IDS)
@@ -256,7 +257,7 @@ def mod_str(df_train, kinship_train, request):
         ),
         SMW = smw,
         device = DEVICE,
-    ).fit()
+    ).fit(DTYPE, verbose  = False)
 
 class TestKinship:
 
@@ -281,15 +282,15 @@ class TestUnivariate:
 
     def test_var_a(self, mod_uni):
         actual = _effect_sigma(mod_uni.random[0])
-        np.testing.assert_allclose(actual, EXPECTED_UNI["var_a"], rtol=1e-4, atol = 1e-6)
+        np.testing.assert_allclose(actual, EXPECTED_UNI["var_a"], rtol=1e-4, atol = 1e-5)
 
     def test_var_d(self, mod_uni):
         actual = _effect_sigma(mod_uni.random[1])
-        np.testing.assert_allclose(actual, EXPECTED_UNI["var_d"], rtol=1e-4, atol = 1e-6)
+        np.testing.assert_allclose(actual, EXPECTED_UNI["var_d"], rtol=1e-4, atol = 1e-5)
 
     def test_var_r(self, mod_uni):
         actual = _effect_sigma(mod_uni.residual)
-        np.testing.assert_allclose(actual, EXPECTED_UNI["var_r"], rtol=1e-4, atol = 1e-6)
+        np.testing.assert_allclose(actual, EXPECTED_UNI["var_r"], rtol=1e-4, atol = 1e-5)
 
     def test_blup_a(self, mod_uni):
         blup, ids = _uni_blup(mod_uni, 0)

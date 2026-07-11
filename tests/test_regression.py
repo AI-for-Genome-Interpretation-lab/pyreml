@@ -1,7 +1,6 @@
 import json
 from pathlib import Path
 
-import torch
 import numpy as np
 import pandas as pd
 import pytest
@@ -9,6 +8,7 @@ import pytest
 from pyreml import MixedModel, Random, larix as DF
 
 DEVICE = "cuda"
+DTYPE = "mixed"
 
 DATA_DIR = Path(__file__).parent / "data"
 
@@ -38,7 +38,7 @@ def mod_ols(df):
         response="height",
         fixed="1 + BLOC + circumference",
         device = DEVICE,
-    ).fit()
+    ).fit(DTYPE, verbose  = False)
 
 
 @pytest.fixture(params=[True, False], ids=["woodbury", "direct"])
@@ -54,7 +54,7 @@ def mod_lmm(df, request):
         ),
         SMW=request.param,
         device = DEVICE,
-    ).fit()
+    ).fit(DTYPE, verbose  = False)
 
 class TestOLS:
 
