@@ -278,37 +278,26 @@ class MixedModel:
         for e in entries:
             step = e.get("step", "")
             dtype = e.get("dtype", "")
-            title = f"{step} · {dtype}" if dtype else step
+            title = f"{step} - {dtype}" if dtype else step
             kv = [(k, fmt(k, v)) for k, v in e.items()
                   if k not in ("step", "dtype")]
             blocks.append((title, kv))
 
         # ---- largeurs ----
         w_k = max(len(k) for _, kv in blocks for k, _ in kv)
-        w_v = max(len(v) for _, kv in blocks for _, v in kv)
-        content_w = 4 + w_k + 2 + w_v
-        titles_w = max(len(t) for t, _ in blocks) + 2
-        inner = max(content_w, titles_w, 58)      # 58 -> boîte de 60 avec bordures
-
-        def top():    return "╭" + "─" * (inner + 2) + "╮"
-        def bottom(): return "╰" + "─" * (inner + 2) + "╯"
-        def sep():    return "├" + "─" * (inner + 2) + "┤"
-        def pad(s):   return "│ " + s + " " * (inner - len(s)) + " │"
+        rule = "-" * 60
 
         # ---- timestamp collé à gauche ----
         t0 = head.get("t0")
         stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t0)) if t0 else ""
         print(stamp)
 
-        print(top())
-        for i, (title, kv) in enumerate(blocks):
-            if i > 0:
-                print(sep())
-            print(pad("  " + title))
-            print(pad("  " + "─" * len(title)))
+        print(rule)
+        for title, kv in blocks:
+            print("  " + title)
             for k, v in kv:
-                print(pad("    " + k.ljust(w_k) + "  " + v))
-        print(bottom())
+                print("    " + k.ljust(w_k) + "  " + v)
+            print(rule)
 
     def fit(
         self,

@@ -11,9 +11,9 @@ jobs:
       version: ${{ steps.v.outputs.version }}
       is_new: ${{ steps.v.outputs.is_new }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
-          fetch-depth: 0        # nécessaire pour voir les tags
+          fetch-depth: 0
 
       - id: v
         run: |
@@ -36,9 +36,11 @@ jobs:
       id-token: write     # PyPI OIDC
       contents: write     # tag + release + gh-pages
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -48,6 +50,20 @@ jobs:
           python -m build
           twine check dist/*
 
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+      - uses: quarto-dev/quarto-actions/setup@v2
+
+      - name: Configure git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Publish docs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: quarto publish gh-pages doc --no-prompt
+
       - name: Create tag + GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -55,12 +71,3 @@ jobs:
           gh release create "v${{ needs.check.outputs.version }}" \
             --title "v${{ needs.check.outputs.version }}" \
             --generate-notes
-
-      - uses: pypa/gh-action-pypi-publish@release/v1
-
-      - uses: quarto-dev/quarto-actions/setup@v2
-
-      - name: Publish docs
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: quarto publish gh-pages doc --no-prompt
