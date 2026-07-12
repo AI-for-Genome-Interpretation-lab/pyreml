@@ -7,7 +7,8 @@ import pandas as pd
 
 from pyreml import MixedModel, Random, Residual, A_genomic
 
-DEVICE = "cuda"
+DEVICE = "cpu"
+DTYPE = "mixed"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REF_JSON = os.path.join(HERE, "data", "genomic_sim.json")
@@ -80,7 +81,7 @@ def fitted_het(sim, G, request):
         ),
         SMW = request.param,
         device = DEVICE,
-    ).fit()
+    ).fit(DTYPE, verbose  = False)
 
 @pytest.fixture(scope="session", params=[True, False], ids=["woodbury", "direct"])
 def fitted_fa(sim, G, request):
@@ -102,7 +103,7 @@ def fitted_fa(sim, G, request):
         ),
         SMW = request.param,
         device = DEVICE,
-    ).fit()
+    ).fit(DTYPE, verbose  = False)
 
 @pytest.fixture(scope="session")
 def ref_blkr():
@@ -142,7 +143,7 @@ def fitted_blkr(sim_blkr, G, request):
         residual = Residual(left_hand="diag"),
         SMW = smw,
         device = DEVICE,
-    ).fit()
+    ).fit(DTYPE, verbose  = False)
     return lh, mod
 
 def _abs_corr(a, b):

@@ -54,11 +54,11 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-import torch
 
 from pyreml import MixedModel, Random, larix as DF
 
-DEVICE = "cuda"
+DEVICE = "cpu"
+DTYPE = "mixed"
 
 DATA_DIR = Path(__file__).parent / "data"
 
@@ -267,7 +267,7 @@ def mod(run, expected):
         random=eff,
         SMW=run.smw,
         device = DEVICE,
-    ).fit()
+    ).fit(DTYPE, verbose  = False)
 
 
 def _Vu(mod):

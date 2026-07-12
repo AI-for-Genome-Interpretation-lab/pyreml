@@ -1,3 +1,4 @@
+from ._version import __version__
 from .MixedModel import MixedModel
 from .GaussianComponents import Random, Residual
 from .larix import larix
