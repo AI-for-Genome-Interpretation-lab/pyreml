@@ -1,11 +1,11 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyreml"
-version = "0.2.2"
-readme = "README.md" 
+dynamic = ["version"]
+readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "torch",
@@ -24,6 +24,9 @@ description = "General-purpose linear mixed model solver."
 [project.urls]
 Homepage = "https://github.com/ai-for-genome-interpretation-lab/pyreml"
 Documentation = "https://ai-for-genome-interpretation-lab.github.io/pyreml/"
+
+[tool.setuptools.dynamic]
+version = {attr = "pyreml._version.__version__"}
 
 [project.optional-dependencies]
 test = ["pytest"]
