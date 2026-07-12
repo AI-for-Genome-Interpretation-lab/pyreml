@@ -12,6 +12,7 @@ import time
 
 from .Optimizer import OptiMix
 from .GaussianComponents import Random, Residual
+from ._version import __version__
 
 class MixedModel:
 
@@ -261,6 +262,7 @@ class MixedModel:
             plat.append(("gpu", str(head["gpu"])))
         if "threads" in head:
             plat.append(("n threads", str(head["threads"])))
+        plat.append(("pyreml", str(head.get("pyreml", ""))))
         plat.append(("torch", str(head.get("torch", ""))))
         if "cuda" in head:
             plat.append(("cuda", str(head["cuda"])))
@@ -322,6 +324,7 @@ class MixedModel:
             "n fixed effects": self.p,
             "n random effects": self.q,
             "SMW": self.SMW,
+            "pyreml": __version__,
             "torch": torch.__version__,
         }
         if self.device == "cpu":

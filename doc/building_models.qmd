@@ -65,6 +65,7 @@ All times are expressed in seconds.
 │   ────────                                                 │
 │     device                 cuda:3                          │
 │     gpu                    NVIDIA L40S                     │
+│     pyreml                 0.2.3                           │
 │     torch                  2.11.0+cu130                    │
 │     cuda                   13.0                            │
 ├────────────────────────────────────────────────────────────┤

@@ -7,7 +7,7 @@ import pandas as pd
 
 from pyreml import MixedModel, Random, Residual, A_genomic
 
-DEVICE = "cuda"
+DEVICE = "cpu"
 DTYPE = "mixed"
 
 HERE = os.path.dirname(os.path.abspath(__file__))

@@ -16,7 +16,7 @@ import pytest
 
 from pyreml import MixedModel, Random, Residual, A_pedigree, D_pedigree, larix as DF
 
-DEVICE = "cuda"
+DEVICE = "cpu"
 DTYPE = "mixed"
 
 DATA_DIR = Path(__file__).parent / "data"

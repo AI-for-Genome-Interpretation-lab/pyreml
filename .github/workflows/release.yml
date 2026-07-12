@@ -1,12 +1,66 @@
-docs:
-    needs: pypi
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  check:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      is_new: ${{ steps.v.outputs.is_new }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # nécessaire pour voir les tags
+
+      - id: v
+        run: |
+          VERSION=$(grep -oP '(?<=__version__ = ")[^"]+' pyreml/_version.py)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "is_new=false" >> "$GITHUB_OUTPUT"
+            echo "v$VERSION exists already — nothing to do."
+          else
+            echo "is_new=true" >> "$GITHUB_OUTPUT"
+            echo "v$VERSION is new — releasing."
+          fi
+
+  release:
+    needs: check
+    if: needs.check.outputs.is_new == 'true'
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write     # PyPI OIDC
+      contents: write     # tag + release + gh-pages
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+          twine check dist/*
+
+      - name: Create tag + GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "v${{ needs.check.outputs.version }}" \
+            --title "v${{ needs.check.outputs.version }}" \
+            --generate-notes
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
       - uses: quarto-dev/quarto-actions/setup@v2
-      - name: Publish to gh-pages
+
+      - name: Publish docs
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: quarto publish gh-pages doc --no-prompt
