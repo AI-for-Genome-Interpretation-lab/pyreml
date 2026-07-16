@@ -13,7 +13,7 @@ parallelization and GPU acceleration.
 
 ## Installation
 
-Install [pyreml]{.pyreml} with `pip` or `conda`:
+Install [pyreml]{.pyreml} with `pip`:
 
 ```bash
 pip install pyreml
