@@ -59,42 +59,35 @@ Check for convergence of the last REML step before interpreting the model output
 All times are expressed in seconds.
 
 ```txt
-2026-07-10T07:55:21Z
+2026-07-13T08:52:35Z
 ------------------------------------------------------------
   platform
-    device                 cuda:3
-    gpu                    NVIDIA L40S
+    device                 cuda
+    gpu                    NVIDIA A100 80GB PCIe
     pyreml                 0.2.3
-    torch                  2.11.0+cu130
-    cuda                   13.0
+    torch                  2.8.0+cu128
+    cuda                   12.8
 ------------------------------------------------------------
   model
     n obs                  15000
     n fixed effects        1
-    n random effects       15000
+    n random effects       15325
     n variance parameters  2
     SMW                    False
 ------------------------------------------------------------
-  OLS - float
-    time                   0.01
-------------------------------------------------------------
-  REML - float
-    time                   62.58
-    convergence            True
-    n steps total          3
-    n steps adam           0
-    REML loss              78561.6250000000
+  OLS - double
+    time                   0.00
 ------------------------------------------------------------
   REML - double
-    time                   489.75
+    time                   59.95
     convergence            True
     n steps total          3
     n steps adam           0
-    REML loss              78561.6262563271
+    REML loss              83957.2435113733
 ------------------------------------------------------------
   HMME - double
-    time                   81.73
-    REML loss              78561.6262563271
+    time                   8.35
+    REML loss              83957.2435113733
 ------------------------------------------------------------
 ```
 
