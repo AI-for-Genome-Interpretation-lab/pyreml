@@ -21,7 +21,7 @@ authors:
 license: "GPL-3.0-or-later"
 repository-code: "https://github.com/ai-for-genome-interpretation-lab/pyreml"
 url: "https://github.com/ai-for-genome-interpretation-lab/pyreml"
-doi: "10.5281/zenodo.20826541"
+doi: "10.5281/zenodo.21394319"
 keywords:
   - "REML"
   - "Mixed model"

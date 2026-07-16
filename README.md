@@ -6,7 +6,7 @@ Models are fitted by direct differentiation of the Restricted Maximum Likelihood
 
 ## Installation
 
-Install **pyreml** with `pip` or `conda`:
+Install **pyreml** with `pip`:
 
 ```py
 pip install pyreml
@@ -98,7 +98,7 @@ The documentation is available at [this address](https://ai-for-genome-interpret
 
 Please cite this package as:
 
-Marchal, A., & Raimondi, D. (2026). pyreml - general-purpose linear mixed model solver [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.20826541
+Marchal, A., & Raimondi, D. (2026). pyreml - general-purpose linear mixed model solver [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.21394319
 
 ## Code
 
