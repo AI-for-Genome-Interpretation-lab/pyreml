@@ -156,15 +156,22 @@ mod = MixedModel.from_dataframe(
     data     = df,
     response = "height",
     fixed    = "1 + year",
-    random   = Random(
-        unit         = "ID",
-        formula      = "1 + year",
-        left_hand    = "full",
-        right_hand   = "str",
-        covariance   = K,
-        matrix_index = ped["id"].tolist(),
-        jitter       = 1e-6,
-    ),
+    random   = [
+        Random(
+            unit         = "ID",
+            formula      = "1 + year",
+            left_hand    = "full",
+            right_hand   = "str",
+            covariance   = K,
+            matrix_index = ped["id"].tolist(),
+        ),
+        Random(
+            unit         = "ID",
+            formula      = "1 + year",
+            left_hand    = "full",
+            right_hand   = "iid",
+        ),
+    ],
     residual = Residual(
         left_hand = "iid",
         right_hand = "het",
