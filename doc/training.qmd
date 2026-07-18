@@ -56,12 +56,12 @@ for lower level uses of [pyreml]{.pyreml}.
 
 ## REML
 
-The per-effect blocks $\mathbf{G_e} = \mathbf{\Sigma_e} \otimes \mathbf{K_e}$
+The per-effect blocks $\mathbf{G_a} = \mathbf{\Sigma_a} \otimes \mathbf{K_a}$
 (see [Variance structures](variance_structures.qmd)) are assembled into the full
 random-effect covariance by a direct sum over effects:
 
 $$
-\mathbf{G} = \bigoplus_\mathbf{e} \mathbf{G_e},
+\mathbf{G} = \bigoplus_\mathbf{a} \mathbf{G_a},
 $$
 
 and the marginal covariance of the observations follows as:
@@ -73,12 +73,13 @@ $$
 with residual variance
 $\mathbf{R} = \mathbf{W}\left(\mathbf{\Sigma_R} \otimes \mathbf{K_R}\right)\mathbf{W}^\top$.
 
-Training estimates the variance parameters carried by the $\mathbf{\Sigma_e}$,
-$\mathbf{K_e}$, $\mathbf{\Sigma_R}$ and $\mathbf{K_R}$ jointly with $\mathbf{\beta}$, then obtains
+Training estimates the variance parameters carried by the $\mathbf{\Sigma_a}$,
+$\mathbf{K_a}$, $\mathbf{\Sigma_R}$ and $\mathbf{K_R}$ jointly with $\mathbf{\beta}$, then obtains
 the random effects $\mathbf{u}$.
 
-The variance parameters and $\mathbf{\beta}$ are estimated by minimizing the
-restricted negative log-likelihood [@patterson_recovery_1971; @harville_maximum_1977]:
+The variance parameters and $\mathbf{\beta}$ are estimated by direct gradient descent of the
+negative log-likelihood [@simchoni_integrating_2023], restricted (REML) as to yield unbiased estimates of the variance
+parameters [@patterson_recovery_1971; @harville_maximum_1977]:
 
 $$
 -2\ell_{\text{REML}} = \log\lvert\mathbf{V}\rvert
@@ -122,8 +123,8 @@ $\hat{\mathbf{u}}$.
 ## Akaike information criterion
 
 Once the model is fitted, the Akaike information criterion (AIC) is computed in two different ways depending on
-whether it was performed by `OLS` or `HMME`/`REML`. The AIC method is consigned
-in the `AIC_meth` attribute.
+whether it was performed by `OLS` or `HMME`/`REML`. The AIC is available as attribute `AIC` and
+the AIC method is consigned as `AIC_meth`. 
 
 These two AICs should not be compared one with each other. AIC computed post-OLS
 is designed for the exploration of fixed effects with no variance structure, and
@@ -183,7 +184,7 @@ $$
 Using the properties of direct sum and Kronecker product and direct sum:
 
 $$
-\mathbf{G}^{-1} = \bigoplus_e (\mathbf{\Sigma_e}^{-1} \otimes \mathbf{K_e}^{-1}),
+\mathbf{G}^{-1} = \bigoplus_\mathbf{a} (\mathbf{\Sigma_a}^{-1} \otimes \mathbf{K_a}^{-1}),
 $$
 
 which can in some circumstances be much more cost efficient than inverting $\mathbf{V}$ .
@@ -252,12 +253,12 @@ breaking the problem down even further.
 - the block diagonal structures, that rely on Kronecker products or direct sums,
 can be broke down into smaller problems.
 - with the autoregressive kernels (`ar_iso`, `ar_ani`), not only
-the construction of the inverse of $\mathbf{K}_a$ can be broken down as a
+the construction of the inverse of $\mathbf{K_a}$ can be broken down as a
 Kronecker product of inverses, but furthermore these elementary
 inverses have a close form:
 
 $$
-\mathbf{K}_a^{-1}
+\mathbf{K_a}^{-1}
   = \bigotimes_k \mathbf{K}_k^{-1},
 \qquad
 \mathbf{K}_k^{-1}
@@ -271,7 +272,7 @@ $$
   \end{pmatrix}.
 $$
 
-Given the dimensional rule, and that $\mathbf{K}_a$ is
+Given the dimensional rule, and that $\mathbf{K_a}$ is
 built for the whole grid even if it is sparsed,
 this actually optimizes the computation in the current dense implementation
 only when there are more observations than the
@@ -303,5 +304,3 @@ plt.show()
 ```
 
 ![](img/loss.png){fig-align="center"}
-
-Finally, the Akaike Information Criterion (AIC) is available at `model.AIC`.
