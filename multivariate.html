@@ -273,30 +273,30 @@ window.Quarto = {
 <h2 class="anchored" data-anchor-id="formulation">Formulation</h2>
 <p>For two responses <span class="math inline">\(1\)</span> and <span class="math inline">\(2\)</span> and two random effects <span class="math inline">\(\mathbf{a}\)</span> and <span class="math inline">\(\mathbf{b}\)</span>, the model stacks response-wise:</p>
 <p><span class="math display">\[
-\begin{bmatrix}\mathbf{y}_1\\\mathbf{y}_2\end{bmatrix}
+\begin{bmatrix} \mathbf{y_1} \\ \mathbf{y_2} \end{bmatrix}
 =
-\begin{bmatrix}\mathbf{X}_1 &amp; \mathbf{0}\\\mathbf{0} &amp; \mathbf{X}_2\end{bmatrix}
-\begin{bmatrix}\boldsymbol{\beta}_1\\\boldsymbol{\beta}_2\end{bmatrix}
+\begin{bmatrix}\mathbf{X_1} &amp; \mathbf{0}\\\mathbf{0} &amp; \mathbf{X_2}\end{bmatrix}
+\begin{bmatrix} \mathbf{\beta_{a1}} \\ \mathbf{\beta_{a2}} \end{bmatrix}
 +
 \begin{bmatrix}
-\mathbf{Z}_{a1} &amp; \mathbf{0} &amp; \mathbf{Z}_{b1} &amp; \mathbf{0}\\
-\mathbf{0} &amp; \mathbf{Z}_{a2} &amp; \mathbf{0} &amp; \mathbf{Z}_{b2}
+\mathbf{Z_{a1}} &amp; \mathbf{0} &amp; \mathbf{Z_{b1}} &amp; \mathbf{0}\\
+\mathbf{0} &amp; \mathbf{Z_{a2}} &amp; \mathbf{0} &amp; \mathbf{Z_{b2}}
 \end{bmatrix}
 \begin{bmatrix}
-\mathbf{u}_{a1}\\\mathbf{u}_{a2}\\\mathbf{u}_{b1}\\\mathbf{u}_{b2}
+\mathbf{u_{a1}} \\ \mathbf{u_{a2}} \\ \mathbf{u_{b1}} \\ \mathbf{u_{b2}}
 \end{bmatrix}
 +
-\begin{bmatrix}\mathbf{r}_1\\\mathbf{r}_2\end{bmatrix}.
+\begin{bmatrix}\mathbf{r_1}\\\mathbf{r_2}\end{bmatrix}.
 \]</span></p>
 <p>The random effects are jointly distributed across responses, for effect <span class="math inline">\(\mathbf{a}\)</span>:</p>
 <p><span class="math display">\[
-\begin{bmatrix}\mathbf{u}_{a1}\\\mathbf{u}_{a2}\end{bmatrix}
+\begin{bmatrix} \mathbf{u_{a1}} \\ \mathbf{u_{a2}} \end{bmatrix}
 \sim
 \mathcal{N}\!\left(\mathbf{0}, \mathbf{\Sigma_a} \otimes \mathbf{K_a}\right),
 \]</span></p>
 <p>the between-response covariance being carried by the left-hand factor <span class="math inline">\(\mathbf{\Sigma_a}\)</span>.</p>
-<p>The full stacked random vector keeps the direct-sum form <span class="math inline">\(\mathbf{u} \sim \mathcal{N}(\mathbf{0}, \bigoplus_e \mathbf{\Sigma}_e \otimes
-\mathbf{K}_e)\)</span>, and the residual stacks likewise (see <a href="./training.html#reml">training</a>). This extends to any number of responses, random effects and random-regression components.</p>
+<p>The full stacked random vector keeps the direct-sum form <span class="math inline">\(\mathbf{u} \sim \mathcal{N}(\mathbf{0}, \bigoplus_\mathbf{a} \mathbf{\Sigma_a} \otimes
+\mathbf{K_a})\)</span>, and the residual stacks likewise (see <a href="./training.html#reml">training</a>). This extends to any number of responses, random effects and random-regression components.</p>
 <p>The fixed effects <span class="math inline">\(\boldsymbol{\beta}\)</span> are always taken as response-specific.</p>
 </section>
 <section id="residual-structure" class="level2">
@@ -330,7 +330,7 @@ window.Quarto = {
 <p>A residual correlation is not separable from the data, so the residual left-hand factor should stay diagonal (<code>left_hand="diag"</code>):</p>
 <p><span class="math display">\[
 \mathbf{R} =
-\begin{bmatrix}\sigma^2_{R1} &amp; \mathbf{0}\\\mathbf{0} &amp; \sigma^2_{R2}\end{bmatrix}
+\begin{bmatrix}\sigma^2_{R1} &amp; 0 \\ 0 &amp; \sigma^2_{R2}\end{bmatrix}
 \otimes \mathbf{I}.
 \]</span></p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>model <span class="op">=</span> MixedModel.from_dataframe(</span>
