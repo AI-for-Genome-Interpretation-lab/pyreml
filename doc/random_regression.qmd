@@ -92,15 +92,22 @@ mod = MixedModel.from_dataframe(
     data     = df,
     response = "height",
     fixed    = "1 + year",
-    random   = Random(
-        unit         = "ID",
-        formula      = "1 + year",
-        left_hand    = "full",
-        right_hand   = "str",
-        covariance   = K,
-        matrix_index = ped["id"].tolist(),
-        jitter       = 1e-6,
-    ),
+    random   = [
+        Random(
+            unit         = "ID",
+            formula      = "1 + year",
+            left_hand    = "full",
+            right_hand   = "str",
+            covariance   = K,
+            matrix_index = ped["id"].tolist(),
+        ),
+        Random(
+            unit         = "ID",
+            formula      = "1 + year",
+            left_hand    = "full",
+            right_hand   = "iid",
+        ),
+    ],
     residual = Residual(
         left_hand = "iid",
         right_hand = "het",
@@ -146,13 +153,21 @@ plt.title("Individual growth curves")
 ax.set_xlabel("year"); ax.set_ylabel("height")
 ax.legend()
 plt.show()
+
+# correlations
+def cov2cor(cov):
+    std = np.sqrt(np.diag(cov))
+    print(cov / np.outer(std, std))
+
+cov2cor(mod.random[0].variance["sigma"])
+cov2cor(mod.random[1].variance["sigma"])
 ```
 :::
 
 Each individual ends up with specific random parameters for a regression.
 Note that the residual variance was choose as year-specific, year being treated
-as a factor (`C(year)`) in the heteroscedasticity specification. Also, a [jitter](variance_structures.qmd#jitter)
-is required as the correlation between the slope and intercept in this case is
-almost perfectly $1$.
+as a factor (`C(year)`) in the heteroscedasticity specification. Also, permanent
+environment (random regression with an `iid` right-hand term) is required to capture
+individual non-genetic variation.
 
 ![](img/rr.png){fig-align="center"}

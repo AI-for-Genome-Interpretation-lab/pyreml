@@ -12,27 +12,27 @@ For two responses $1$ and $2$ and two random effects $\mathbf{a}$ and $\mathbf{b
 stacks response-wise:
 
 $$
-\begin{bmatrix}\mathbf{y}_1\\\mathbf{y}_2\end{bmatrix}
+\begin{bmatrix} \mathbf{y_1} \\ \mathbf{y_2} \end{bmatrix}
 =
-\begin{bmatrix}\mathbf{X}_1 & \mathbf{0}\\\mathbf{0} & \mathbf{X}_2\end{bmatrix}
-\begin{bmatrix}\boldsymbol{\beta}_1\\\boldsymbol{\beta}_2\end{bmatrix}
+\begin{bmatrix}\mathbf{X_1} & \mathbf{0}\\\mathbf{0} & \mathbf{X_2}\end{bmatrix}
+\begin{bmatrix} \mathbf{\beta_{a1}} \\ \mathbf{\beta_{a2}} \end{bmatrix}
 +
 \begin{bmatrix}
-\mathbf{Z}_{a1} & \mathbf{0} & \mathbf{Z}_{b1} & \mathbf{0}\\
-\mathbf{0} & \mathbf{Z}_{a2} & \mathbf{0} & \mathbf{Z}_{b2}
+\mathbf{Z_{a1}} & \mathbf{0} & \mathbf{Z_{b1}} & \mathbf{0}\\
+\mathbf{0} & \mathbf{Z_{a2}} & \mathbf{0} & \mathbf{Z_{b2}}
 \end{bmatrix}
 \begin{bmatrix}
-\mathbf{u}_{a1}\\\mathbf{u}_{a2}\\\mathbf{u}_{b1}\\\mathbf{u}_{b2}
+\mathbf{u_{a1}} \\ \mathbf{u_{a2}} \\ \mathbf{u_{b1}} \\ \mathbf{u_{b2}}
 \end{bmatrix}
 +
-\begin{bmatrix}\mathbf{r}_1\\\mathbf{r}_2\end{bmatrix}.
+\begin{bmatrix}\mathbf{r_1}\\\mathbf{r_2}\end{bmatrix}.
 $$
 
 The random effects are jointly distributed across responses, for effect
 $\mathbf{a}$:
 
 $$
-\begin{bmatrix}\mathbf{u}_{a1}\\\mathbf{u}_{a2}\end{bmatrix}
+\begin{bmatrix} \mathbf{u_{a1}} \\ \mathbf{u_{a2}} \end{bmatrix}
 \sim
 \mathcal{N}\!\left(\mathbf{0}, \mathbf{\Sigma_a} \otimes \mathbf{K_a}\right),
 $$
@@ -41,8 +41,8 @@ the between-response covariance being carried by the left-hand factor
 $\mathbf{\Sigma_a}$.
 
 The full stacked random vector keeps the direct-sum form 
-$\mathbf{u} \sim \mathcal{N}(\mathbf{0}, \bigoplus_e \mathbf{\Sigma}_e \otimes
-\mathbf{K}_e)$, and the residual stacks likewise (see [training](training.qmd#reml)).
+$\mathbf{u} \sim \mathcal{N}(\mathbf{0}, \bigoplus_\mathbf{a} \mathbf{\Sigma_a} \otimes
+\mathbf{K_a})$, and the residual stacks likewise (see [training](training.qmd#reml)).
 This extends to any number of responses, random effects and
 random-regression components.
 
@@ -87,7 +87,7 @@ left-hand factor should stay diagonal (`left_hand="diag"`):
 
 $$
 \mathbf{R} =
-\begin{bmatrix}\sigma^2_{R1} & \mathbf{0}\\\mathbf{0} & \sigma^2_{R2}\end{bmatrix}
+\begin{bmatrix}\sigma^2_{R1} & 0 \\ 0 & \sigma^2_{R2}\end{bmatrix}
 \otimes \mathbf{I}.
 $$
 

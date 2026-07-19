@@ -70,7 +70,7 @@ throughout the fit.
 
 When the number of components is large, a `full` covariance becomes expensive
 (it holds $kc(kc+1)/2$ free parameters). The factor-analytic structure
-approximates it with a low-rank-plus-diagonal form [@kirkpatrick_direct_2004; @meyer_multivariate_2007]:
+approximates it with a low-rank-plus-diagonal form [@smith_analyzing_2001; @kirkpatrick_direct_2004]:
 
 $$
 \mathbf{\Sigma_a} = \mathbf{Q_a}\mathbf{\Lambda_a}\mathbf{Q_a}^\top

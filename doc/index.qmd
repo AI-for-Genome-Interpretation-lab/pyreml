@@ -101,7 +101,7 @@ model.random[0].table.head()
 Please cite this package as:
 
 Marchal, A., & Raimondi, D. (2026). pyreml - general-purpose linear mixed model solver [Computer software]. Zenodo.
-[https://doi.org/10.5281/zenodo.20826541](https://doi.org/10.5281/zenodo.20826541)
+[https://doi.org/10.5281/zenodo.21394319](https://doi.org/10.5281/zenodo.21394319)
 
 ## Code
 
