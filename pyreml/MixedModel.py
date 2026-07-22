@@ -383,7 +383,7 @@ class MixedModel:
                         "time": t1 - t0,
                     })
 
-                    self.REML(convergence = 1e-5)
+                    self.REML(convergence = 1e-10)
                     t2 = time.time()
                     _log.append({
                         "step": "REML",
