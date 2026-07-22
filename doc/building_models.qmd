@@ -59,12 +59,12 @@ Check for convergence of the last REML step before interpreting the model output
 All times are expressed in seconds.
 
 ```txt
-2026-07-16T17:28:30Z
+2026-07-22T13:44:26Z
 ------------------------------------------------------------
   platform
     device                 cuda
     gpu                    NVIDIA A100 80GB PCIe
-    pyreml                 0.2.4
+    pyreml                 0.2.5
     torch                  2.8.0+cu128
     cuda                   12.8
 ------------------------------------------------------------
@@ -76,18 +76,18 @@ All times are expressed in seconds.
     SMW                    False
 ------------------------------------------------------------
   OLS - double
-    time                   0.19
+    time                   0.00
 ------------------------------------------------------------
   REML - double
-    time                   65.53
+    time                   67.35
     convergence            True
     n steps total          3
     n steps adam           0
-    REML loss              78561.6262563255
+    REML loss              78561.6262563281
 ------------------------------------------------------------
   HMME - double
-    time                   8.76
-    REML loss              78561.6262563255
+    time                   9.00
+    REML loss              78561.6262563281
 ------------------------------------------------------------
 ```
 
