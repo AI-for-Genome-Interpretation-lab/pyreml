@@ -1,51 +1,51 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://AI-for-Genome-Interpretation-lab.github.io/pyreml/index.html</loc>
-    <lastmod>2026-07-22T10:10:10.618Z</lastmod>
-  </url>
-  <url>
-    <loc>https://AI-for-Genome-Interpretation-lab.github.io/pyreml/random_regression.html</loc>
-    <lastmod>2026-07-22T10:10:10.618Z</lastmod>
-  </url>
-  <url>
-    <loc>https://AI-for-Genome-Interpretation-lab.github.io/pyreml/fixed_random.html</loc>
-    <lastmod>2026-07-22T10:10:10.612Z</lastmod>
-  </url>
-  <url>
     <loc>https://AI-for-Genome-Interpretation-lab.github.io/pyreml/contact.html</loc>
-    <lastmod>2026-07-22T10:10:10.611Z</lastmod>
-  </url>
-  <url>
-    <loc>https://AI-for-Genome-Interpretation-lab.github.io/pyreml/multivariate.html</loc>
-    <lastmod>2026-07-22T10:10:10.618Z</lastmod>
-  </url>
-  <url>
-    <loc>https://AI-for-Genome-Interpretation-lab.github.io/pyreml/prediction.html</loc>
-    <lastmod>2026-07-22T10:10:10.618Z</lastmod>
-  </url>
-  <url>
-    <loc>https://AI-for-Genome-Interpretation-lab.github.io/pyreml/license.html</loc>
-    <lastmod>2026-07-22T10:10:10.618Z</lastmod>
+    <lastmod>2026-06-24T13:36:50.426Z</lastmod>
   </url>
   <url>
     <loc>https://AI-for-Genome-Interpretation-lab.github.io/pyreml/training.html</loc>
-    <lastmod>2026-07-22T10:10:10.618Z</lastmod>
+    <lastmod>2026-07-18T11:23:42.860Z</lastmod>
+  </url>
+  <url>
+    <loc>https://AI-for-Genome-Interpretation-lab.github.io/pyreml/multivariate.html</loc>
+    <lastmod>2026-07-18T11:26:51.194Z</lastmod>
+  </url>
+  <url>
+    <loc>https://AI-for-Genome-Interpretation-lab.github.io/pyreml/index.html</loc>
+    <lastmod>2026-07-17T14:40:04.647Z</lastmod>
+  </url>
+  <url>
+    <loc>https://AI-for-Genome-Interpretation-lab.github.io/pyreml/random_regression.html</loc>
+    <lastmod>2026-07-17T14:28:54.343Z</lastmod>
+  </url>
+  <url>
+    <loc>https://AI-for-Genome-Interpretation-lab.github.io/pyreml/prediction.html</loc>
+    <lastmod>2026-06-30T10:27:01.384Z</lastmod>
   </url>
   <url>
     <loc>https://AI-for-Genome-Interpretation-lab.github.io/pyreml/larix.html</loc>
-    <lastmod>2026-07-22T10:10:10.618Z</lastmod>
-  </url>
-  <url>
-    <loc>https://AI-for-Genome-Interpretation-lab.github.io/pyreml/kinships.html</loc>
-    <lastmod>2026-07-22T10:10:10.618Z</lastmod>
-  </url>
-  <url>
-    <loc>https://AI-for-Genome-Interpretation-lab.github.io/pyreml/variance_structures.html</loc>
-    <lastmod>2026-07-22T10:10:10.618Z</lastmod>
+    <lastmod>2026-06-30T10:27:01.384Z</lastmod>
   </url>
   <url>
     <loc>https://AI-for-Genome-Interpretation-lab.github.io/pyreml/building_models.html</loc>
-    <lastmod>2026-07-22T10:10:10.611Z</lastmod>
+    <lastmod>2026-07-22T15:30:10.156Z</lastmod>
+  </url>
+  <url>
+    <loc>https://AI-for-Genome-Interpretation-lab.github.io/pyreml/variance_structures.html</loc>
+    <lastmod>2026-07-18T11:19:56.936Z</lastmod>
+  </url>
+  <url>
+    <loc>https://AI-for-Genome-Interpretation-lab.github.io/pyreml/kinships.html</loc>
+    <lastmod>2026-06-24T13:36:50.440Z</lastmod>
+  </url>
+  <url>
+    <loc>https://AI-for-Genome-Interpretation-lab.github.io/pyreml/license.html</loc>
+    <lastmod>2026-06-25T08:45:20.514Z</lastmod>
+  </url>
+  <url>
+    <loc>https://AI-for-Genome-Interpretation-lab.github.io/pyreml/fixed_random.html</loc>
+    <lastmod>2026-06-30T10:27:01.384Z</lastmod>
   </url>
 </urlset>
