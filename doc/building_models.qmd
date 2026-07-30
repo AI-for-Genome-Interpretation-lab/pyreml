@@ -3,7 +3,7 @@ title: "Building models"
 ---
 
 [pyreml]{.pyreml} relies on the `MixedModel.from_dataframe()` method to build a model from a [pandas](https://pandas.pydata.org/) DataFrame.
-This high-leve constructor reads the design from [patsy](https://pypi.org/project/patsy/) formulas, assembles the incidence and covariance
+This high-level constructor reads the design from [patsy](https://pypi.org/project/patsy/) formulas, assembles the incidence and covariance
 matrices, and returns a model ready to fit.
 
 ## The `from_dataframe` constructor
