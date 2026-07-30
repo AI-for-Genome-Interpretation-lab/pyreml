@@ -78,7 +78,7 @@ $$
 $$
 
 with `n_axes` $\ll kc$ orthonormal axes gathered in $\mathbf{Q_a}$ (scaled by the
-eigenvalues $\mathbf{\Lambda_a}$) and a diagonal specificity $\mathbf{\Psi_a}$
+eigenvalue-like elements of $\mathbf{\Lambda_a}$) and a diagonal specificity $\mathbf{\Psi_a}$
 that restores variance consistency after the low-rank approximation. The number
 of axes is set with the `n_axes` argument, a practical default being `n_axes = 2`. The $\mathbf{Q_a}
 \mathbf{\Lambda_a}\mathbf{Q_a}^\top$ form is reminiscent of a principal-component
@@ -142,7 +142,7 @@ as a list of coordinate columns and a level is a distinct coordinate tuple.
 | `iid`        | Identity $\mathbf{I}$: independent, homoscedastic levels (default).        |
 | `str`        | [A known covariance](#structured) $\mathbf{K_a}$ (*e.g.* a kinship), via `covariance`. Alternatively, $\mathbf{K_a}^{-1}$ and optionally $\log|\mathbf{K_a}|$ can be provided via `precision` and `logdet_K`.|
 | `dist`       | [Decay over a supplied distance matrix](#supplied-distance), via `distance`.|
-| `eucl`       | [Decay over an internally-computed Euclidean distance](#euclidean-distance) between `coords`. |
+| `eucl`       | [Decay over an internally-computed Euclidean distance](#euclidean-distance). |
 | `ar_iso`     | [Separable autoregressive decay](#separable-autoregressive), isotropic (one rate shared across axes). |
 | `ar_ani`     | [Separable autoregressive decay](#separable-autoregressive), anisotropic (one rate per axis). |
 | `het`        | [Heteroscedastic diagonal](#heteroscedastic), one variance per level resulting of `het_formula` (modalities and/or regressors). |
@@ -210,19 +210,24 @@ separable kernel — a product of one-dimensional autoregressive decays, one
 per coordinate axis:
 
 $$
-\mathbf{K_a} = \bigotimes_k \varphi_k^{\,\lvert x_i - x_j \rvert},
-\qquad \varphi_k = e^{-\rho_k} \in (0, 1),
+\mathbf{K_a} = \bigotimes_d \mathbf{K}_d,
+\qquad
+(\mathbf{K}_d)_{ij} = \varphi_d^{\,\lvert x_{id} - x_{jd}\rvert},
+\qquad
+\varphi_d = e^{-\rho_d} \in (0, 1),
 $$
 
-- `ar_iso` (isotropic) shares a single rate across all axes ($\rho_k \equiv \rho$).
-- `ar_ani` (anisotropic) estimates one rate $\rho_k$ per axis: each direction
+where $x_{id}$ is the $d$-th coordinate of level $i$. Levels are completed to the
+full coordinate grid, so that $\mathbf{K_a}$ is indexed by every coordinate tuple.
+
+- `ar_iso` (isotropic) shares a single rate across all axes ($\rho_d \equiv \rho$).
+- `ar_ani` (anisotropic) estimates one rate $\rho_d$ per axis: each direction
   has its own decay.
 
 Only integer coordinates are allowed for the computation of autoregressive kernels.
 One of the main interests of the autoregressive kernels is to stabilize and
-speed-up the computation using [SMW](training.qmd#examples-of-special-interest)
-under some configurations. For consistency with the other decay methods, the fitted
-$\rho_k$ are returned instead of $\varphi_k$.
+speed-up the computation of $\mathbf{G}^{-1}$ using [SMW](training.qmd#smw), when the number of observations exceeds the number of nodes on the grid. For consistency with the other decay methods, the fitted
+$\rho_d$ are returned instead of $\varphi_d$.
 
 ### Heteroscedastic
 
@@ -244,7 +249,7 @@ to the corresponding individual for a residual).
 
 The `Intercept` column anchors the scale: its coefficient is fixed to $0$, so its
 multiplier is $\exp(0)=1$ and the overall variance level is carried by the
-left-hand factor $\mathbf{\Sigma_a}$. The remaining $p-1$ columns carry the
+left-hand factor $\mathbf{\Sigma_a}$. The remaining $m-1$ columns carry the
 trainable coefficients. The `Intercept` must therefore be kept as removing it
 (`het_formula = "0 + ..."` or `het_formula = "-1 + ..."`) un-anchors the scale, which becomes confounded with
 $\mathbf{\Sigma_a}$.
@@ -252,7 +257,7 @@ $\mathbf{\Sigma_a}$.
 For a purely categorical formula (`het_formula = "C(group)"`), $\mathcal{V}$
 reduces to treatment contrasts and the model collapses to one variance
 multiplier per modality: the reference modality is fixed to $1$ and the other
-$p-1$ modalities are estimated as ratios $\exp(h_j)$ to it. For continuous terms
+$m-1$ modalities are estimated as ratios $\exp(h_j)$ to it. For continuous terms
 (e.g. `"1 + age"`), the variance becomes a smooth function
 $\exp(\mathcal{V}\,\mathbf{h})$ of the covariate.
 
@@ -273,7 +278,7 @@ $$
 $$
 
 Because observations may be missing in unbalanced designs,
-$\mathbf{R}_{\text{tot}}$ is assembled over all original rows and then restricted
+$\mathbf{R}_{tot}$ is assembled over all original rows and then restricted
 to the observed entries through a residual "incidence" $\mathbf{W}$:
 
 $$
