@@ -218,13 +218,14 @@ model = MixedModel.from_dataframe(
         left_hand    = "full",
         right_hand   = "iid",
         init         = P/2,
+        jitter       = 1e-6,
     ),
 ).fit()
 ```
 :::
 
 A [jitter](variance_structures.qmd#jitter)
-is required as some specificities of the random effect
+is required as the specificities of the random effect
 $\operatorname{diag}(\mathbf{\Psi_a})$ are close to zero in this example.
 Also, it is a good practice to scale the different responses by their phenotypic
 mean and variance so that their difference in magnitude is not driving the FA
