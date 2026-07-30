@@ -11,7 +11,7 @@ The core idea behind a random effect is that its levels are regarded as a sample
 from a population, summarised by a distribution:
 
 $$
-\mathbf{a} \sim \mathcal{N}(0, \mathbf{G_a}),
+\mathbf{a} \sim \mathcal{N}(\mathbf{0}, \mathbf{G_a}),
 $$
 
 which is often made acceptable by the central limit theorem.
@@ -37,7 +37,7 @@ between the predicted and the true value underlying the observed phenomenon.
 This shrinkage can be expressed analytically [@garrick_deregressing_2009]:
 
 $$
-\mathbf{\tilde{a}} = \mathbf{\hat{a}}\, \mathbf{\Delta_a}^{-1},
+\mathbf{\tilde{a}} = \mathbf{\Delta_a}^{-1}\,\mathbf{\hat{a}},
 \qquad
 \mathbf{\Delta_a} = (\mathbf{G_a} - \mathbf{P_a})\, \mathbf{G_a}^{-1},
 $$
@@ -59,7 +59,7 @@ $\mathbf{\hat{a}}_i \approx 0$.
 
 - close to $1$, the level of the random effect is well known. In this case, defining
 the effect as BLUE or BLUP would lead to the same outcome: 
-$\mathbf{\hat{a}}_i \approx \mathbf{\tilde{a}}_i$,
+$\mathbf{\hat{a}}_i \approx \mathbf{\tilde{a}}_i$.
 
 The example below makes the concept tangible, isolating
 the exact mathematical difference between BLUEs and BLUPs.
@@ -124,7 +124,7 @@ PEV    = mod_BLUP.random[0].PEV.numpy()
 CD     = (Variance - PEV) @ np.linalg.inv(Variance)
 
 # compute the deregressed BLUP
-DEREG = BLUP @ np.linalg.pinv(CD)
+DEREG = np.linalg.pinv(CD, rcond=1e-10) @ BLUP
 
 # how well does each recover the latent effect u ?
 U = np.array([true_u[lvl] for lvl in levels])
@@ -133,7 +133,7 @@ print(f"cor(u, BLUP) = {np.corrcoef(U, BLUP)[0, 1]:.3f}")
 
 fig, axes = plt.subplots(1, 2, figsize=(8, 3.5))
 for ax, x, title in [(axes[0], BLUP,  "BLUP"),
-                     (axes[1], DEREG - np.mean(DEREG), "deregressed BLUP")]:
+                     (axes[1], DEREG, "deregressed BLUP")]:
     ax.scatter(x, BLUE)
     lims = [min(x.min(), BLUE.min()), max(x.max(), BLUE.max())]
     ax.plot(lims, lims, "k--", lw=1)
@@ -151,7 +151,7 @@ plt.tight_layout(); plt.show()
 preventing them from capturing as much variance in the training set.
 
     - the distance from the BLUPs to the BLUEs is idiosyncratic, and dependent
-of the individual level of reliability around each BLUP.
+on the individual level of reliability around each BLUP.
 
 - The right panel shows the deregressed BLUPs against the same BLUEs: once the
 shrinkage is removed, the points fall back onto an exact identity line. 
@@ -161,7 +161,7 @@ In this example, the correlation between BLUEs and the true simulated
 values is `0.687` and the correlation between BLUPs and the true
 simulated values is `0.743`. Shrinkage can be seen as the
 regularization commonly used in machine learning, that consists
-in trading fit to the training set for generalizability, this is
+in trading fit to the training set for generalizability; this is
 illustrated by the higher accuracy of the BLUPs in this
 example.
 
@@ -171,7 +171,7 @@ example.
 
 This is the first question to ask, because if the levels at
 hand are not exchangeable members of some
-larger population, the distributional assumption $\mathbf{a} \sim \mathcal{N}(0,
+larger population, the distributional assumption $\mathbf{a} \sim \mathcal{N}(\mathbf{0},
 \mathbf{G_a})$ is simply not meaningful. When there is no population to speak of,
 there is not really a choice: the effect has to be fixed.
 
@@ -180,7 +180,7 @@ there is not really a choice: the effect has to be fixed.
 A variance is a population quantity, and estimating one from a
 handful of levels is hopeless. Two or three individuals of the
 same species is far from optimal when it comes to characterize
-the distribution they would be drawn from, whereas a hundred do.
+the distribution they would be drawn from, whereas a hundred are.
 With scarce samples, the variance estimate is so unstable that a
 fixed treatment, estimating each level directly,
 is safer than trying to learn a distribution.
@@ -190,8 +190,7 @@ is safer than trying to learn a distribution.
 Effects that exist only to control for the structure
 of the experiment, such as a block, a batch, or any other
 nuisance factor, are best removed as completely as possible. Treating them as
-fixed soaks up their contribution entirely (maximizing their partial $R^2$,
-as discussed in the [previous section](fixed_random.qmd#the-blup-intuition)) 
+fixed soaks up their contribution entirely, maximizing their partial $R^2$
 rather than shrinking it, which protects the
 effects of focal interest from design-induced confounding ones.
 
@@ -214,7 +213,7 @@ estimate per level, and the shrinkage keeps the estimates stable.
 This is often more a pragmatic argument than a conceptual one, constraining the
 choice toward picking *e.g.* design effects as random for the sake of parsimony, 
 even though they would be theoretically optimally selected as
-random as to get rid of the most of undesirable, confounded variance.
+fixed so as to absorb as much undesirable, confounded variance as possible.
 
 ### Is there a known variance structure ?
 
@@ -229,8 +228,7 @@ sampling process, not a variance expressed by the effect itself.
 
 ### Do we aim generalization outside the training dataset ?
 
-As mentioned in the [previous section](fixed_random.qmd#the-blup-intuition),
-and illustrated in this example, the BLUPs are mathematically built as
+As introduced above, the BLUPs are mathematically built so as
 to maximize the generalizability of
 a prediction. As opposed to a common misconception, the focal interest for 
 an effect and its generalizability argues in favor of considering it as random.

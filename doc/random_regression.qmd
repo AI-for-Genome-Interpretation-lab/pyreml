@@ -77,6 +77,7 @@ from pyreml import (
 )
 
 # scale years
+df = df.copy()
 df["year"] = df["year"] - df["year"].min()
 
 # compute kinship
@@ -149,7 +150,7 @@ ax.plot(
     lw    = 1,
     label = "Population mean"
 )
-plt.title("Individual growth curves")
+plt.title("Genetic growth curves")
 ax.set_xlabel("year"); ax.set_ylabel("height")
 ax.legend()
 plt.show()

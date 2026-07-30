@@ -254,15 +254,20 @@ plt.title("G (additive, genomic)")
 plt.tight_layout()
 plt.show()
 
-
 # %% [markdown]
 # ## fa : multi-trait factor-analytic model
 
 # %%
 df = larix.copy()
 traits = ["height", "circumference", "flexuosity"]
-df = df[df["year"].isin([2000, 2014])]
-df[traits] = (df[traits] - df[traits].mean()) / df[traits].std()
+
+# keep the two campaigns of interest
+df = df[df["year"].isin([2000, 2014])].copy()
+
+# standardize within year
+df[traits] = df.groupby("year")[traits].transform(
+    lambda x: (x - x.mean()) / x.std()
+)
 
 long = df.melt(
     id_vars=["ID", "DAM", "SIRE", "BLOC", "year"],
@@ -302,8 +307,7 @@ model = MixedModel.from_dataframe(
         jitter       = 1e-6,
     ),
     residual = Residual(
-        left_hand    = "fa",
-        n_axes       = 2,
+        left_hand    = "full",
         right_hand   = "iid",
         init         = P / 2,
         jitter       = 1e-6,
@@ -314,7 +318,6 @@ model = MixedModel.from_dataframe(
 ran_var = model.random[0].variance
 res_var = model.residual.variance
 ran_fa = ran_var["metadata"]["fa"]
-res_fa = res_var["metadata"]["fa"]
 
 reference_fa = {
     "series": "fa",
@@ -327,11 +330,8 @@ reference_fa = {
     "Lambda_random": np.asarray(ran_fa["Lambda"]).tolist(),
     "Psi_random": np.asarray(ran_fa["Psi"]).tolist(),
 
-    # residual FA structure
+    # residual covariance (full, no factorization)
     "S_residual": np.asarray(res_var["sigma"]).tolist(),
-    "Q_residual": np.asarray(res_fa["Q"]).tolist(),
-    "Lambda_residual": np.asarray(res_fa["Lambda"]).tolist(),
-    "Psi_residual": np.asarray(res_fa["Psi"]).tolist(),
 
     "blup": _df_records(model.random[0].table),
     "residuals": _df_records(model.residual.table),
@@ -340,14 +340,15 @@ _dump(reference_fa, "fa")
 
 # figure: correlation circle + average-linkage clustering of the genetic FA
 S  = np.asarray(ran_var["sigma"])
-Q, Lam, Psi = np.asarray(ran_fa["Q"]), np.asarray(ran_fa["Lambda"]), np.asarray(ran_fa["Psi"])
+Q, Lam = np.asarray(ran_fa["Q"]), np.asarray(ran_fa["Lambda"])
 Gamma = Q * np.sqrt(Lam)
 
-Dn   = inv(sqrtm(np.diag(np.diag(S))))
+Dn   = np.diag(1.0 / np.sqrt(np.diag(S)))
 cor  = Dn @ S @ Dn
-dist = 1 - cor
-np.fill_diagonal(dist, 0)
-Z = linkage(squareform(np.round(dist, 10)), method="average")
+dist = 1.0 - cor
+np.fill_diagonal(dist, 0.0)
+dist = (dist + dist.T) * 0.5
+Z = linkage(squareform(dist, checks=False), method="average")
 
 PC   = Dn @ Gamma
 expl = Lam / np.trace(S)

@@ -82,8 +82,7 @@ model = MixedModel.from_dataframe(
 
 ### Multiple environments, same trait
 
-A residual correlation is not separable from the data, so the residual
-left-hand factor should stay diagonal (`left_hand="diag"`):
+When assessing the same genotype in different environments (multi-environment trial), the residual correlation cannot be estimated, as no experimental unit is ever observed in several environments. Therefore, the residual left-hand factor should stay diagonal (`left_hand="diag"`):
 
 $$
 \mathbf{R} =
@@ -110,7 +109,7 @@ model = MixedModel.from_dataframe(
 
 ## Factor-analytic
 
-When the number of responses grows, estimating a `full` $\mathbf{\Sigma_A}$
+When the number of responses grows, estimating a `full` $\mathbf{\Sigma_a}$
 becomes expensive. The [factor-analytic](variance_structures.qmd#factor-analytic) structure approximates
 it with a few axes, set by `n_axes`:
 
@@ -128,10 +127,6 @@ The same practical considerations apply as for the `full` multivariate
 covariance structure: the residual structure should be kept consistent with
 the random effects, depending on the experimental design.
 
-When paired with a diagonal residual variance structure,
-FA variance matrices can be inverted using [SMW](training.qmd#smw)
-taking maximal benefit from the factorization in the fitting process.
-
 ## Illustration
 
 Let's realize the multivariate analysis of the `larix` illustrative dataset using FA.
@@ -140,8 +135,6 @@ In this example, the responses are a combination of traits and years.
 ::: {.scroll-cell}
 ```python
 import numpy as np
-from numpy.linalg import inv
-from scipy.linalg import sqrtm
 from scipy.cluster.hierarchy import linkage, dendrogram
 from scipy.spatial.distance import squareform
 import matplotlib.pyplot as plt
@@ -160,9 +153,13 @@ traits = [
     "flexuosity"
 ]
 
-# prepare data
-df = df[df["year"].isin([2000, 2014])]
-df[traits] = (df[traits] - df[traits].mean()) / df[traits].std()
+# keep the two campaigns of interest
+df = df[df["year"].isin([2000, 2014])].copy()
+
+# standardize within year
+df[traits] = df.groupby("year")[traits].transform(
+    lambda x: (x - x.mean()) / x.std()
+)
 
 long = df.melt(
     id_vars=["ID", "DAM", "SIRE", "BLOC", "year"],
@@ -199,7 +196,7 @@ ped = prepare_pedigree(
 )
 A   = A_pedigree(ped)
 
-# initiatlisation
+# initialization
 P = wide[responses].cov().to_numpy()
 
 # run the FA model
@@ -218,8 +215,7 @@ model = MixedModel.from_dataframe(
         jitter       = 1e-6,
     ),
     residual = Residual(
-        left_hand    = "fa",
-        n_axes       = 2,
+        left_hand    = "full",
         right_hand   = "iid",
         init         = P/2,
         jitter       = 1e-6,
@@ -229,9 +225,9 @@ model = MixedModel.from_dataframe(
 :::
 
 A [jitter](variance_structures.qmd#jitter)
-is required as some specificities of the random effect
+is required as the specificities of the random effect
 $\operatorname{diag}(\mathbf{\Psi_a})$ are close to zero in this example.
-Also, it is a good practice to scale the different traits by their phenotypic
+Also, it is a good practice to scale the different responses by their phenotypic
 mean and variance so that their difference in magnitude is not driving the FA
 decomposition.
 
@@ -248,14 +244,13 @@ fa = model.random[0].variance["metadata"]["fa"]
 Q, Lam, Psi = fa["Q"], fa["Lambda"], fa["Psi"]
 Gamma = Q * np.sqrt(Lam)
 
-# correlation + average-linkage clustering
-Dn   = inv(sqrtm(np.diag(np.diag(S))))
+# correlation + clustering
+Dn   = np.diag(1.0 / np.sqrt(np.diag(S)))
 cor  = Dn @ S @ Dn
-dist = 1 - cor
-np.fill_diagonal(dist, 0)
-dist = np.round(dist, 10)
-dist = dist + dist.T * 0.5
-Z = linkage(dist, method="average")
+dist = 1.0 - cor
+np.fill_diagonal(dist, 0.0)
+dist = (dist + dist.T) * 0.5
+Z = linkage(squareform(dist, checks=False), method="average")
 
 # correlation circle
 PC   = Dn @ Gamma

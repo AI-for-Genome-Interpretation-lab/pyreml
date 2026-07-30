@@ -16,14 +16,14 @@ model.fit()
 
 This runs the full pipeline, calling this series of methods: 
 
-- `.OLS()`, [Ordinary least square](#ols) (OLS) initialization of $\mathbf{\beta}$,
+- `.OLS()`, [Ordinary least squares](#ols) (OLS) initialization of $\mathbf{\beta}$,
 
 - `.REML()`, [REML](#reml) estimation of the variance components,
 
 - `.HMME()`, [Henderson's mixed model equations](#hmme) (HMME) for the random-effect predictions.
 
 REML and HMME are engaged whenever the model carries random effects, a residual variance structure,
-or several responses ; otherwise the fitting process stops at the OLS step.
+or several responses; otherwise the fitting process stops at the OLS step.
 
 The `fit` method takes a `dtype` argument:
 
@@ -35,7 +35,7 @@ the estimate and produce reliable outputs.
 ($=$ `torch.double`). This option is intended for GPUs optimized for `float64`
 where the `float32` warm-up is not useful.
 
-- `"float"`: all three steps run in `float32`. Fastest, but all output
+- `"float"`: all three steps run in `float32`. Fastest, but all outputs
 are single-precision and in some cases the REML solver can go off-track badly.
 
 ## OLS
@@ -78,7 +78,7 @@ $\mathbf{K_a}$, $\mathbf{\Sigma_R}$ and $\mathbf{K_R}$ jointly with $\mathbf{\be
 the random effects $\mathbf{u}$.
 
 The variance parameters and $\mathbf{\beta}$ are estimated by direct gradient descent of the
-negative log-likelihood [@simchoni_integrating_2023], restricted (REML) as to yield unbiased estimates of the variance
+negative log-likelihood [@simchoni_integrating_2023], restricted (REML) so as to yield unbiased estimates of the variance
 parameters [@patterson_recovery_1971; @harville_maximum_1977]:
 
 $$
@@ -124,9 +124,9 @@ $\hat{\mathbf{u}}$.
 
 Once the model is fitted, the Akaike information criterion (AIC) is computed in two different ways depending on
 whether it was performed by `OLS` or `HMME`/`REML`. The AIC is available as attribute `AIC` and
-the AIC method is consigned as `AIC_meth`. 
+the AIC method is recorded as `AIC_meth`. 
 
-These two AICs should not be compared one with each other. AIC computed post-OLS
+These two AICs should not be compared with each other. AIC computed post-OLS
 is designed for the exploration of fixed effects with no variance structure, and
 AIC computed post REML/HMME is designed for the investigation of the variance
 structure with a fixed $\mathbf{X}$ (*i.e.* a fixed `formula` in the model
@@ -146,7 +146,7 @@ and all independent variance parameters).
 ## SMW
 
 The REML computation uses the Sherman–Morrison–Woodbury identity (SMW) [@MR38136]
-which can have a very strong impact on the performance of the models
+which can have an important impact on the performance of the models
 depending on their specification.
 
 ### Interest of SMW for REML
@@ -170,7 +170,6 @@ $$
 \mathbf{C} = \mathbf{Z}^{\top}\mathbf{R}^{-1}\mathbf{Z} + \mathbf{G}^{-1}.
 $$
 
-
 The associated determinant lemma gives the REML log-determinant without forming
 $\mathbf{V}$ either:
 
@@ -181,13 +180,13 @@ $$
     + \log |\mathbf{C}|.
 $$
 
-Using the properties of direct sum and Kronecker product and direct sum:
+Therefore, the problem transposes from inverting $\mathbf{V}$ to inverting $\mathbf{C}$, $\mathbf{G}$ and $\mathbf{R}$.
+
+Using the properties of direct sum and Kronecker product:
 
 $$
-\mathbf{G}^{-1} = \bigoplus_\mathbf{a} (\mathbf{\Sigma_a}^{-1} \otimes \mathbf{K_a}^{-1}),
+\mathbf{G}^{-1} = \bigoplus_\mathbf{a} (\mathbf{\Sigma_a}^{-1} \otimes \mathbf{K_a}^{-1}).
 $$
-
-which can in some circumstances be much more cost efficient than inverting $\mathbf{V}$ .
 
 For the residual (see [this section](variance_structures.qmd#the-residual)):
 
@@ -201,6 +200,7 @@ which only stands under some conditions, including:
 - or if both $\mathbf{\Sigma_R}$ and $\mathbf{K_R}$ are diagonal, as 
 $\mathbf{W}$ is a mere row-column selector.
 
+Most left-hand and right-hand term inverses can be broken down even further, avoiding expensive computations for $\mathbf{G}^{-1}$ and $\mathbf{R}^{-1}$. The SMW path trades the complexity of inverting a dense $\mathbf{V}_{n \times n}$ for inverting a dense $\mathbf{C}_{q \times q}$ at each step.
 
 ### Implementation of SMW
 
@@ -223,8 +223,8 @@ over any other rule.
 - using the high-level `from_dataframe` constructor, if all
 of the following conditions are met then SMW is switched off
 regardless of the dimensional rule:
-    - $\mathbf{W} \neq \mathbf{I}$, which can arise for instance with several unbalanced option, or when using autoregressive structures.
-    - The residual covariance $\mathbf{R}$ is not designed as a diagonal matrix.
+    - $\mathbf{W} \neq \mathbf{I}$, which can arise for instance with several unbalanced options, or when using autoregressive structures.
+    - the residual covariance $\mathbf{R}$ is not designed as a diagonal matrix.
 
 Indeed, in this situation
 $\mathbf{R}^{-1} \neq \mathbf{W}\left(\mathbf{\Sigma_R}^{-1} \otimes \mathbf{K_R}^{-1}\right)\mathbf{W}^\top$
@@ -234,50 +234,7 @@ $\mathbf{V}$.
 - with the low-level constructor:
     - if `varmeth_inv` only is provided, SMW is forced on;
     - if `varmeth` only is provided, SMW is forced off;
-    - If both methods are available, the dimensional rule applies.
-
-### Examples of special interest
-
-SMW meaningfulness can be exemplified in these situations:
-
-- with `right_hand = str` for a given effect $\mathbf{a}$;
-the inversion of $\mathbf{K_a}$ is done once for all and cached so that only
-the left hand (possibly a mere scalar $\sigma^2_\mathbf{a}$) needs inversion at each step;
-- with any diagonal covariance (`left_hand` in `{iid, diag}` and `right_hand` in
-`{iid, het}`); the inversion of this block turns an $O(n^3)$ factorization into an
-$O(n)$ elementwise operation;
-- with `left_hand = fa`; the inversion of $\mathbf{\Sigma_a}$ is also done with SMW
-as it is approximated by the same form
-$\mathbf{\Sigma_a} = \mathbf{Q_a}\mathbf{\Lambda_a}\mathbf{Q_a}^\top + \mathbf{\Psi_a}$,
-breaking the problem down even further.
-- the block diagonal structures, that rely on Kronecker products or direct sums,
-can be broke down into smaller problems.
-- with the autoregressive kernels (`ar_iso`, `ar_ani`), not only
-the construction of the inverse of $\mathbf{K_a}$ can be broken down as a
-Kronecker product of inverses, but furthermore these elementary
-inverses have a close form:
-
-$$
-\mathbf{K_a}^{-1}
-  = \bigotimes_k \mathbf{K}_k^{-1},
-\qquad
-\mathbf{K}_k^{-1}
-  = \frac{1}{1-\varphi_k^2}
-  \begin{pmatrix}
-  1 & -\varphi_k & 0 & \cdots & 0 \\
-  -\varphi_k & 1+\varphi_k^2 & -\varphi_k & \ddots & \vdots \\
-  0 & -\varphi_k & 1+\varphi_k^2 & \ddots & 0 \\
-  \vdots & \ddots & \ddots & \ddots & -\varphi_k \\
-  0 & \cdots & 0 & -\varphi_k & 1
-  \end{pmatrix}.
-$$
-
-Given the dimensional rule, and that $\mathbf{K_a}$ is
-built for the whole grid even if it is sparsed,
-this actually optimizes the computation in the current dense implementation
-only when there are more observations than the
-number of nodes on the whole grid (several observation per node on the grid,
-and a dense grid).
+    - if both methods are available, the dimensional rule applies.
 
 ## Monitoring
 
@@ -298,7 +255,7 @@ As an illustration, the last iterations of an example model REML convergence:
 
 ```py
 import matplotlib.pyplot as plt
-plt.plot(model.opti_REML.loss[-15:-1])
+plt.plot(model.opti_REML.loss[-15:])
 plt.title("-2LogLik (REML)")
 plt.show()
 ```
