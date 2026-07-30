@@ -310,6 +310,7 @@ model = MixedModel.from_dataframe(
         left_hand    = "full",
         right_hand   = "iid",
         init         = P / 2,
+        jitter       = 1e-6,
     ),
     device = "cuda",
 ).fit()
