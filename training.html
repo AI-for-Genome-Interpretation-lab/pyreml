@@ -2,16 +2,13 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.9.37">
+<meta name="generator" content="quarto-1.6.40">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
 <title>Training models – pyreml</title>
 <style>
-/* Default styles provided by pandoc.
-** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
-*/
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
 div.columns{display: flex; gap: min(4vw, 1.5em);}
@@ -24,9 +21,8 @@ ul.task-list li input[type="checkbox"] {
   vertical-align: middle;
 }
 /* CSS for syntax highlighting */
-html { -webkit-text-size-adjust: 100%; }
 pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span { line-height: 1.25; }
 pre > code.sourceCode > span:empty { height: 1.2em; }
 .sourceCode { overflow: visible; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -37,7 +33,7 @@ div.sourceCode { overflow: auto; }
 }
 @media print {
 pre > code.sourceCode { white-space: pre-wrap; }
-pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
 }
 pre.numberSource code
   { counter-reset: source-line 0; }
@@ -88,16 +84,15 @@ div.csl-indent {
 <script src="site_libs/quarto-search/fuse.min.js"></script>
 <script src="site_libs/quarto-search/quarto-search.js"></script>
 <meta name="quarto:offset" content="./">
-<script src="site_libs/quarto-html/quarto.js" type="module"></script>
-<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/quarto.js"></script>
 <script src="site_libs/quarto-html/popper.min.js"></script>
 <script src="site_libs/quarto-html/tippy.umd.min.js"></script>
 <script src="site_libs/quarto-html/anchor.min.js"></script>
 <link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-7f8f88aac4f3542376d5c11b86a4c14d.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-549806ee2085284f45b00abea8c6df48.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-8124cdf9140e22d01433ca88cc906b30.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-345a26b66049133d4c0faa0fcd24a7b5.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -127,7 +122,7 @@ div.csl-indent {
 }</script>
 
   <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
-  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
 
 <script type="text/javascript">
 const typesetMath = (el) => {
@@ -140,7 +135,7 @@ const typesetMath = (el) => {
     var macros = [];
     for (var i = 0; i < mathElements.length; i++) {
       var texText = mathElements[i].firstChild;
-      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+      if (mathElements[i].tagName == "SPAN") {
         window.katex.render(texText.data, mathElements[i], {
           displayMode: mathElements[i].classList.contains('display'),
           throwOnError: false,
@@ -158,7 +153,7 @@ window.Quarto = {
 
 </head>
 
-<body class="nav-fixed quarto-light">
+<body class="nav-fixed">
 
 <div id="quarto-search-results"></div>
   <header id="quarto-header" class="headroom fixed-top">
@@ -244,7 +239,6 @@ window.Quarto = {
   <ul class="collapse">
   <li><a href="#interest-of-smw-for-reml" id="toc-interest-of-smw-for-reml" class="nav-link" data-scroll-target="#interest-of-smw-for-reml">Interest of SMW for REML</a></li>
   <li><a href="#implementation-of-smw" id="toc-implementation-of-smw" class="nav-link" data-scroll-target="#implementation-of-smw">Implementation of SMW</a></li>
-  <li><a href="#examples-of-special-interest" id="toc-examples-of-special-interest" class="nav-link" data-scroll-target="#examples-of-special-interest">Examples of special interest</a></li>
   </ul></li>
   <li><a href="#monitoring" id="toc-monitoring" class="nav-link" data-scroll-target="#monitoring">Monitoring</a></li>
   </ul>
@@ -276,19 +270,19 @@ window.Quarto = {
 <section id="the-fit-method" class="level2">
 <h2 class="anchored" data-anchor-id="the-fit-method">The <code>fit</code> method</h2>
 <p>Once a <span class="pyreml">pyreml</span> model is specified, it can be trained with the <code>.fit()</code> method.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>model.fit()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>model.fit()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <p>This runs the full pipeline, calling this series of methods:</p>
 <ul>
-<li><p><code>.OLS()</code>, <a href="#ols">Ordinary least square</a> (OLS) initialization of <span class="math inline">\(\mathbf{\beta}\)</span>,</p></li>
+<li><p><code>.OLS()</code>, <a href="#ols">Ordinary least squares</a> (OLS) initialization of <span class="math inline">\(\mathbf{\beta}\)</span>,</p></li>
 <li><p><code>.REML()</code>, <a href="#reml">REML</a> estimation of the variance components,</p></li>
 <li><p><code>.HMME()</code>, <a href="#hmme">Henderson’s mixed model equations</a> (HMME) for the random-effect predictions.</p></li>
 </ul>
-<p>REML and HMME are engaged whenever the model carries random effects, a residual variance structure, or several responses ; otherwise the fitting process stops at the OLS step.</p>
+<p>REML and HMME are engaged whenever the model carries random effects, a residual variance structure, or several responses; otherwise the fitting process stops at the OLS step.</p>
 <p>The <code>fit</code> method takes a <code>dtype</code> argument:</p>
 <ul>
 <li><p><code>"mixed"</code> (default): OLS and a first REML pass run in <code>float32</code> to approach the optimum cheaply, then a second REML pass and HMME run in <code>float64</code> to refine the estimate and produce reliable outputs.</p></li>
 <li><p><code>"double"</code>: all three steps (OLS, REML, HMME) run in <code>float64</code> (<span class="math inline">\(=\)</span> <code>torch.double</code>). This option is intended for GPUs optimized for <code>float64</code> where the <code>float32</code> warm-up is not useful.</p></li>
-<li><p><code>"float"</code>: all three steps run in <code>float32</code>. Fastest, but all output are single-precision and in some cases the REML solver can go off-track badly.</p></li>
+<li><p><code>"float"</code>: all three steps run in <code>float32</code>. Fastest, but all outputs are single-precision and in some cases the REML solver can go off-track badly.</p></li>
 </ul>
 </section>
 <section id="ols" class="level2">
@@ -313,7 +307,7 @@ window.Quarto = {
 \]</span></p>
 <p>with residual variance <span class="math inline">\(\mathbf{R} = \mathbf{W}\left(\mathbf{\Sigma_R} \otimes \mathbf{K_R}\right)\mathbf{W}^\top\)</span>.</p>
 <p>Training estimates the variance parameters carried by the <span class="math inline">\(\mathbf{\Sigma_a}\)</span>, <span class="math inline">\(\mathbf{K_a}\)</span>, <span class="math inline">\(\mathbf{\Sigma_R}\)</span> and <span class="math inline">\(\mathbf{K_R}\)</span> jointly with <span class="math inline">\(\mathbf{\beta}\)</span>, then obtains the random effects <span class="math inline">\(\mathbf{u}\)</span>.</p>
-<p>The variance parameters and <span class="math inline">\(\mathbf{\beta}\)</span> are estimated by direct gradient descent of the negative log-likelihood <span class="citation" data-cites="simchoni_integrating_2023">(<a href="#ref-simchoni_integrating_2023" role="doc-biblioref">Simchoni &amp; Rosset, 2023</a>)</span>, restricted (REML) as to yield unbiased estimates of the variance parameters <span class="citation" data-cites="patterson_recovery_1971 harville_maximum_1977">(<a href="#ref-harville_maximum_1977" role="doc-biblioref">Harville, 1977</a>; <a href="#ref-patterson_recovery_1971" role="doc-biblioref">Patterson &amp; Thompson, 1971</a>)</span>:</p>
+<p>The variance parameters and <span class="math inline">\(\mathbf{\beta}\)</span> are estimated by direct gradient descent of the negative log-likelihood <span class="citation" data-cites="simchoni_integrating_2023">(<a href="#ref-simchoni_integrating_2023" role="doc-biblioref">Simchoni &amp; Rosset, 2023</a>)</span>, restricted (REML) so as to yield unbiased estimates of the variance parameters <span class="citation" data-cites="patterson_recovery_1971 harville_maximum_1977">(<a href="#ref-harville_maximum_1977" role="doc-biblioref">Harville, 1977</a>; <a href="#ref-patterson_recovery_1971" role="doc-biblioref">Patterson &amp; Thompson, 1971</a>)</span>:</p>
 <p><span class="math display">\[
 -2\ell_{\text{REML}} = \log\lvert\mathbf{V}\rvert
 + (\mathbf{y}-\mathbf{X}\mathbf{\beta})^\top\mathbf{V}^{-1}
@@ -343,8 +337,8 @@ window.Quarto = {
 </section>
 <section id="akaike-information-criterion" class="level2">
 <h2 class="anchored" data-anchor-id="akaike-information-criterion">Akaike information criterion</h2>
-<p>Once the model is fitted, the Akaike information criterion (AIC) is computed in two different ways depending on whether it was performed by <code>OLS</code> or <code>HMME</code>/<code>REML</code>. The AIC is available as attribute <code>AIC</code> and the AIC method is consigned as <code>AIC_meth</code>.</p>
-<p>These two AICs should not be compared one with each other. AIC computed post-OLS is designed for the exploration of fixed effects with no variance structure, and AIC computed post REML/HMME is designed for the investigation of the variance structure with a fixed <span class="math inline">\(\mathbf{X}\)</span> (<em>i.e.</em> a fixed <code>formula</code> in the model specification).</p>
+<p>Once the model is fitted, the Akaike information criterion (AIC) is computed in two different ways depending on whether it was performed by <code>OLS</code> or <code>HMME</code>/<code>REML</code>. The AIC is available as attribute <code>AIC</code> and the AIC method is recorded as <code>AIC_meth</code>.</p>
+<p>These two AICs should not be compared with each other. AIC computed post-OLS is designed for the exploration of fixed effects with no variance structure, and AIC computed post REML/HMME is designed for the investigation of the variance structure with a fixed <span class="math inline">\(\mathbf{X}\)</span> (<em>i.e.</em> a fixed <code>formula</code> in the model specification).</p>
 <p>AIC post OLS is computed using the likelihood, from the unbiased residual variance <span class="math inline">\(\sigma^2_R\)</span>:</p>
 <p><span class="math display">\[
 -2\ell_{\text{ML}} = n \log\left( \frac{n-p}{n} \sigma^2_R \right) + n + n \log(2\pi)
@@ -354,7 +348,7 @@ window.Quarto = {
 </section>
 <section id="smw" class="level2">
 <h2 class="anchored" data-anchor-id="smw">SMW</h2>
-<p>The REML computation uses the Sherman–Morrison–Woodbury identity (SMW) <span class="citation" data-cites="MR38136">(<a href="#ref-MR38136" role="doc-biblioref">Woodbury, 1950</a>)</span> which can have a very strong impact on the performance of the models depending on their specification.</p>
+<p>The REML computation uses the Sherman–Morrison–Woodbury identity (SMW) <span class="citation" data-cites="MR38136">(<a href="#ref-MR38136" role="doc-biblioref">Woodbury, 1950</a>)</span> which can have an important impact on the performance of the models depending on their specification.</p>
 <section id="interest-of-smw-for-reml" class="level3">
 <h3 class="anchored" data-anchor-id="interest-of-smw-for-reml">Interest of SMW for REML</h3>
 <p>The use of SMW aims at avoiding forming and inverting <span class="math inline">\(\mathbf{V}\)</span> directly:</p>
@@ -379,11 +373,11 @@ window.Quarto = {
     + \log |\mathbf{G}|
     + \log |\mathbf{C}|.
 \]</span></p>
-<p>Using the properties of direct sum and Kronecker product and direct sum:</p>
+<p>Therefore, the problem transposes from inverting <span class="math inline">\(\mathbf{V}\)</span> to inverting <span class="math inline">\(\mathbf{C}\)</span>, <span class="math inline">\(\mathbf{G}\)</span> and <span class="math inline">\(\mathbf{R}\)</span>.</p>
+<p>Using the properties of direct sum and Kronecker product:</p>
 <p><span class="math display">\[
-\mathbf{G}^{-1} = \bigoplus_\mathbf{a} (\mathbf{\Sigma_a}^{-1} \otimes \mathbf{K_a}^{-1}),
+\mathbf{G}^{-1} = \bigoplus_\mathbf{a} (\mathbf{\Sigma_a}^{-1} \otimes \mathbf{K_a}^{-1}).
 \]</span></p>
-<p>which can in some circumstances be much more cost efficient than inverting <span class="math inline">\(\mathbf{V}\)</span> .</p>
 <p>For the residual (see <a href="./variance_structures.html#the-residual">this section</a>):</p>
 <p><span class="math display">\[
 \mathbf{R}^{-1} = \mathbf{W}\left(\mathbf{\Sigma_R}^{-1} \otimes \mathbf{K_R}^{-1}\right)\mathbf{W}^\top,
@@ -393,6 +387,7 @@ window.Quarto = {
 <li>if <span class="math inline">\(\mathbf{W} = \mathbf{I}\)</span>;</li>
 <li>or if both <span class="math inline">\(\mathbf{\Sigma_R}\)</span> and <span class="math inline">\(\mathbf{K_R}\)</span> are diagonal, as <span class="math inline">\(\mathbf{W}\)</span> is a mere row-column selector.</li>
 </ul>
+<p>Most left-hand and right-hand term inverses can be broken down even further, avoiding expensive computations for <span class="math inline">\(\mathbf{G}^{-1}\)</span> and <span class="math inline">\(\mathbf{R}^{-1}\)</span>. The SMW path trades the complexity of inverting a dense <span class="math inline">\(\mathbf{V}_{n \times n}\)</span> for inverting a dense <span class="math inline">\(\mathbf{C}_{q \times q}\)</span> at each step.</p>
 </section>
 <section id="implementation-of-smw" class="level3">
 <h3 class="anchored" data-anchor-id="implementation-of-smw">Implementation of SMW</h3>
@@ -403,8 +398,8 @@ window.Quarto = {
 <li>using the high-level <code>from_dataframe</code> constructor, if the user forces <code>SMW=True</code> or <code>False</code> then their decision takes precedence over any other rule.</li>
 <li>using the high-level <code>from_dataframe</code> constructor, if all of the following conditions are met then SMW is switched off regardless of the dimensional rule:
 <ul>
-<li><span class="math inline">\(\mathbf{W} \neq \mathbf{I}\)</span>, which can arise for instance with several unbalanced option, or when using autoregressive structures.</li>
-<li>The residual covariance <span class="math inline">\(\mathbf{R}\)</span> is not designed as a diagonal matrix.</li>
+<li><span class="math inline">\(\mathbf{W} \neq \mathbf{I}\)</span>, which can arise for instance with several unbalanced options, or when using autoregressive structures.</li>
+<li>the residual covariance <span class="math inline">\(\mathbf{R}\)</span> is not designed as a diagonal matrix.</li>
 </ul></li>
 </ul>
 <p>Indeed, in this situation <span class="math inline">\(\mathbf{R}^{-1} \neq \mathbf{W}\left(\mathbf{\Sigma_R}^{-1} \otimes \mathbf{K_R}^{-1}\right)\mathbf{W}^\top\)</span> and inverting the <span class="math inline">\(n \times n\)</span> matrix <span class="math inline">\(\mathbf{R}\)</span> is just as expensive as inverting <span class="math inline">\(\mathbf{V}\)</span>.</p>
@@ -413,35 +408,9 @@ window.Quarto = {
 <ul>
 <li>if <code>varmeth_inv</code> only is provided, SMW is forced on;</li>
 <li>if <code>varmeth</code> only is provided, SMW is forced off;</li>
-<li>If both methods are available, the dimensional rule applies.</li>
+<li>if both methods are available, the dimensional rule applies.</li>
 </ul></li>
 </ul>
-</section>
-<section id="examples-of-special-interest" class="level3">
-<h3 class="anchored" data-anchor-id="examples-of-special-interest">Examples of special interest</h3>
-<p>SMW meaningfulness can be exemplified in these situations:</p>
-<ul>
-<li>with <code>right_hand = str</code> for a given effect <span class="math inline">\(\mathbf{a}\)</span>; the inversion of <span class="math inline">\(\mathbf{K_a}\)</span> is done once for all and cached so that only the left hand (possibly a mere scalar <span class="math inline">\(\sigma^2_\mathbf{a}\)</span>) needs inversion at each step;</li>
-<li>with any diagonal covariance (<code>left_hand</code> in <code>{iid, diag}</code> and <code>right_hand</code> in <code>{iid, het}</code>); the inversion of this block turns an <span class="math inline">\(O(n^3)\)</span> factorization into an <span class="math inline">\(O(n)\)</span> elementwise operation;</li>
-<li>with <code>left_hand = fa</code>; the inversion of <span class="math inline">\(\mathbf{\Sigma_a}\)</span> is also done with SMW as it is approximated by the same form <span class="math inline">\(\mathbf{\Sigma_a} = \mathbf{Q_a}\mathbf{\Lambda_a}\mathbf{Q_a}^\top + \mathbf{\Psi_a}\)</span>, breaking the problem down even further.</li>
-<li>the block diagonal structures, that rely on Kronecker products or direct sums, can be broke down into smaller problems.</li>
-<li>with the autoregressive kernels (<code>ar_iso</code>, <code>ar_ani</code>), not only the construction of the inverse of <span class="math inline">\(\mathbf{K_a}\)</span> can be broken down as a Kronecker product of inverses, but furthermore these elementary inverses have a close form:</li>
-</ul>
-<p><span class="math display">\[
-\mathbf{K_a}^{-1}
-  = \bigotimes_k \mathbf{K}_k^{-1},
-\qquad
-\mathbf{K}_k^{-1}
-  = \frac{1}{1-\varphi_k^2}
-  \begin{pmatrix}
-  1 &amp; -\varphi_k &amp; 0 &amp; \cdots &amp; 0 \\
-  -\varphi_k &amp; 1+\varphi_k^2 &amp; -\varphi_k &amp; \ddots &amp; \vdots \\
-  0 &amp; -\varphi_k &amp; 1+\varphi_k^2 &amp; \ddots &amp; 0 \\
-  \vdots &amp; \ddots &amp; \ddots &amp; \ddots &amp; -\varphi_k \\
-  0 &amp; \cdots &amp; 0 &amp; -\varphi_k &amp; 1
-  \end{pmatrix}.
-\]</span></p>
-<p>Given the dimensional rule, and that <span class="math inline">\(\mathbf{K_a}\)</span> is built for the whole grid even if it is sparsed, this actually optimizes the computation in the current dense implementation only when there are more observations than the number of nodes on the whole grid (several observation per node on the grid, and a dense grid).</p>
 </section>
 </section>
 <section id="monitoring" class="level2">
@@ -475,10 +444,10 @@ window.Quarto = {
 </table>
 <p>L-BFGS drives the optimization and Adam steps in only to recover iterations the line search cannot complete; occasional Adam steps near a difficult region of the objective are expected.</p>
 <p>As an illustration, the last iterations of an example model REML convergence:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode py code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>plt.plot(model.opti_REML.loss[<span class="op">-</span><span class="dv">15</span>:<span class="op">-</span><span class="dv">1</span>])</span>
+<div class="sourceCode" id="cb2"><pre class="sourceCode py code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>plt.plot(model.opti_REML.loss[<span class="op">-</span><span class="dv">15</span>:])</span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>plt.title(<span class="st">"-2LogLik (REML)"</span>)</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="img/loss.png" class="img-fluid quarto-figure quarto-figure-center figure-img"></p>
@@ -507,243 +476,236 @@ Woodbury, M. A. (1950). <em>Inverting modified matrices</em> (p. 4). Princeton U
 </div>
 </div></section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
-  window.document.addEventListener("DOMContentLoaded", function (event) {
-    const icon = "";
-    const anchorJS = new window.AnchorJS();
-    anchorJS.options = {
-      placement: 'right',
-      icon: icon
-    };
-    anchorJS.add('.anchored');
-    const isCodeAnnotation = (el) => {
-      for (const clz of el.classList) {
-        if (clz.startsWith('code-annotation-')) {                     
-          return true;
-        }
-      }
-      return false;
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
     }
-    const onCopySuccess = function(e) {
-      // button target
-      const button = e.trigger;
-      // don't keep focus
-      button.blur();
-      // flash "checked"
-      button.classList.add('code-copy-button-checked');
-      var currentTitle = button.getAttribute("title");
-      button.setAttribute("title", "Copied!");
-      let tooltip;
-      if (window.bootstrap) {
-        button.setAttribute("data-bs-toggle", "tooltip");
-        button.setAttribute("data-bs-placement", "left");
-        button.setAttribute("data-bs-title", "Copied!");
-        tooltip = new bootstrap.Tooltip(button, 
-          { trigger: "manual", 
-            customClass: "code-copy-button-tooltip",
-            offset: [0, -8]});
-        tooltip.show();    
-      }
-      setTimeout(function() {
-        if (tooltip) {
-          tooltip.hide();
-          button.removeAttribute("data-bs-title");
-          button.removeAttribute("data-bs-toggle");
-          button.removeAttribute("data-bs-placement");
-        }
-        button.setAttribute("title", currentTitle);
-        button.classList.remove('code-copy-button-checked');
-      }, 1000);
-      // clear code selection
-      e.clearSelection();
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
     }
-    const getTextToCopy = function(trigger) {
-      const outerScaffold = trigger.parentElement.cloneNode(true);
-      const codeEl = outerScaffold.querySelector('code');
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const onCopySuccess = function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  }
+  const getTextToCopy = function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
       for (const childEl of codeEl.children) {
         if (isCodeAnnotation(childEl)) {
           childEl.remove();
         }
       }
       return codeEl.innerText;
-    }
-    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
-      text: getTextToCopy
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+    text: getTextToCopy
+  });
+  clipboard.on('success', onCopySuccess);
+  if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+    const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+      text: getTextToCopy,
+      container: window.document.getElementById('quarto-embedded-source-code-modal')
     });
-    clipboard.on('success', onCopySuccess);
-    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
-      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
-        text: getTextToCopy,
-        container: window.document.getElementById('quarto-embedded-source-code-modal')
-      });
-      clipboardModal.on('success', onCopySuccess);
+    clipboardModal.on('success', onCopySuccess);
+  }
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp("https:\/\/AI-for-Genome-Interpretation-lab\.github\.io\/pyreml\/");
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
     }
-      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
-      var mailtoRegex = new RegExp(/^mailto:/);
-        var filterRegex = new RegExp("https:\/\/AI-for-Genome-Interpretation-lab\.github\.io\/pyreml\/");
-      var isInternal = (href) => {
-          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
-      }
-      // Inspect non-navigation links and adorn them if external
-     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
-      for (var i=0; i<links.length; i++) {
-        const link = links[i];
-        if (!isInternal(link.href)) {
-          // undo the damage that might have been done by quarto-nav.js in the case of
-          // links that we want to consider external
-          if (link.dataset.originalHref !== undefined) {
-            link.href = link.dataset.originalHref;
-          }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
         }
       }
-    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
-      const config = {
-        allowHTML: true,
-        maxWidth: 500,
-        delay: 100,
-        arrow: false,
-        appendTo: function(el) {
-            return el.parentElement;
-        },
-        interactive: true,
-        interactiveBorder: 10,
-        theme: 'quarto',
-        placement: 'bottom-start',
-      };
-      if (contentFn) {
-        config.content = contentFn;
-      }
-      if (onTriggerFn) {
-        config.onTrigger = onTriggerFn;
-      }
-      if (onUntriggerFn) {
-        config.onUntrigger = onUntriggerFn;
-      }
-      window.tippy(el, config); 
     }
-    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
-    for (var i=0; i<noterefs.length; i++) {
-      const ref = noterefs[i];
-      tippyHover(ref, function() {
-        // use id or data attribute instead here
-        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
-        try { href = new URL(href).hash; } catch {}
-        const id = href.replace(/^#\/?/, "");
-        const note = window.document.getElementById(id);
-        if (note) {
-          return note.innerHTML;
-        } else {
-          return "";
-        }
-      });
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+    const config = {
+      allowHTML: true,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start',
+    };
+    if (contentFn) {
+      config.content = contentFn;
     }
-    const xrefs = window.document.querySelectorAll('a.quarto-xref');
-    const processXRef = (id, note) => {
-      // Strip column container classes
-      const stripColumnClz = (el) => {
-        el.classList.remove("page-full", "page-columns");
-        if (el.children) {
-          for (const child of el.children) {
-            stripColumnClz(child);
-          }
-        }
-      }
-      stripColumnClz(note)
-      if (id === null || id.startsWith('sec-')) {
-        // Special case sections, only their first couple elements
-        const container = document.createElement("div");
-        if (note.children && note.children.length > 2) {
-          container.appendChild(note.children[0].cloneNode(true));
-          for (let i = 1; i < note.children.length; i++) {
-            const child = note.children[i];
-            if (child.tagName === "P" && child.innerText === "") {
-              continue;
-            } else {
-              container.appendChild(child.cloneNode(true));
-              break;
-            }
-          }
-          if (window.Quarto?.typesetMath) {
-            window.Quarto.typesetMath(container);
-          }
-          return container.innerHTML
-        } else {
-          if (window.Quarto?.typesetMath) {
-            window.Quarto.typesetMath(note);
-          }
-          return note.innerHTML;
-        }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      if (note) {
+        return note.innerHTML;
       } else {
-        // Remove any anchor links if they are present
-        const anchorLink = note.querySelector('a.anchorjs-link');
-        if (anchorLink) {
-          anchorLink.remove();
+        return "";
+      }
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
         }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
         if (window.Quarto?.typesetMath) {
           window.Quarto.typesetMath(note);
         }
-        if (note.classList.contains("callout")) {
-          return note.outerHTML;
-        } else {
-          return note.innerHTML;
-        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
       }
     }
-    for (var i=0; i<xrefs.length; i++) {
-      const xref = xrefs[i];
-      tippyHover(xref, undefined, function(instance) {
-        instance.disable();
-        let url = xref.getAttribute('href');
-        let hash = undefined; 
-        if (url.startsWith('#')) {
-          hash = url;
-        } else {
-          try { hash = new URL(url).hash; } catch {}
-        }
-        if (hash) {
-          const id = hash.replace(/^#\/?/, "");
-          const note = window.document.getElementById(id);
-          if (note !== null) {
-            try {
-              const html = processXRef(id, note.cloneNode(true));
-              instance.setContent(html);
-            } finally {
-              instance.enable();
-              instance.show();
-            }
-          } else {
-            // See if we can fetch this
-            fetch(url.split('#')[0])
-            .then(res => res.text())
-            .then(html => {
-              const parser = new DOMParser();
-              const htmlDoc = parser.parseFromString(html, "text/html");
-              const note = htmlDoc.getElementById(id);
-              if (note !== null) {
-                const html = processXRef(id, note);
-                instance.setContent(html);
-              } 
-            }).finally(() => {
-              instance.enable();
-              instance.show();
-            });
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
           }
         } else {
-          // See if we can fetch a full url (with no hash to target)
-          // This is a special case and we should probably do some content thinning / targeting
-          fetch(url)
+          // See if we can fetch this
+          fetch(url.split('#')[0])
           .then(res => res.text())
           .then(html => {
             const parser = new DOMParser();
             const htmlDoc = parser.parseFromString(html, "text/html");
-            const note = htmlDoc.querySelector('main.content');
+            const note = htmlDoc.getElementById(id);
             if (note !== null) {
-              // This should only happen for chapter cross references
-              // (since there is no id in the URL)
-              // remove the first header
-              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
-                note.children[0].remove();
-              }
-              const html = processXRef(null, note);
+              const html = processXRef(id, note);
               instance.setContent(html);
             } 
           }).finally(() => {
@@ -751,161 +713,185 @@ Woodbury, M. A. (1950). <em>Inverting modified matrices</em> (p. 4). Princeton U
             instance.show();
           });
         }
-      }, function(instance) {
-      });
-    }
-        let selectedAnnoteEl;
-        const selectorForAnnotation = ( cell, annotation) => {
-          let cellAttr = 'data-code-cell="' + cell + '"';
-          let lineAttr = 'data-code-annotation="' +  annotation + '"';
-          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
-          return selector;
-        }
-        const selectCodeLines = (annoteEl) => {
-          const doc = window.document;
-          const targetCell = annoteEl.getAttribute("data-target-cell");
-          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
-          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
-          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
-          const lineIds = lines.map((line) => {
-            return targetCell + "-" + line;
-          })
-          let top = null;
-          let height = null;
-          let parent = null;
-          if (lineIds.length > 0) {
-              //compute the position of the single el (top and bottom and make a div)
-              const el = window.document.getElementById(lineIds[0]);
-              top = el.offsetTop;
-              height = el.offsetHeight;
-              parent = el.parentElement.parentElement;
-            if (lineIds.length > 1) {
-              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
-              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
-              height = bottom - top;
-            }
-            if (top !== null && height !== null && parent !== null) {
-              // cook up a div (if necessary) and position it 
-              let div = window.document.getElementById("code-annotation-line-highlight");
-              if (div === null) {
-                div = window.document.createElement("div");
-                div.setAttribute("id", "code-annotation-line-highlight");
-                div.style.position = 'absolute';
-                parent.appendChild(div);
-              }
-              div.style.top = top - 2 + "px";
-              div.style.height = height + 4 + "px";
-              div.style.left = 0;
-              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
-              if (gutterDiv === null) {
-                gutterDiv = window.document.createElement("div");
-                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
-                gutterDiv.style.position = 'absolute';
-                const codeCell = window.document.getElementById(targetCell);
-                const gutter = codeCell.querySelector('.code-annotation-gutter');
-                gutter.appendChild(gutterDiv);
-              }
-              gutterDiv.style.top = top - 2 + "px";
-              gutterDiv.style.height = height + 4 + "px";
-            }
-            selectedAnnoteEl = annoteEl;
-          }
-        };
-        const unselectCodeLines = () => {
-          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
-          elementsIds.forEach((elId) => {
-            const div = window.document.getElementById(elId);
-            if (div) {
-              div.remove();
-            }
-          });
-          selectedAnnoteEl = undefined;
-        };
-          // Handle positioning of the toggle
-      window.addEventListener(
-        "resize",
-        throttle(() => {
-          elRect = undefined;
-          if (selectedAnnoteEl) {
-            selectCodeLines(selectedAnnoteEl);
-          }
-        }, 10)
-      );
-      function throttle(fn, ms) {
-      let throttle = false;
-      let timer;
-        return (...args) => {
-          if(!throttle) { // first call gets through
-              fn.apply(this, args);
-              throttle = true;
-          } else { // all the others get throttled
-              if(timer) clearTimeout(timer); // cancel #2
-              timer = setTimeout(() => {
-                fn.apply(this, args);
-                timer = throttle = false;
-              }, ms);
-          }
-        };
-      }
-        // Attach click handler to the DT
-        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
-        for (const annoteDlNode of annoteDls) {
-          annoteDlNode.addEventListener('click', (event) => {
-            const clickedEl = event.target;
-            if (clickedEl !== selectedAnnoteEl) {
-              unselectCodeLines();
-              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
-              if (activeEl) {
-                activeEl.classList.remove('code-annotation-active');
-              }
-              selectCodeLines(clickedEl);
-              clickedEl.classList.add('code-annotation-active');
-            } else {
-              // Unselect the line
-              unselectCodeLines();
-              clickedEl.classList.remove('code-annotation-active');
-            }
-          });
-        }
-    const findCites = (el) => {
-      const parentEl = el.parentElement;
-      if (parentEl) {
-        const cites = parentEl.dataset.cites;
-        if (cites) {
-          return {
-            el,
-            cites: cites.split(' ')
-          };
-        } else {
-          return findCites(el.parentElement)
-        }
       } else {
-        return undefined;
-      }
-    };
-    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
-    for (var i=0; i<bibliorefs.length; i++) {
-      const ref = bibliorefs[i];
-      const citeInfo = findCites(ref);
-      if (citeInfo) {
-        tippyHover(citeInfo.el, function() {
-          var popup = window.document.createElement('div');
-          citeInfo.cites.forEach(function(cite) {
-            var citeDiv = window.document.createElement('div');
-            citeDiv.classList.add('hanging-indent');
-            citeDiv.classList.add('csl-entry');
-            var biblioDiv = window.document.getElementById('ref-' + cite);
-            if (biblioDiv) {
-              citeDiv.innerHTML = biblioDiv.innerHTML;
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
             }
-            popup.appendChild(citeDiv);
-          });
-          return popup.innerHTML;
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
         });
       }
+    }, function(instance) {
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            div.style.left = 0;
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
     }
-  });
-  </script>
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
 </div> <!-- /content -->
 
 
