@@ -16,10 +16,10 @@ $$
 
 where:
 
-- $\mathbf{\Sigma_a}$ is the left-hand factor, *i.e.* the covariance *across
-the components* of the effect
+- $\mathbf{\Sigma_a}$ is the left-hand factor, *i.e.* the covariance across
+the components of the effect
 
-- $\mathbf{K_a}$ is the right-hand factor, *i.e.* the covariance *across its levels*.
+- $\mathbf{K_a}$ is the right-hand factor, *i.e.* the covariance across its levels.
 
 The two factors are set independently, through `left_hand` and `right_hand`.
 
