@@ -29,7 +29,7 @@ The two factors are set independently, through `left_hand` and `right_hand`.
 (response, formula element) pair: with $k$ responses and
 $c$ columns produced by the effect's [patsy](https://pypi.org/project/patsy/)
 `formula`, $\mathbf{\Sigma_a}$ is $(k\,c) \times (k\,c)$.
-How multiple responses are handled is covered in the [multivariate](multivariate.qmd).
+How multiple responses are handled is covered in [multivariate](multivariate.qmd).
 How the `formula` carries a regression or random factors is
 covered in [random regression and factors](random_regression.qmd).
 
