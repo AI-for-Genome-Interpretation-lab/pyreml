@@ -38,12 +38,19 @@ class OptiMix():
 
         (
             loss,
-            self.logdet_V,
-            self.quad,
-            self.k_reml,
-            self.const,
-            self.L
+            logdet_V,
+            quad,
+            k_reml,
+            const,
+            L
         ) = self.compute_loss(return_everything = True)
+
+        # detach: these feed the tolerance computation only, never the graph
+        self.logdet_V = float(logdet_V)
+        self.quad     = float(quad)
+        self.k_reml   = float(k_reml)
+        self.const    = float(const)
+        self.L        = L.detach()
 
         self.loglik = loss.item()
 
@@ -87,13 +94,13 @@ class OptiMix():
         self.snap = [p.detach().clone() for p in self.params]
 
         try:
-            self.LBFGS.step(self.closure)
-            current = self.loglik
+            loss = self.LBFGS.step(self.closure)
+            current = loss.item()
             self.loss.append(current)
             self.set_adam()
             self.adam_step = 0
 
-            if abs(current - self.previous) < self.tolerance():
+            if abs(current - self.previous) < self.tolerance(current):
                 self.converged = True
 
         except RuntimeError:
@@ -104,13 +111,14 @@ class OptiMix():
             self.set_lbfgs()
             self.adam_step += 1
             self.adam_total += 1
-            self.closure()
+            loss = self.closure()
+            current = loss.item()
             self.Adam.step()
-            self.loss.append(self.loglik)
+            self.loss.append(current)
 
-        self.previous = self.loglik
+        self.previous = current
 
-    def tolerance(self):
+    def tolerance(self, loglik):
         """
         Adaptive relative tolerance on -2logL, sized on the number of significant
         digits that survive the numerical evaluation of the likelihood.
@@ -135,7 +143,7 @@ class OptiMix():
         # cancellation: each addend carries an absolute error |t|*eps and those
         # add up, inflating the relative error of the sum by sum|t| / |sum t|.
         # Exact, and >= 0 by the triangle inequality.
-        cancellation = np.log10(sum(abs(t) for t in terms) / abs(self.loglik))
+        cancellation = np.log10(sum(abs(t) for t in terms) / abs(loglik))
 
         # roundoff accumulated over ~m^3/3 flops. Random-walk growth sqrt(m),
         # not Wilkinson's worst case m (aligned signs, pessimistic by 1-2 orders).
@@ -160,5 +168,5 @@ class OptiMix():
         )
 
         # scaled on the current loglik only: an early outlier must not widen it
-        self.tol = abs(self.loglik) * 10.0 ** -retained
+        self.tol = abs(loglik) * 10.0 ** -retained
         return self.tol
