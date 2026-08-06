@@ -6,7 +6,9 @@ title: "Training models"
 Maximum Likelihood (REML) using [PyTorch](https://pytorch.org/) for variance parameter estimation.
 It benefits from PyTorch parallelization and GPU acceleration.
 
-## The `fit` method
+## Fitting process
+
+### The `fit` method
 
 Once a [pyreml]{.pyreml} model is specified, it can be trained with the `.fit()` method.
 
@@ -24,6 +26,8 @@ This runs the full pipeline, calling this series of methods:
 
 REML and HMME are engaged whenever the model carries random effects, a residual variance structure,
 or several responses; otherwise the fitting process stops at the OLS step.
+
+### Numerical resolution
 
 The `fit` method takes a `dtype` argument:
 
@@ -55,6 +59,8 @@ This initialization is always performed by `.fit()` and is strongly recommended
 for lower level uses of [pyreml]{.pyreml}.
 
 ## REML
+
+### REML loss
 
 The per-effect blocks $\mathbf{G_a} = \mathbf{\Sigma_a} \otimes \mathbf{K_a}$
 (see [Variance structures](variance_structures.qmd)) are assembled into the full
@@ -89,10 +95,46 @@ $$
 + (n - p) \log(2\pi).
 $$
 
+### Optimization
+
 The objective is differentiated by automatic differentiation and optimized with
-L-BFGS under a strong-Wolfe line search, with Adam as a fallback for steps
+L-BFGS [@liu_limited_1989] under a strong-Wolfe line search, with Adam [@kingma_adam_2017] as a fallback for steps
 the line search cannot complete.
 The variance parameters and $\mathbf{\beta}$ are optimized jointly.
+
+### Convergence criterion
+
+Convergence is declared when two successive evaluations of $-2\ell_{\text{REML}}$
+agree to within a tolerance $\tau$. The tolerance is expressed as the smallest
+significant difference in likelihood with regard to the magnitude of the likelihood
+and the numerical resolution:
+
+$$
+\tau = \lvert -2\ell_{\text{REML}} \rvert \cdot 10^{-\delta_\text{tot}},
+\qquad
+\delta_\text{tot} = \min\left(\delta_{\max},\;
+  -\log_{10}(e) - \left(\delta_{c} + \delta_{r} + \delta_{\kappa}\right)
+\right),
+$$
+
+The arbitrary, conservative ceiling $\delta_{\max}$ is defined to $10$ significant digits in double precision and
+$5$ in single. On the other hand, $e$ is the machine epsilon of the working precision
+($-\log_{10}(e) \approx 15.65$ in double, $6.92$ in single) and the three positive corrections $\delta_{c}$, $\delta_{r}$ and $\delta_{\kappa}$
+may relax the ceiling further, when the discarded 
+digits are certain to be noise,
+in order to avoid running REML steps for pure noise.
+
+The restricted likelihood $-2\ell_{\text{REML}}$ is built as a sum,
+and $\delta_c$ carries the cumulation of uncertainty from its elementary components.
+Both $\delta_r$ and $\delta_\kappa$ focus on the information lost at the inversion of
+the variance $\mathbf{V}$ (or the capacitance $\mathbf{C}$ on the [SMW path](#smw)).
+$\delta_r$ accounts for the accumulation of errors as a random walk over the
+many operations of the factorisation, and $\delta_\kappa$ measures the information
+lost because of the conditioning of the matrix. Both $\delta_r$ and $\delta_\kappa$
+are proxies that understate the true uncertainty, so the tolerance is adjusted 
+to the minimal relevant threshold with no waste of information.
+
+The absolute tolerance $\tau$ is returned in the [logs](building_models.qmd#logs)
 
 ## HMME
 
