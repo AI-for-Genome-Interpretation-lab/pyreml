@@ -114,7 +114,7 @@ $$
 \qquad
 \delta_\text{tot} = \min\left(\delta_{\max},\;
   -\log_{10}(e) - \left(\delta_{c} + \delta_{r} + \delta_{\kappa}\right)
-\right),
+\right).
 $$
 
 The arbitrary, conservative ceiling $\delta_{\max}$ is defined to $10$ significant digits in double precision and
@@ -134,7 +134,7 @@ lost because of the conditioning of the matrix. Both $\delta_r$ and $\delta_\kap
 are proxies that understate the true uncertainty, so the tolerance is adjusted 
 to the minimal relevant threshold with no waste of information.
 
-The absolute tolerance $\tau$ is returned in the [logs](building_models.qmd#logs)
+The absolute tolerance $\tau$ is returned in the [logs](building_models.qmd#logs).
 
 ## HMME
 
