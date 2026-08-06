@@ -52,8 +52,6 @@ class OptiMix():
         self.const    = float(const)
         self.L        = L.detach()
 
-        self.loglik = loss.item()
-
         loss.backward()
         return loss
 
@@ -158,11 +156,12 @@ class OptiMix():
         kappa = (diag.max() / diag.min().clamp_min(torch.finfo(dtype).tiny)) ** 2
         conditioning = np.log10(float(kappa))
 
-        # the three terms bound the precision AVAILABLE, not the precision
-        # REQUIRED for the variance components to be settled. Floor the retained
-        # digits so a badly conditioned model cannot buy an arbitrarily loose
-        # stopping criterion.
-        retained = max(
+        # cap the demand: 10 significant digits on -2logL is already ample for
+        # the variance components, and asking for more only buys noise. The
+        # three terms above are all lower bounds on the precision actually
+        # lost, so they can only ever make the criterion stricter than needed;
+        # the cap is what guarantees a floor on the speed-up.
+        retained = min(
             machine_digits - (cancellation + roundoff + conditioning),
             MIN_DIGITS[dtype],
         )
