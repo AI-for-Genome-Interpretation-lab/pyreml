@@ -127,13 +127,12 @@ dataset grows, and eventually more than the computer can hold. Counting
 significant digits instead of raw units keeps the criterion independent of the
 size of the study. The budget starts from the machine epsilon $e$ of the working
 precision ($\delta_e = -\log_{10}(e) \approx 15.65$ in `float64`
- and $\approx 6.92$ in `float32`), capped by
-the conservative ceiling $\delta_{\max} = 10$  significant digits.
-The three positive corrections $\delta_{c}$,
+and $\approx 6.92$ in `float32`). The three positive corrections $\delta_{c}$,
 $\delta_{r}$ and $\delta_{\kappa}$ are subtracted from it: each one counts
 digits that are certain to be noise, and dropping them leaves a coarser
 tolerance, so that no REML step is spent refining a decimal that carries no
-information.
+information. Finally, the total number of digits is capped by
+the conservative ceiling $\delta_{\max} = 10$.
 
 The restricted likelihood is built as a sum, and $\delta_c$ carries the
 cumulated uncertainty of its elementary components. Both $\delta_r$ and
@@ -141,9 +140,9 @@ $\delta_\kappa$ focus on the information lost at the inversion of the variance
 $\mathbf{V}$ (or the capacitance $\mathbf{C}$ on the [SMW path](#smw)):
 $\delta_r$ accounts for the accumulation of errors as a random walk over the
 many operations of the factorisation, and $\delta_\kappa$ measures the
-information lost because of the conditioning of the matrix. All three understate
-the true uncertainty, so the criterion can only ever be stricter than necessary,
-never looser.
+information lost because of the conditioning of the matrix. Each correction is
+a conservative proxy for the mechanism it stands for, and $\delta_\text{tot}$
+is an estimate of the surviving resolution.
 
 The digit budget is relative, but what makes a likelihood difference meaningful
 is absolute: two models separated by $\Delta$[AIC](#akaike-information-criterion) $= 2$ are considered
