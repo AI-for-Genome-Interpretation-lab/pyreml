@@ -297,7 +297,7 @@ As an illustration, the last iterations of an example model REML convergence:
 
 ```py
 import matplotlib.pyplot as plt
-plt.plot(model.opti_REML.loss[-15:])
+plt.plot(model.opti_REML.loss)
 plt.title("-2LogLik (REML)")
 plt.show()
 ```

@@ -245,7 +245,10 @@ class MixedModel:
                 return str(v)
             if "time" in key and isinstance(v, (int, float)):
                 return f"{float(v):.2f}"
-            if "loss" in key and isinstance(v, (int, float)):
+            if key.startswith("digits") and isinstance(v, (int, float)):
+                return f"{float(v):.2f}"
+            if ("logLik" in key or "loss" in key or "absolute" in key) \
+                    and isinstance(v, (int, float)):
                 return f"{float(v):.10f}"
             if isinstance(v, float):
                 return f"{v:.6g}"
@@ -253,7 +256,12 @@ class MixedModel:
                 return ""
             return str(v)
 
-        # ---- blocs (titre, [(clé, valeur), ...]) ----
+        # only the likelihood scale is aligned: the absolute tolerance must be
+        # readable against the -2logLik it is compared to
+        def aligned(key):
+            return "logLik" in key or "loss" in key or "absolute" in key
+
+        # ---- blocks (title, [(key, value), ...]) ----
         blocks = []
 
         # platform
@@ -283,11 +291,18 @@ class MixedModel:
                   if k not in ("step", "dtype")]
             blocks.append((title, kv))
 
-        # ---- largeurs ----
+        # ---- widths ----
         w_k = max(len(k) for _, kv in blocks for k, _ in kv)
+
+        # integer-part width of the likelihood scale
+        w_int = max(
+            (len(v.split(".")[0]) for _, kv in blocks for k, v in kv if aligned(k)),
+            default=0,
+        )
+
         rule = "-" * 60
 
-        # ---- timestamp collé à gauche ----
+        # ---- timestamp ----
         t0 = head.get("t0")
         stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t0)) if t0 else ""
         print(stamp)
@@ -296,6 +311,8 @@ class MixedModel:
         for title, kv in blocks:
             print("  " + title)
             for k, v in kv:
+                if aligned(k):
+                    v = v.rjust(w_int + len(v) - len(v.split(".")[0]))
                 print("    " + k.ljust(w_k) + "  " + v)
             print(rule)
 
@@ -357,15 +374,16 @@ class MixedModel:
                     "dtype": "float",
                     "time": t2 - t1,
                     "convergence": self.opti_REML.converged,
-                    "digits tolerance total": self.opti_REML.digits_tolerance_total,
+                    "REML -2logLik": self.opti_REML.loss[-1],
+                    "absolute tolerance": self.opti_REML.absolute_tolerance,
                     "degenerate": self.opti_REML.degenerate,
+                    "digits tolerance total": self.opti_REML.digits_tolerance_total,
                     "digits machine": self.opti_REML.digits_machine,
                     "digits cancellation": self.opti_REML.digits_cancellation,
                     "digits roundoff": self.opti_REML.digits_roundoff,
                     "digits conditionning": self.opti_REML.digits_conditionning,
                     "n steps total": len(self.opti_REML.loss),
                     "n steps adam": self.opti_REML.adam_total,
-                    "REML loss": self.opti_REML.loss[-1],
                 })
 
                 self.migrate(torch.double)
@@ -376,15 +394,16 @@ class MixedModel:
                     "dtype": "double",
                     "time": t3 - t2,
                     "convergence": self.opti_REML.converged,
-                    "digits tolerance total": self.opti_REML.digits_tolerance_total,
+                    "REML -2logLik": self.opti_REML.loss[-1],
+                    "absolute tolerance": self.opti_REML.absolute_tolerance,
                     "degenerate": self.opti_REML.degenerate,
+                    "digits tolerance total": self.opti_REML.digits_tolerance_total,
                     "digits machine": self.opti_REML.digits_machine,
                     "digits cancellation": self.opti_REML.digits_cancellation,
                     "digits roundoff": self.opti_REML.digits_roundoff,
                     "digits conditionning": self.opti_REML.digits_conditionning,
                     "n steps total": len(self.opti_REML.loss),
                     "n steps adam": self.opti_REML.adam_total,
-                    "REML loss": self.opti_REML.loss[-1],
                 })
                 
                 self.HMME()
@@ -412,15 +431,16 @@ class MixedModel:
                     "dtype": dtype,
                     "time": t2 - t1,
                     "convergence": self.opti_REML.converged,
-                    "digits tolerance total": self.opti_REML.digits_tolerance_total,
+                    "REML -2logLik": self.opti_REML.loss[-1],
+                    "absolute tolerance": self.opti_REML.absolute_tolerance,
                     "degenerate": self.opti_REML.degenerate,
+                    "digits tolerance total": self.opti_REML.digits_tolerance_total,
                     "digits machine": self.opti_REML.digits_machine,
                     "digits cancellation": self.opti_REML.digits_cancellation,
                     "digits roundoff": self.opti_REML.digits_roundoff,
                     "digits conditionning": self.opti_REML.digits_conditionning,
                     "n steps total": len(self.opti_REML.loss),
                     "n steps adam": self.opti_REML.adam_total,
-                    "REML loss": self.opti_REML.loss[-1],
                 })
                 
                 self.HMME()

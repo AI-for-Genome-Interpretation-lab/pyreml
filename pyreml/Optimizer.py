@@ -4,7 +4,7 @@ from typing import Callable
 import numpy as np
 
 MAX_DIGITS = {torch.float64: 10.0, torch.float32: 5.0}
-MAX_ABS_TOL = 0.1 # 5% for a difference of 2 points of -2loglik
+MAX_ABS_TOL = 0.02 # 1/100 for a difference of 2 points of -2loglik
 
 class OptiMix():
     """
@@ -119,6 +119,8 @@ class OptiMix():
                 absolute_tol = MAX_ABS_TOL
             else:
                 self.degenerate = False
+
+            self.absolute_tolerance = absolute_tol
             
             if abs(current - self.previous) < absolute_tol:
                 self.converged = True
