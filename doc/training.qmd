@@ -6,7 +6,9 @@ title: "Training models"
 Maximum Likelihood (REML) using [PyTorch](https://pytorch.org/) for variance parameter estimation.
 It benefits from PyTorch parallelization and GPU acceleration.
 
-## The `fit` method
+## Fitting process
+
+### The `fit` method
 
 Once a [pyreml]{.pyreml} model is specified, it can be trained with the `.fit()` method.
 
@@ -24,6 +26,8 @@ This runs the full pipeline, calling this series of methods:
 
 REML and HMME are engaged whenever the model carries random effects, a residual variance structure,
 or several responses; otherwise the fitting process stops at the OLS step.
+
+### Numerical resolution
 
 The `fit` method takes a `dtype` argument:
 
@@ -55,6 +59,8 @@ This initialization is always performed by `.fit()` and is strongly recommended
 for lower level uses of [pyreml]{.pyreml}.
 
 ## REML
+
+### REML loss
 
 The per-effect blocks $\mathbf{G_a} = \mathbf{\Sigma_a} \otimes \mathbf{K_a}$
 (see [Variance structures](variance_structures.qmd)) are assembled into the full
@@ -89,10 +95,67 @@ $$
 + (n - p) \log(2\pi).
 $$
 
+### Optimization
+
 The objective is differentiated by automatic differentiation and optimized with
-L-BFGS under a strong-Wolfe line search, with Adam as a fallback for steps
+L-BFGS [@liu_limited_1989] under a strong-Wolfe line search, with Adam [@kingma_adam_2017] as a fallback for steps
 the line search cannot complete.
 The variance parameters and $\mathbf{\beta}$ are optimized jointly.
+
+### Convergence criterion
+
+Convergence is declared when two successive evaluations of $-2\ell_{\text{REML}}$
+agree to within a tolerance $\tau$. The tolerance is the smallest difference in
+likelihood that remains meaningful, given both the numerical resolution of the
+evaluation and the scale on which likelihoods are compared:
+
+$$
+\tau = \min\left(
+  \tau_{\max},\;
+  \lvert -2\ell_{\text{REML}} \rvert \cdot 10^{-\delta_\text{tot}}
+\right),
+\qquad
+\delta_\text{tot} = \min\left(\delta_{\max},\;
+  \delta_e - \left(\delta_{c} + \delta_{r} + \delta_{\kappa}\right)
+\right).
+$$
+
+The restricted likelihood grows with the number of observations: the same
+dataset measured twice as often returns a value roughly twice as large. A fixed
+absolute threshold would therefore demand ever more significant digits as the
+dataset grows, and eventually more than the computer can hold. Counting
+significant digits instead of raw units keeps the criterion independent of the
+size of the study. The budget starts from the machine epsilon $e$ of the working
+precision ($\delta_e = -\log_{10}(e) \approx 15.65$ in `float64`
+and $\approx 6.92$ in `float32`). The three positive corrections $\delta_{c}$,
+$\delta_{r}$ and $\delta_{\kappa}$ are subtracted from it: each one counts
+digits that are certain to be noise, and dropping them leaves a coarser
+tolerance, so that no REML step is spent refining a decimal that carries no
+information. Finally, the total number of digits is capped by
+the conservative ceiling $\delta_{\max} = 10$.
+
+The restricted likelihood is built as a sum, and $\delta_c$ carries the
+cumulated uncertainty of its elementary components. Both $\delta_r$ and
+$\delta_\kappa$ focus on the information lost at the inversion of the variance
+$\mathbf{V}$ (or the capacitance $\mathbf{C}$ on the [SMW path](#smw)):
+$\delta_r$ accounts for the accumulation of errors as a random walk over the
+many operations of the factorisation, and $\delta_\kappa$ measures the
+information lost because of the conditioning of the matrix. Each correction is
+a conservative proxy for the mechanism it stands for, and $\delta_\text{tot}$
+is an estimate of the surviving resolution.
+
+The digit budget is relative, but what makes a likelihood difference meaningful
+is absolute: two models separated by $\Delta$[AIC](#akaike-information-criterion) $= 2$ are considered
+distinguishable. The floor $\tau_{\max} = 0.02$, one hundredth
+of that scale, keeps the tolerance well below it. When the digit budget alone
+would push $\tau$ past $\tau_{\max}$, the likelihood no longer resolves a
+meaningful difference: the model is reported as degenerate, the tolerance is
+clamped to $\tau_{\max}$, and convergence is denied. The returned parameters are
+then a stopping point rather than an estimate.
+
+The tolerance $\tau$ and the digit budget $\delta_\text{tot}$, $\delta_e$,
+ $\delta_{c}$, $\delta_{r}$ and $\delta_{\kappa}$ are returned in the
+[logs](building_models.qmd#logs), where degenerate cases can be diagnosed.
 
 ## HMME
 
@@ -255,7 +318,7 @@ As an illustration, the last iterations of an example model REML convergence:
 
 ```py
 import matplotlib.pyplot as plt
-plt.plot(model.opti_REML.loss[-15:])
+plt.plot(model.opti_REML.loss)
 plt.title("-2LogLik (REML)")
 plt.show()
 ```

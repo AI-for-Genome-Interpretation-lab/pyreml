@@ -80,28 +80,11 @@ from pyreml import (
 df = df.copy()
 df["year"] = df["year"] - df["year"].min()
 
-# compute kinship
-ped = prepare_pedigree(df[[
-    "ID",
-    "DAM",
-    "SIRE"
-]])
-K = A_pedigree(ped)
-
-# fit the model
 mod = MixedModel.from_dataframe(
     data     = df,
     response = "height",
     fixed    = "1 + year",
     random   = [
-        Random(
-            unit         = "ID",
-            formula      = "1 + year",
-            left_hand    = "full",
-            right_hand   = "str",
-            covariance   = K,
-            matrix_index = ped["id"].tolist(),
-        ),
         Random(
             unit         = "ID",
             formula      = "1 + year",
@@ -150,7 +133,7 @@ ax.plot(
     lw    = 1,
     label = "Population mean"
 )
-plt.title("Genetic growth curves")
+plt.title("Individual growth curves")
 ax.set_xlabel("year"); ax.set_ylabel("height")
 ax.legend()
 plt.show()
@@ -161,14 +144,11 @@ def cov2cor(cov):
     print(cov / np.outer(std, std))
 
 cov2cor(mod.random[0].variance["sigma"])
-cov2cor(mod.random[1].variance["sigma"])
 ```
 :::
 
 Each individual ends up with specific random parameters for a regression.
 Note that the residual variance was choose as year-specific, year being treated
-as a factor (`C(year)`) in the heteroscedasticity specification. Also, permanent
-environment (random regression with an `iid` right-hand term) is required to capture
-individual non-genetic variation.
+as a factor (`C(year)`) in the heteroscedasticity specification.
 
 ![](img/rr.png){fig-align="center"}
