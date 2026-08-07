@@ -47,9 +47,9 @@ class OptiMix():
         ) = self.compute_loss(return_everything = True)
 
         # detach: these feed the tolerance computation only, never the graph
-        self.logdet_V = float(logdet_V)
-        self.quad     = float(quad)
-        self.k_reml   = float(k_reml)
+        self.logdet_V = float(logdet_V.detach())
+        self.quad     = float(quad.detach())
+        self.k_reml   = float(k_reml.detach())
         self.const    = float(const)
         self.L        = L.detach()
         self._workingloss = loss.item()
