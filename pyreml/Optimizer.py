@@ -3,7 +3,7 @@ import time
 from typing import Callable
 import numpy as np
 
-MAX_DIGITS = {torch.float64: 10.0, torch.float32: 5.0}
+MAX_DIGITS = 10.0
 MAX_ABS_TOL = 0.02 # 1/100 for a difference of 2 points of -2loglik
 
 class OptiMix():
@@ -188,7 +188,7 @@ class OptiMix():
         # the cap is what guarantees a floor on the speed-up.
         retained = min(
             self.digits_machine - (self.digits_cancellation + self.digits_roundoff + self.digits_conditionning),
-            MAX_DIGITS[dtype] if max_digits is None else max_digits,
+            MAX_DIGITS if max_digits is None else max_digits,
         )
 
         # scaled on the current loglik only: an early outlier must not widen it

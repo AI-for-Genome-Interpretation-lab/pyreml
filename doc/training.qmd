@@ -126,10 +126,10 @@ absolute threshold would therefore demand ever more significant digits as the
 dataset grows, and eventually more than the computer can hold. Counting
 significant digits instead of raw units keeps the criterion independent of the
 size of the study. The budget starts from the machine epsilon $e$ of the working
-precision ($\delta_e = -\log_{10}(e) \approx 15.65$ in double precision,
-`float64`; and $\approx 6.92$ in single, `float32`), capped by
-the conservative ceiling $\delta_{\max}$ of $10$ significant digits in double
-and $5$ in single. The three positive corrections $\delta_{c}$,
+precision ($\delta_e = -\log_{10}(e) \approx 15.65$ in `float64`
+ and $\approx 6.92$ in `float32`), capped by
+the conservative ceiling $\delta_{\max} = 10$  significant digits.
+The three positive corrections $\delta_{c}$,
 $\delta_{r}$ and $\delta_{\kappa}$ are subtracted from it: each one counts
 digits that are certain to be noise, and dropping them leaves a coarser
 tolerance, so that no REML step is spent refining a decimal that carries no
