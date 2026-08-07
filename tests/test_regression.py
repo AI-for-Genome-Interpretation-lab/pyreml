@@ -5,7 +5,14 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from pyreml import MixedModel, Random, larix as DF
+from pyreml import (
+    MixedModel,
+    Random,
+    Residual,
+    A_pedigree,
+    prepare_pedigree,
+    larix as DF,
+)
 
 DEVICE = "cpu"
 DTYPE = "mixed"
@@ -55,6 +62,80 @@ def mod_lmm(df, request):
         SMW=request.param,
         device = DEVICE,
     ).fit(DTYPE, verbose  = False)
+
+@pytest.fixture
+def df_longitudinal():
+    """Full longitudinal Larix data, year shifted to a zero origin."""
+    df = DF.copy()
+    df["year"] = df["year"] - df["year"].min()
+    return df
+
+
+@pytest.fixture
+def mod_degenerate(df_longitudinal):
+    """
+    Over-parameterised random regression: the same unit carries a
+    kinship-structured and an iid 1 + year term, on top of a year-heterogeneous
+    residual. The slope variance is split across competing structures, the
+    capacitance matrix becomes ill-conditioned, and the likelihood no longer
+    resolves a meaningful difference.
+    """
+    ped = prepare_pedigree(df_longitudinal[["ID", "DAM", "SIRE"]])
+    K = A_pedigree(ped)
+
+    return MixedModel.from_dataframe(
+        data=df_longitudinal,
+        response="height",
+        fixed="1 + year",
+        random=[
+            Random(
+                unit="ID",
+                formula="1 + year",
+                left_hand="full",
+                right_hand="str",
+                covariance=K,
+                matrix_index=ped["id"].tolist(),
+            ),
+            Random(
+                unit="ID",
+                formula="1 + year",
+                left_hand="full",
+                right_hand="iid",
+            ),
+        ],
+        residual=Residual(
+            left_hand="iid",
+            right_hand="het",
+            het_formula="C(year)",
+        ),
+        device=DEVICE,
+    ).fit(DTYPE, verbose=False)
+
+
+@pytest.fixture
+def mod_permanent(df_longitudinal):
+    """
+    Same random regression, permanent environment only. Dropping the
+    kinship-structured term removes the competition on the slope variance and
+    leaves the likelihood well resolved.
+    """
+    return MixedModel.from_dataframe(
+        data=df_longitudinal,
+        response="height",
+        fixed="1 + year",
+        random=Random(
+            unit="ID",
+            formula="1 + year",
+            left_hand="full",
+            right_hand="iid",
+        ),
+        residual=Residual(
+            left_hand="iid",
+            right_hand="het",
+            het_formula="C(year)",
+        ),
+        device=DEVICE,
+    ).fit(DTYPE, verbose=False)
 
 class TestOLS:
 
@@ -155,3 +236,20 @@ class TestLMM:
         expected = EXPECTED_RANDOM_REG["aic"]
         actual = float(mod_lmm.AIC)
         np.testing.assert_allclose(actual, expected, atol=1e-10)
+
+class TestGeneticAndPermanentEnvironment:
+
+    def test_degenerate_flag(self, mod_degenerate):
+        assert mod_degenerate.opti_REML.degenerate is True
+
+    def test_not_converged(self, mod_degenerate):
+        assert mod_degenerate.opti_REML.converged is False
+
+
+class TestPermanentEnvironment:
+
+    def test_not_degenerate(self, mod_permanent):
+        assert mod_permanent.opti_REML.degenerate is False
+
+    def test_converged(self, mod_permanent):
+        assert mod_permanent.opti_REML.converged is True
