@@ -3,7 +3,7 @@ import time
 from typing import Callable
 import numpy as np
 
-MIN_DIGITS = {torch.float64: 10.0, torch.float32: 5.0}
+MAX_DIGITS = {torch.float64: 10.0, torch.float32: 5.0}
 
 class OptiMix():
     """
@@ -51,6 +51,7 @@ class OptiMix():
         self.k_reml   = float(k_reml)
         self.const    = float(const)
         self.L        = L.detach()
+        self._workingloss = loss.item()
 
         loss.backward()
         return loss
@@ -58,17 +59,25 @@ class OptiMix():
     def run(
         self,
         n_epoch: int = 10_000,
+        max_digits = None,
     ):
         self.loss = []
         self.converged = False
+        self.degenerate = False
         self.previous = torch.inf
-        self.tol      = torch.inf
+        self.digits_tolerance_total = torch.inf
+        self.digits_machine         = torch.inf
+        self.digits_cancellation    = torch.inf
+        self.digits_roundoff        = torch.inf
+        self.digits_conditionning   = torch.inf
 
         self.start = time.time()
 
         for _ in range(n_epoch):
-            self.step()
+            self.step(max_digits=max_digits)
             if self.converged:
+                if self.degenerate:
+                    self.converged = False
                 break
 
         self.duration = time.time() - self.start
@@ -88,7 +97,7 @@ class OptiMix():
             line_search_fn = self.lbfgs_line_search_fn,
         )
 
-    def step(self):
+    def step(self, max_digits = None):
         self.snap = [p.detach().clone() for p in self.params]
 
         try:
@@ -98,7 +107,18 @@ class OptiMix():
             self.set_adam()
             self.adam_step = 0
 
-            if abs(current - self.previous) < self.tolerance(current):
+            tol = self.tolerance(max_digits)
+
+            # degenerate case: back to the hard-coded absolute threshold
+            # => maybe it's a hard beginning, maybe it's degenerate and we
+            # seek stagnation
+            if tol < 3:
+                self.degenerate = True
+                tol = MAX_DIGITS[self.L.dtype] if max_digits is None else max_digits
+            else:
+                self.degenerate = False
+            
+            if abs(current - self.previous) < (abs(current) * 10.0 ** -tol):
                 self.converged = True
 
         except RuntimeError:
@@ -116,7 +136,7 @@ class OptiMix():
 
         self.previous = current
 
-    def tolerance(self, loglik):
+    def tolerance(self, max_digits = None):
         """
         Adaptive relative tolerance on -2logL, sized on the number of significant
         digits that survive the numerical evaluation of the likelihood.
@@ -136,16 +156,17 @@ class OptiMix():
         dtype = self.L.dtype
 
         # hard ceiling of the storage format: 15.65 (f64) / 6.92 (f32)
-        machine_digits = -np.log10(torch.finfo(dtype).eps)
+        self.digits_machine = -np.log10(torch.finfo(dtype).eps)
 
         # cancellation: each addend carries an absolute error |t|*eps and those
         # add up, inflating the relative error of the sum by sum|t| / |sum t|.
         # Exact, and >= 0 by the triangle inequality.
-        cancellation = np.log10(sum(abs(t) for t in terms) / abs(loglik))
+        cancellation = sum(abs(t) for t in terms) / abs(self._workingloss)
+        self.digits_cancellation = np.log10(cancellation)
 
         # roundoff accumulated over ~m^3/3 flops. Random-walk growth sqrt(m),
         # not Wilkinson's worst case m (aligned signs, pessimistic by 1-2 orders).
-        roundoff = 0.5 * np.log10(self.L.shape[0])
+        self.digits_roundoff = np.log10(np.sqrt(self.L.shape[0]))
 
         # conditioning: forward error ~ growth * kappa * eps. Dominates when a
         # variance component drifts to zero. kappa_2(M) = kappa_2(L)**2,
@@ -154,7 +175,7 @@ class OptiMix():
         # dominate -> understates, never overstates.
         diag = torch.diagonal(self.L).abs()
         kappa = (diag.max() / diag.min().clamp_min(torch.finfo(dtype).tiny)) ** 2
-        conditioning = np.log10(float(kappa))
+        self.digits_conditionning = np.log10(float(kappa))
 
         # cap the demand: 10 significant digits on -2logL is already ample for
         # the variance components, and asking for more only buys noise. The
@@ -162,10 +183,10 @@ class OptiMix():
         # lost, so they can only ever make the criterion stricter than needed;
         # the cap is what guarantees a floor on the speed-up.
         retained = min(
-            machine_digits - (cancellation + roundoff + conditioning),
-            MIN_DIGITS[dtype],
+            self.digits_machine - (self.digits_cancellation + self.digits_roundoff + self.digits_conditionning),
+            MAX_DIGITS[dtype] if max_digits is None else max_digits,
         )
 
         # scaled on the current loglik only: an early outlier must not widen it
-        self.tol = abs(loglik) * 10.0 ** -retained
-        return self.tol
+        self.digits_tolerance_total = retained
+        return self.digits_tolerance_total
