@@ -4,6 +4,7 @@ from typing import Callable
 import numpy as np
 
 MAX_DIGITS = {torch.float64: 10.0, torch.float32: 5.0}
+MAX_ABS_TOL = 0.1 # 5% for a difference of 2 points of -2loglik
 
 class OptiMix():
     """
@@ -107,18 +108,19 @@ class OptiMix():
             self.set_adam()
             self.adam_step = 0
 
-            tol = self.tolerance(max_digits)
+            relative_tol = self.tolerance(max_digits)
+            absolute_tol = abs(current) * 10.0 ** -relative_tol
 
             # degenerate case: back to the hard-coded absolute threshold
             # => maybe it's a hard beginning, maybe it's degenerate and we
             # seek stagnation
-            if tol < 3:
+            if absolute_tol > MAX_ABS_TOL:
                 self.degenerate = True
-                tol = MAX_DIGITS[self.L.dtype] if max_digits is None else max_digits
+                absolute_tol = MAX_ABS_TOL
             else:
                 self.degenerate = False
             
-            if abs(current - self.previous) < (abs(current) * 10.0 ** -tol):
+            if abs(current - self.previous) < absolute_tol:
                 self.converged = True
 
         except RuntimeError:
