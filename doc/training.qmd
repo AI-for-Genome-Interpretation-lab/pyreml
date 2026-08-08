@@ -105,9 +105,9 @@ The variance parameters and $\mathbf{\beta}$ are optimized jointly.
 ### Convergence criterion
 
 Convergence is declared when two successive evaluations of $-2\ell_{\text{REML}}$
-agree to within a tolerance $\tau$. The tolerance is the smallest difference in
-likelihood that remains meaningful, given both the numerical resolution of the
-evaluation and the scale on which likelihoods are compared:
+agree to within a tolerance $\tau$, the smallest difference in likelihood that
+remains meaningful given both the numerical resolution of the evaluation and the
+scale on which likelihoods are compared:
 
 $$
 \tau = \min\left(
@@ -124,37 +124,31 @@ The restricted likelihood grows with the number of observations: the same
 dataset measured twice as often returns a value roughly twice as large. A fixed
 absolute threshold would therefore demand ever more significant digits as the
 dataset grows, and eventually more than the computer can hold. Counting
-significant digits instead of raw units keeps the criterion independent of the
-size of the study. The budget starts from the machine epsilon $e$ of the working
-precision ($\delta_e = -\log_{10}(e) \approx 15.65$ in `float64`
-and $\approx 6.92$ in `float32`). The three positive corrections $\delta_{c}$,
-$\delta_{r}$ and $\delta_{\kappa}$ are subtracted from it: each one counts
-digits that are certain to be noise, and dropping them leaves a coarser
-tolerance, so that no REML step is spent refining a decimal that carries no
-information. Finally, the total number of digits is capped by
-the conservative ceiling $\delta_{\max} = 10$.
-
-The restricted likelihood is built as a sum, and $\delta_c$ carries the
-cumulated uncertainty of its elementary components. Both $\delta_r$ and
-$\delta_\kappa$ focus on the information lost at the inversion of the variance
-$\mathbf{V}$ (or the capacitance $\mathbf{C}$ on the [SMW path](#smw)):
-$\delta_r$ accounts for the accumulation of errors as a random walk over the
-many operations of the factorisation, and $\delta_\kappa$ measures the
-information lost because of the conditioning of the matrix. Each correction is
-a conservative proxy for the mechanism it stands for, and $\delta_\text{tot}$
-is an estimate of the surviving resolution.
+significant digits keeps that demand constant. The budget starts from the
+machine epsilon $e$ of the working precision $(\delta_e = -\log_{10}(e) \approx
+15.65$ in `float64`, $\approx 6.92$ in `float32`) and is capped by the
+conservative ceiling $\delta_{\max} = 10$. The three positive corrections count
+digits that are certain to be noise: $\delta_c$ carries the cumulated
+uncertainty of the elementary components the likelihood is summed from, while
+$\delta_r$ and $\delta_\kappa$ address the inversion of the variance
+$\mathbf{V}$ (or the capacitance $\mathbf{C}$ on the [SMW](#smw) path):
+$\delta_r$ as a random walk over the many operations of the factorisation,
+$\delta_\kappa$ as the information lost to the conditioning of the matrix. They
+are amplification factors that compound, hence the sum. Each is a conservative
+proxy, and $\delta_\text{tot}$ an estimate of the surviving resolution: no REML
+step is spent refining a decimal that carries no information.
 
 The digit budget is relative, but what makes a likelihood difference meaningful
-is absolute: two models separated by $\Delta$[AIC](#akaike-information-criterion) $= 2$ are considered
-distinguishable. The floor $\tau_{\max} = 0.02$, one hundredth
-of that scale, keeps the tolerance well below it. When the digit budget alone
-would push $\tau$ past $\tau_{\max}$, the likelihood no longer resolves a
-meaningful difference: the model is reported as degenerate, the tolerance is
-clamped to $\tau_{\max}$, and convergence is denied. The returned parameters are
-then a stopping point rather than an estimate.
+is absolute: two models separated by
+$\Delta$[AIC](#akaike-information-criterion) $= 2$ are considered
+distinguishable. The ceiling $\tau_{\max} = 0.02$, one hundredth of that scale,
+keeps the tolerance well below it. When the digit budget alone would push $\tau$
+past $\tau_{\max}$, the noise floor of the evaluation has reached the scale at
+which models are told apart: the fit is reported as degenerate, the tolerance is
+clamped to $\tau_{\max}$, and convergence is denied.
 
 The tolerance $\tau$ and the digit budget $\delta_\text{tot}$, $\delta_e$,
- $\delta_{c}$, $\delta_{r}$ and $\delta_{\kappa}$ are returned in the
+$\delta_{c}$, $\delta_{r}$ and $\delta_{\kappa}$ are returned in the
 [logs](building_models.qmd#logs), where degenerate cases can be diagnosed.
 
 ## HMME
