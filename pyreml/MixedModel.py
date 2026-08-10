@@ -650,7 +650,7 @@ class MixedModel:
 
             if self._Z is not None:
                 self.uhat.data.copy_(sol[p:])
-                self.PEV = C[p:, p:]
+                PEV = C[p:, p:]
 
             # Fixed effects: labelled table if high-level, raw beta + EEV otherwise.
             self.format_fixed()
@@ -673,8 +673,10 @@ class MixedModel:
                 for rand in random:
                     size = rand.k * rand.c * rand.L
                     idx = slice(offset, offset + size)
-                    rand.format_pred(self.uhat[idx], self.PEV[idx, idx])
+                    rand.format_pred(self.uhat[idx], PEV[idx, idx])
                     offset += size
+            else:
+                self.PEV = PEV
                 
             if residual is not None:
                 residual.format_residuals(residuals, self._W)
