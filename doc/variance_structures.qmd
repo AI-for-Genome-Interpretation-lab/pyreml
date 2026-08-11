@@ -16,10 +16,10 @@ $$
 
 where:
 
-- $\mathbf{\Sigma_a}$ is the left-hand factor, *i.e.* the covariance *across
-the components* of the effect
+- $\mathbf{\Sigma_a}$ is the left-hand factor, *i.e.* the covariance across
+the components of the effect
 
-- $\mathbf{K_a}$ is the right-hand factor, *i.e.* the covariance *across its levels*.
+- $\mathbf{K_a}$ is the right-hand factor, *i.e.* the covariance across its levels.
 
 The two factors are set independently, through `left_hand` and `right_hand`.
 
@@ -29,7 +29,7 @@ The two factors are set independently, through `left_hand` and `right_hand`.
 (response, formula element) pair: with $k$ responses and
 $c$ columns produced by the effect's [patsy](https://pypi.org/project/patsy/)
 `formula`, $\mathbf{\Sigma_a}$ is $(k\,c) \times (k\,c)$.
-How multiple responses are handled is covered in the [multivariate](multivariate.qmd).
+How multiple responses are handled is covered in [multivariate](multivariate.qmd).
 How the `formula` carries a regression or random factors is
 covered in [random regression and factors](random_regression.qmd).
 
