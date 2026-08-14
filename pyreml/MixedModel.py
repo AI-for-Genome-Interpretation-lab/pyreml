@@ -231,6 +231,10 @@ class MixedModel:
         self.varmeth     = types.MethodType(varmeth, self) if varmeth is not None else None
         self.varmeth_inv = types.MethodType(varmeth_inv, self) if varmeth_inv is not None else None
 
+        # closed-form gradient of the REML loss (direct path only, models built
+        # by from_dataframe); set to False to fall back to the autograd backward
+        self.analytic_backward = True
+
         self.opti_REML = OptiMix(
             params = [self.beta, *(p["tensor"] for p in self.varparams)],
             compute_loss = self.REML_loss,
@@ -601,6 +605,13 @@ class MixedModel:
 
     def REML_loss(self, return_everything = False):
 
+        if (
+            self.analytic_backward
+            and not self.SMW
+            and getattr(self, "_V_blocks", None)
+        ):
+            return self._REML_loss_analytic(return_everything)
+
         beta = self.beta.to(self.dtype)
         r = self._y - self._X @ beta
         const    = (self.n - self.p) * math.log(2 * math.pi)
@@ -654,6 +665,105 @@ class MixedModel:
             return loss
         else:
             return loss, logdet_V, quad, k_reml, const, L
+
+    def _REML_loss_analytic(self, return_everything = False):
+        """
+        Direct-path REML loss with the closed-form gradient.
+
+        The forward pass is byte-identical to the dense REML_loss (same V, same
+        Cholesky, same three terms); it runs under no_grad because the gradient
+        never flows back through the graph: dℓ/dθ = tr(A dV/dθ) is evaluated
+        analytically in _analytic_backward, which only needs the factor L, the
+        residual r and the variance blocks (F, lev, k_obs).
+
+        The returned loss is a fresh leaf (requires_grad) so that Optimizer's
+        loss.backward() stays valid; the parameter gradients come from the ghost
+        loss. The SMW path keeps the autograd backward and is not routed here.
+        """
+        with torch.no_grad():
+            beta = self.beta.to(self.dtype)
+            r = self._y - self._X @ beta
+            const = (self.n - self.p) * math.log(2 * math.pi)
+
+            # ---- Direct: single Cholesky of V = ZGZ' + R ----
+            G, R = self.varmeth()
+
+            V = R if self._Z is None else self._Z @ G @ self._Z.T + R
+
+            L = torch.linalg.cholesky(V)
+            M  = torch.linalg.solve_triangular(L, r, upper=False)
+
+            logdet_V = 2.0 * torch.sum(torch.log(torch.diag(L)))
+            quad     = (M.T @ M).squeeze()
+            k_reml   = torch.logdet(self._X.T @ torch.cholesky_solve(self._X, L))
+
+            loss = (logdet_V + quad + k_reml + const).detach()
+
+        self._analytic_backward(L)
+
+        loss = loss.requires_grad_(True)
+
+        if not return_everything:
+            return loss
+        else:
+            return loss, logdet_V, quad, k_reml, const, L
+
+    def _analytic_backward(self, L):
+        """
+        Closed-form gradient of the REML loss along the direct path.
+
+        With r = y − Xβ and V the full (dense) covariance, the loss reads
+            ℓ = logdet V + r'V⁻¹r + logdet(X'V⁻¹X) + const,
+        whose gradient wrt a variance parameter θ is tr(A dV/dθ) with
+            A = V⁻¹ − V⁻¹rr'V⁻¹ − V⁻¹X(X'V⁻¹X)⁻¹X'V⁻¹.
+        Each block contributes V_e = (F S_e F') ⊙ K_obs_e to V, so
+            dℓ/dS_e = F'(A ⊙ K_obs_e)F,          (trainable K_e) dℓ/dK_e = (A⊙FS_eF')[lev][:,lev],
+        and the parameters of S_e / K_e receive their gradient through a ghost
+        loss <grain_S, S_full> (+ <grain_K, build_K>) whose graph is the exact
+        one built by build_S / build_K (jitter is constant and cancels). beta is
+        the only parameter not reachable from the blocks: dℓ/dβ = −2X'V⁻¹r.
+        """
+        if not torch.is_grad_enabled():
+            return
+
+        X = self._X
+        r = self._y - self._X @ self.beta.detach().to(self.dtype)
+
+        # V⁻¹ = L⁻ᵀL⁻¹. torch.cholesky_inverse is pathologically slow in CPU
+        # double (a dense inverse), so build the triangular inverse through
+        # BLAS trsm and one symmetric matmul, then get u and Wp from L⁻¹
+        # instead of two extra cholesky_solve calls.
+        I = torch.eye(L.shape[0], dtype=L.dtype, device=L.device)
+        Li = torch.linalg.solve_triangular(L, I, upper=False)
+        Vi = Li.T @ Li
+        u  = Li.T @ (Li @ r)
+        Wp = Li.T @ (Li @ X)
+        Mt = torch.linalg.inv(X.T @ Wp)
+
+        A = Vi - u @ u.T - Wp @ Mt @ Wp.T
+
+        ghost = None
+        for blk in self._V_blocks:
+            S = blk["comp"].build_S_full()
+            if blk["k_obs"] is not None:
+                K_obs = blk["k_obs"]
+            else:
+                K_obs = blk["comp"].build_K()[blk["lev"]][:, blk["lev"]]
+
+            # the grains are the partial derivatives of l wrt S_e / K_e at the
+            # current point: they must be constants (no graph), otherwise the
+            # ghost backward would add spurious cross terms (e.g. dS/dlog_S
+            # through a grain_S that depends on K_obs).
+            grain_S = blk["F"].T @ (A * K_obs.detach()) @ blk["F"]
+            ghost = (grain_S * S).sum() if ghost is None else ghost + (grain_S * S).sum()
+
+            if blk["k_obs"] is None:
+                grain_K = (A * (blk["F"] @ S.detach() @ blk["F"].T))[blk["lev"]][:, blk["lev"]]
+                ghost = ghost + (grain_K * blk["comp"].build_K()).sum()
+
+        ghost.backward()
+
+        self.beta.grad = (-2.0 * (X.T @ u)).to(self.beta.dtype)
 
     def HMME(self):
         """
