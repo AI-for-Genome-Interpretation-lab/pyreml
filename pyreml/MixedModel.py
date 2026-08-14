@@ -88,6 +88,31 @@ class MixedModel:
         random_blocks_inv = []
         varparams = []
 
+        masks_t = [torch.tensor(m, dtype=torch.bool, device=device) for m in masks]
+
+        def _V_block(M, c, L, comp):
+            # Per-effect contribution to the direct-path V:
+            #     term = (F S F') ⊙ K_obs
+            # with F (n_obs, d) the response-block-diagonal component values and
+            # K_obs = K restricted to the observed stacking. This is exact for the
+            # response-block-diagonal incidence (Z_e = block_diag over responses of
+            # M[mask]), so the (dL)² Kronecker block and the ZGZ' product are never
+            # formed. For constant-K right hands (iid, str) K_obs is frozen once;
+            # trainable-K hands gather build_K() on every call.
+            comp.migrate(torch.double)
+            M3 = torch.as_tensor(M, dtype=torch.double, device=device).reshape(len(M), c, L)
+            F = torch.block_diag(*[M3[m].sum(-1) for m in masks_t])
+            lev = M3.abs().sum(1).argmax(1)
+            lev_obs = torch.cat([lev[m] for m in masks_t])
+            if comp.right_hand in ("iid", "str"):
+                K = comp.build_K()
+                k_obs = K[lev_obs][:, lev_obs]
+            else:
+                k_obs = None
+            return {"F": F, "lev": lev_obs, "k_obs": k_obs, "comp": comp}
+
+        V_blocks = []
+
         for r in random:
             Z_base = r.design(data, response, scale=scale, device = device)
             Z_e = block_diag(*[Z_base[m] for m in masks])
@@ -96,6 +121,7 @@ class MixedModel:
             random_blocks.append(r.varmeth())
             random_blocks_inv.append(r.varmeth_inv())
             varparams.extend(r.varparams)
+            V_blocks.append(_V_block(Z_base, r.c, r.L, r))
 
         if Z_blocks:
             Z = np.hstack(Z_blocks)
@@ -105,6 +131,7 @@ class MixedModel:
         W_blocks = residual.design(data, response, scale=scale, device = device)
         W = block_diag(*[W_blocks[m] for m in masks])
         residual.check_Rtrick(W)
+        V_blocks.append(_V_block(W_blocks, residual.c, residual.L, residual))
 
         varparams.extend(residual.varparams)
 
@@ -155,6 +182,7 @@ class MixedModel:
         mm.fixed_names = fixed_names
         mm.residual = residual
         mm.random = [rand for rand in random]
+        mm._V_blocks = V_blocks
 
         if not mm.residual.Rtrick :
             mm.SMW = False
@@ -231,6 +259,11 @@ class MixedModel:
         residual = getattr(self, "residual", None)
         if residual is not None:
             residual.migrate(dtype)
+
+        for blk in getattr(self, "_V_blocks", []):
+            blk["F"] = blk["F"].to(dtype)
+            if blk["k_obs"] is not None:
+                blk["k_obs"] = blk["k_obs"].to(dtype)
 
     def log(self):
         if not self._log:
@@ -543,6 +576,29 @@ class MixedModel:
         if residual is not None:
             residual.format_variance()
 
+    def _varmeth_direct(self):
+        """
+        Build V = Σ (F S F') ⊙ K_obs directly, without forming any (dL)²
+        Kronecker block nor the ZGZ' product. Exact for response-block-diagonal
+        incidence (models built by from_dataframe). Returns None when no
+        structured blocks are available (low-level constructor).
+        """
+        blocks = getattr(self, "_V_blocks", None)
+        if not blocks:
+            return None
+
+        V = None
+        for blk in blocks:
+            S = blk["comp"].build_S_full()
+            term = blk["F"] @ S @ blk["F"].T
+            if blk["k_obs"] is not None:
+                term = term * blk["k_obs"]
+            else:
+                K = blk["comp"].build_K()
+                term = term * K[blk["lev"]][:, blk["lev"]]
+            V = term if V is None else V + term
+        return V
+
     def REML_loss(self, return_everything = False):
 
         beta = self.beta.to(self.dtype)
@@ -580,9 +636,10 @@ class MixedModel:
 
         else:
             # ---- Direct: single Cholesky of V = ZGZ' + R ----
-            G, R = self.varmeth()
-
-            V = R if self._Z is None else self._Z @ G @ self._Z.T + R
+            V = self._varmeth_direct()
+            if V is None:
+                G, R = self.varmeth()
+                V = R if self._Z is None else self._Z @ G @ self._Z.T + R
 
             L = torch.linalg.cholesky(V)
             M  = torch.linalg.solve_triangular(L, r, upper=False)
