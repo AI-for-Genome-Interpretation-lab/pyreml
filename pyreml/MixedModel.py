@@ -189,7 +189,7 @@ class MixedModel:
         # Kronecker-multiplies (Sinv⊗Kinv) and Rinv (n×n) is never formed.
         # Built when the Kronecker identities hold: Rtrick residual (fully
         # diagonal) or balanced data (no missing response×level cell). This is
-        # also the gate for the analytic SMW backward (_smw_structured_ok).
+        # also the gate for the analytic SMW backward ( self._C_blocks is not None).
         mm._C_blocks = None
         if mm._Z is not None and (residual.Rtrick or mm.n == residual.d * residual.L):
             d, L = residual.d, residual.L
@@ -248,6 +248,12 @@ class MixedModel:
         self.varmeth     = types.MethodType(varmeth, self) if varmeth is not None else None
         self.varmeth_inv = types.MethodType(varmeth_inv, self) if varmeth_inv is not None else None
 
+        # structured-path containers, populated by from_dataframe only: the
+        # low-level constructor has no per-effect decomposition to exploit and
+        # falls back to the dense forward and the autograd backward.
+        self._V_blocks = []
+        self._C_blocks = None
+
         # closed-form gradient of the REML loss (direct path, and SMW path for
         # structured residuals, models built by from_dataframe); set to False
         # to fall back to the autograd backward
@@ -289,12 +295,12 @@ class MixedModel:
         if residual is not None:
             residual.migrate(dtype)
 
-        for blk in getattr(self, "_V_blocks", []):
+        for blk in self._V_blocks:
             blk["F"] = blk["F"].to(dtype)
             if blk["k_obs"] is not None:
                 blk["k_obs"] = blk["k_obs"].to(dtype)
 
-        cb = getattr(self, "_C_blocks", None)
+        cb = self._C_blocks
         if cb is not None:
             cb["Zg"] = cb["Zg"].to(dtype)
             cb["Xg"] = cb["Xg"].to(dtype)
@@ -696,7 +702,7 @@ class MixedModel:
         incidence (models built by from_dataframe). Returns None when no
         structured blocks are available (low-level constructor).
         """
-        blocks = getattr(self, "_V_blocks", None)
+        blocks = self._V_blocks
         if not blocks:
             return None
 
@@ -705,16 +711,6 @@ class MixedModel:
             term = self._block_term(blk)
             V = term if V is None else V + term
         return V
-
-    def _smw_structured_ok(self):
-        """
-        True when the SMW Kronecker identities hold (and the analytic SMW
-        backward applies): the residual structure _C_blocks exists, i.e. the
-        residual is Rtrick (fully diagonal) or the data is balanced (every
-        response×level cell observed, W a permutation). Dense-masked residual
-        on unbalanced data keeps the dense forward and the autograd backward.
-        """
-        return getattr(self, "_C_blocks", None) is not None
 
     def _R_kron_apply(self):
         """
@@ -822,11 +818,11 @@ class MixedModel:
         if (
             self.analytic_backward
             and not self.SMW
-            and getattr(self, "_V_blocks", None)
+            and self._V_blocks
         ):
             return self._REML_loss_analytic(return_everything)
 
-        if self.analytic_backward and self.SMW and self._smw_structured_ok():
+        if self.analytic_backward and self.SMW and self._C_blocks is not None:
             return self._REML_loss_smw_analytic(return_everything)
 
         beta = self.beta.to(self.dtype)
@@ -946,7 +942,7 @@ class MixedModel:
         terms are identical to the dense SMW path to roundoff. The backward is
         evaluated analytically in _analytic_backward_smw, which only reuses
         forward intermediates (Z'R⁻¹Z, Z'R⁻¹r, Z'R⁻¹X, u = V⁻¹r, ViX = V⁻¹X)
-        and never forms V (n×n). Gated by _smw_structured_ok; dense-masked
+        and never forms V (n×n). Gated by  self._C_blocks is not None; dense-masked
         residuals on unbalanced data keep the autograd backward.
         """
         with torch.no_grad():
