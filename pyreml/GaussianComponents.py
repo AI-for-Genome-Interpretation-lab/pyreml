@@ -774,12 +774,8 @@ class GaussianComponent:
         self.dtype, so the jitter and the Kronecker follow).
         """
         def block() -> torch.Tensor:
-            S = self.build_S()
             K = self.build_K()
-            abs_jitter = self.jitter * torch.eye(S.shape[0], dtype=S.dtype, device=S.device)
-            rel_jitter = self.jitter * torch.diag_embed(torch.diagonal(S))
-            S = S + abs_jitter + rel_jitter
-            return torch.kron(S.contiguous(), K.contiguous())
+            return torch.kron(self.build_S_full().contiguous(), K.contiguous())
         return block
 
     def core_Sinv(self) -> tuple[torch.Tensor, torch.Tensor]:
