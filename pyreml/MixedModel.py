@@ -253,6 +253,13 @@ class MixedModel:
         # to fall back to the autograd backward
         self.analytic_backward = True
 
+        # structured forward: V assembled from the (F S F') ⊙ K_obs blocks
+        # (direct path) and Rinv applied as a Kronecker multiply (SMW path).
+        # Set to False to fall back to the dense ZGZ' + R / dense Rinv forward.
+        # Independent of analytic_backward: the two axes can be benchmarked
+        # separately.
+        self.structured_forward = True
+
         self.opti_REML = OptiMix(
             params = [self.beta, *(p["tensor"] for p in self.varparams)],
             compute_loss = self.REML_loss,
@@ -654,13 +661,14 @@ class MixedModel:
 
     def _varmeth_full(self):
         """
-        Direct-path covariance V = ZGZ' + R, through the structured blocks
-        when available (models built by from_dataframe) and through the dense
-        ZGZ' + R otherwise (low-level constructor).
+        Direct-path covariance V = ZGZ' + R, through the structured blocks when
+        available and enabled (structured_forward, models built by
+        from_dataframe), and through the dense ZGZ' + R otherwise.
         """
-        V = self._varmeth_direct()
-        if V is not None:
-            return V
+        if self.structured_forward:
+            V = self._varmeth_direct()
+            if V is not None:
+                return V
         G, R = self.varmeth()
         return R if self._Z is None else self._Z @ G @ self._Z.T + R
 
@@ -708,60 +716,72 @@ class MixedModel:
         """
         return getattr(self, "_C_blocks", None) is not None
 
+    def _R_kron_apply(self):
+        """
+        Rinv as an operator on the embedded (d·L, ·) space, plus logdet(R).
+
+        Never forms Rinv (n×n) nor the (d·L)² Kronecker block: the diagonal
+        residual reduces to an elementwise scale, the full one to a pair of
+        contractions with Sinv and Kinv. Requires _C_blocks (Rtrick residual or
+        balanced data). Shared by the structured forward and by the analytic
+        SMW backward, which needs P = Rinv·Z even when the forward ran dense.
+        """
+        resid = self.residual
+        d, n_lev = resid.d, resid.L
+        blk = self._C_blocks
+        Sinv, logdet_S = resid.build_Sinv()
+        Kinv, logdet_K = resid.build_Kinv()
+
+        if resid.R_is_diagonal:
+            sd = Sinv.diag()[:, None, None]
+            kd = Kinv.diag()[None, :, None]
+
+            def apply(Mg):
+                return (Mg.reshape(d, n_lev, -1) * sd * kd).reshape(d * n_lev, -1)
+
+            logdet_R = -torch.sum(
+                torch.log(Sinv.diag()[blk["r_i"]] * Kinv.diag()[blk["l_i"]])
+            )
+        else:
+            def apply(Mg):
+                U = Mg.reshape(d, n_lev, -1)
+                return torch.einsum('ij,jlm,kl->ikm', Sinv, U, Kinv).reshape(d * n_lev, -1)
+
+            logdet_R = n_lev * logdet_S + d * logdet_K
+
+        return apply, logdet_R
+
     def _smw_forward(self, r):
         """
-        SMW-path forward for Z present: the capacitance C = Ginv + Z'R⁻¹Z,
-        its Cholesky factor, the three REML terms, and the projections reused
-        by the analytic SMW backward.
+        SMW-path forward for Z present: the capacitance C = Ginv + Z'R⁻¹Z, its
+        Cholesky factor, the three REML terms, and the projections reused by the
+        analytic SMW backward.
 
-        For a structured residual (_C_blocks, Rtrick or balanced data) the
-        Rinv applications never form Rinv (n×n): they are Kronecker-multiplies
-        (Sinv⊗Kinv) on the embedded (d·L × ·) space, where the incidence Zg
-        and design Xg were precomputed at construction. Otherwise the dense
-        Rinv of varmeth_inv is used. The three terms are assembled in the same
-        order in both routes, so they agree to roundoff.
-
-        Returns (L, logdet_V, quad, k_reml, aux) with L = chol(C) and aux the
-        ZtRiZ, Rir, ZtRir, RiX, ZtRiX, RinvZ (n×q), P_full (embedded dL×q),
-        XtViX, Lx = chol(X'V⁻¹X) pieces consumed by _analytic_backward_smw.
+        Two routes assembling the same terms in the same order (they agree to
+        roundoff): the structured one applies Rinv as a Kronecker multiply on
+        the embedded space (structured_forward, _C_blocks available), the dense
+        one goes through varmeth_inv(). aux["P_full"] is only produced by the
+        structured route; _analytic_backward_smw rebuilds it when needed.
         """
-        structured = getattr(self, "_C_blocks", None) is not None
+        structured = self.structured_forward and self._C_blocks is not None
 
         if structured:
-            resid = self.residual
-            d, L = resid.d, resid.L
             blk = self._C_blocks
             grid = blk["grid"]
-            Sinv, logdet_S = resid.build_Sinv()
-            Kinv, logdet_K = resid.build_Kinv()
+            apply, logdet_R = self._R_kron_apply()
 
-            if resid.R_is_diagonal:
-                # both S and K diagonal: Rinv reduces to an elementwise scale
-                sd = Sinv.diag()[:, None, None]
-                kd = Kinv.diag()[None, :, None]
-                def apply(Mg):
-                    return (Mg.reshape(d, L, -1) * sd * kd).reshape(d * L, -1)
-                logdet_R = -torch.sum(
-                    torch.log(Sinv.diag()[blk["r_i"]] * Kinv.diag()[blk["l_i"]])
-                )
-            else:
-                # full residual: Kronecker-multiply (Sinv⊗Kinv), never forming
-                # the (dL)² block nor the n×n restriction W(·)W'
-                def apply(Mg):
-                    U = Mg.reshape(d, L, -1)
-                    V = torch.einsum('ij,jlm,kl->ikm', Sinv, U, Kinv)
-                    return V.reshape(d * L, -1)
-                logdet_R = L * logdet_S + d * logdet_K
-
-            rg = blk["Zg"].new_zeros(d * L, 1)
+            rg = blk["Zg"].new_zeros(blk["Zg"].shape[0], 1)
             rg[grid] = r
 
             applyZ = apply(blk["Zg"])
+            applyR = apply(rg)
+            applyX = apply(blk["Xg"])
+
             ZtRiZ = blk["Zg"].T @ applyZ
-            Rir = apply(rg)[grid]
-            ZtRir = blk["Zg"].T @ apply(rg)
-            RiX = apply(blk["Xg"])[grid]
-            ZtRiX = blk["Zg"].T @ apply(blk["Xg"])
+            Rir = applyR[grid]
+            ZtRir = blk["Zg"].T @ applyR
+            RiX = applyX[grid]
+            ZtRiX = blk["Zg"].T @ applyX
             RinvZ = applyZ[grid]
             P_full = applyZ
 
@@ -782,20 +802,20 @@ class MixedModel:
             P_full = None
 
         C = Ginv + ZtRiZ
-        L = torch.linalg.cholesky(C)
-        logdet_C = 2.0 * torch.sum(torch.log(torch.diagonal(L)))
+        Lc = torch.linalg.cholesky(C)
+        logdet_C = 2.0 * torch.sum(torch.log(torch.diagonal(Lc)))
         logdet_V = logdet_R + logdet_G + logdet_C
 
         quad = (r.T @ Rir).squeeze() \
-            - (ZtRir.T @ torch.cholesky_solve(ZtRir, L)).squeeze()
-        XtViX = self._X.T @ RiX - ZtRiX.T @ torch.cholesky_solve(ZtRiX, L)
+            - (ZtRir.T @ torch.cholesky_solve(ZtRir, Lc)).squeeze()
+        XtViX = self._X.T @ RiX - ZtRiX.T @ torch.cholesky_solve(ZtRiX, Lc)
         k_reml = torch.logdet(XtViX)
         Lx = torch.linalg.cholesky(XtViX)
 
         aux = {"ZtRiZ": ZtRiZ, "Rir": Rir, "ZtRir": ZtRir,
                "RiX": RiX, "ZtRiX": ZtRiX, "RinvZ": RinvZ,
                "P_full": P_full, "XtViX": XtViX, "Lx": Lx}
-        return L, logdet_V, quad, k_reml, aux
+        return Lc, logdet_V, quad, k_reml, aux
 
     def REML_loss(self, return_everything = False):
 
@@ -967,6 +987,10 @@ class MixedModel:
           full R (Rtrick/balanced): grain_S_R[r,s] = S_R⁻¹[r,s]·L − tr(C⁻¹ P_r'P_s) − u_r'u_s
               − tr((X'V⁻¹X)⁻¹ Y_r'Y_s), with P = R⁻¹Z, Y = V⁻¹X, blocks over responses.
         beta is the only parameter not reachable from the blocks: dℓ/dβ = −2X'V⁻¹r.
+
+        Independent of the forward route: every quantity is either a forward
+        by-product carried by aux or rebuilt here, so the analytic backward can
+        run on top of the dense forward (structured_forward=False).
         """
         if not torch.is_grad_enabled():
             return
@@ -989,6 +1013,7 @@ class MixedModel:
         ZViZ = ZtRiZ - ZtRiZ @ C_z                                 # Z'V⁻¹Z
         M = ZViZ - ZVir @ ZVir.T - ZViX @ torch.cholesky_solve(ZViX.T, Lx)
 
+        # ---- random-effect grains ----
         ghost = None
         off = 0
         for rnd in self.random:
@@ -1006,7 +1031,7 @@ class MixedModel:
 
         # ---- residual grains ----
         resid = self.residual
-        d, L = resid.d, resid.L
+        d, n_lev = resid.d, resid.L
         blk = self._C_blocks
         grid = blk["grid"]
 
@@ -1027,7 +1052,7 @@ class MixedModel:
             grain_S.index_put_((ri, ri), A_ii / Kinv_d[li, li], accumulate=True)
             ghost = ghost + (grain_S * Sfull).sum()
             if resid.right_hand == "het":
-                grain_K = torch.zeros(L, L, dtype=A_ii.dtype, device=A_ii.device)
+                grain_K = torch.zeros(n_lev, n_lev, dtype=A_ii.dtype, device=A_ii.device)
                 grain_K.index_put_((li, li), A_ii * Sfull.detach()[ri, ri], accumulate=True)
                 ghost = ghost + (grain_K * resid.build_K()).sum()
         else:
@@ -1037,19 +1062,25 @@ class MixedModel:
             # (one matmul each), not from d² per-block products.
             Sinv, _ = resid.build_Sinv()
             P = aux["P_full"]                                  # dL×q, embedded R⁻¹Z
-            ug = P.new_zeros(d * L); ug[grid] = u.flatten()
-            Yg = P.new_zeros(d * L, X.shape[1]); Yg[grid] = ViX
+            if P is None:
+                # dense forward (structured_forward=False): the embedded R⁻¹Z is
+                # not a forward by-product, so rebuild it. Only this branch needs
+                # it; the diagonal-residual branch above is already route-agnostic.
+                apply, _ = self._R_kron_apply()
+                P = apply(blk["Zg"])
+            ug = P.new_zeros(d * n_lev); ug[grid] = u.flatten()
+            Yg = P.new_zeros(d * n_lev, X.shape[1]); Yg[grid] = ViX
             Cinv = torch.cholesky_inverse(Lc)
             Xinv = torch.cholesky_inverse(Lx)
             B = P @ Cinv @ P.T
             F = Yg @ Xinv @ Yg.T
             grain_S = torch.zeros(d, d, dtype=Lc.dtype, device=Lc.device)
             for rs in range(d):
-                br = slice(rs * L, (rs + 1) * L)
+                br = slice(rs * n_lev, (rs + 1) * n_lev)
                 ug_r = ug[br]
                 for s in range(d):
-                    bs = slice(s * L, (s + 1) * L)
-                    grain_S[rs, s] = (Sinv[rs, s] * L - B[br, bs].trace()
+                    bs = slice(s * n_lev, (s + 1) * n_lev)
+                    grain_S[rs, s] = (Sinv[rs, s] * n_lev - B[br, bs].trace()
                                       - (ug_r @ ug[bs]) - F[br, bs].trace())
             ghost = ghost + (grain_S.detach() * resid.build_S()).sum()
 
