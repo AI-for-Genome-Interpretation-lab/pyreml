@@ -198,6 +198,9 @@ class MixedModel:
             mm.structured_forward = structured_forward
         if analytic_backward is not None:
             mm.analytic_backward = analytic_backward
+        if not variance.blocks:
+            mm.structured_forward = False
+            mm.analytic_backward = False
 
         mm.migrate()
 
