@@ -27,6 +27,8 @@ class MixedModel:
         random: None | Random | list[Random] = None,
         residual: Residual | None = None,
         SMW: bool | None = None,
+        structured_forward: bool | None = None,
+        analytic_backward: bool | None = None,
         device: str = "cpu",
     ):
 
@@ -180,12 +182,22 @@ class MixedModel:
 
         if not residual.Rtrick:
             mm.SMW = False
-
         if SMW is not None:
             mm.SMW = SMW
-
         if variance.embed is None:
             mm.SMW = False
+
+        # solving strategy, resolved once, on the same three layers as SMW: both
+        # optimizations need the per-effect decomposition this constructor
+        # builds, the caller may then switch either off, and neither can be
+        # switched on against a structure that does not support it.
+        mm.structured_forward = True
+        mm.analytic_backward = True
+
+        if structured_forward is not None:
+            mm.structured_forward = structured_forward
+        if analytic_backward is not None:
+            mm.analytic_backward = analytic_backward
 
         mm.migrate()
 
@@ -237,11 +249,11 @@ class MixedModel:
         # from_dataframe replaces this with the real one.
         self.variance = Variance()
 
-        # closed-form gradient of the REML loss instead of autograd; set to
-        # False to fall back to the graph. The other axis, the structured
-        # forward, lives on the Variance (variance.structured), since it is a
-        # property of the decomposition rather than of the model.
-        self.analytic_backward = True
+        # no per-effect decomposition here, so neither optimization applies.
+        # from_dataframe replaces all three once its structures are built.
+        self.variance = Variance()
+        self.structured_forward = False
+        self.analytic_backward = False
 
         self.opti_REML = OptiMix(
             params = [self.beta, *(p["tensor"] for p in self.varparams)],
@@ -320,9 +332,13 @@ class MixedModel:
 
         # model
         model_keys = ["n obs", "n fixed effects", "n random effects",
-                      "n variance parameters", "SMW"]
+                      "n variance parameters"]
         model = [(k, fmt(k, head[k])) for k in model_keys if k in head]
         blocks.append(("model", model))
+
+        solving_keys = ["SMW", "structured forward", "analytical backward"]
+        solving = [(k, fmt(k, head[k])) for k in solving_keys if k in head]
+        blocks.append(("solving", solving))
 
         # steps
         for e in entries:
@@ -372,6 +388,8 @@ class MixedModel:
             "n fixed effects": self.p,
             "n random effects": self.q,
             "SMW": self.SMW,
+            "structured forward": self.structured_forward,
+            "analytical backward": self.analytic_backward,
             "pyreml": __version__,
             "torch": torch.__version__,
         }
@@ -600,10 +618,6 @@ class MixedModel:
         r = self._y - self._X @ beta
         const = (self.n - self.p) * math.log(2 * math.pi)
 
-        analytic = self.analytic_backward and bool(self.variance.blocks)
-        if self.SMW:
-            analytic = analytic and self.variance.embed is not None
-
         # dense fallback, evaluated by the Variance only when the structured
         # forward is off or unavailable (low-level constructor)
         def dense_V():
@@ -613,11 +627,15 @@ class MixedModel:
         def factor():
             if self.SMW:
                 return self.variance.capacitance(
-                    self._X, self._Z, r, self.residual, self.varmeth_inv
+                    self._X, self._Z, r, self.residual, self.varmeth_inv,
+                    self.structured_forward,
                 )
-            return self.variance.direct_solve(self._X, r, dense_V)
+            else:
+                return self.variance.direct_solve(
+                    self._X, r, dense_V, self.structured_forward,
+                )
 
-        if analytic:
+        if self.analytic_backward:
             with torch.no_grad():
                 solve = factor()
                 loss = (solve.logdet_V + solve.quad + solve.k_reml + const).detach()

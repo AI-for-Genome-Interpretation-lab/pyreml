@@ -143,16 +143,9 @@ class Variance:
     effect: V() returns None and the caller falls back to ZGZ' + R.
     """
 
-    def __init__(self, blocks=None, embed=None, structured: bool = True):
+    def __init__(self, blocks=None, embed=None):
         self.blocks = blocks or []
         self.embed = embed
-
-        # structured forward: assemble V from the blocks and apply Rinv as a
-        # Kronecker multiply. Set to False to fall back to the dense ZGZ' + R
-        # and to a dense Rinv. Independent of the analytic backward, which reads
-        # the same decomposition either way: the two axes can be benchmarked
-        # separately.
-        self.structured = structured
 
     # ---- construction ------------------------------------------------
 
@@ -242,19 +235,21 @@ class Variance:
 
     # ---- solve entry points ------------------------------------------
 
-    def direct_solve(self, X, r, dense_V: Callable) -> "DirectSolve":
+    def direct_solve(self, X, r, dense_V: Callable, structured: bool) -> "DirectSolve":
         """
         Factor V on the direct path. `dense_V` is the model's fallback, called
-        only when the structured forward is off or unavailable.
+        only when the structured forward is off.
         """
-        return DirectSolve(self, X, r, dense_V)
+        return DirectSolve(self, X, r, dense_V, structured)
 
-    def capacitance(self, X, Z, r, residual, dense_inv: Callable) -> "Capacitance":
+    def capacitance(self, X, Z, r, residual, dense_inv: Callable,
+                    structured: bool) -> "Capacitance":
         """
-        Factor C = Ginv + Z'R⁻¹Z on the SMW path, V never formed. `dense_inv` is
-        the model's varmeth_inv, used when the structured forward is off.
+        Factor C = Ginv + Z'R-inverse Z on the SMW path, V never formed.
+        `dense_inv` is the model's varmeth_inv, used when the structured forward
+        is off.
         """
-        return Capacitance(self, X, Z, r, residual, dense_inv)
+        return Capacitance(self, X, Z, r, residual, dense_inv, structured)
 
     # ---- structured forward pieces -----------------------------------
 
@@ -360,10 +355,10 @@ class DirectSolve(Solve):
     and the same three terms, agreeing to roundoff.
     """
 
-    def __init__(self, variance, X, r, dense_V: Callable):
+    def __init__(self, variance, X, r, dense_V: Callable, structured: bool):
         super().__init__(variance, X, r)
 
-        V = variance.V() if variance.structured else None
+        V = variance.V() if structured else None
         if V is None:
             V = dense_V()
 
@@ -409,12 +404,11 @@ class Capacitance(Solve):
     routes assemble the same terms in the same order.
     """
 
-    def __init__(self, variance, X, Z, r, residual, dense_inv: Callable):
+    def __init__(self, variance, X, Z, r, residual, dense_inv: Callable,
+                 structured: bool):
         super().__init__(variance, X, r)
         self.Z = Z
         self.residual = residual
-
-        structured = variance.structured and variance.embed is not None
 
         if structured:
             embed = variance.embed
