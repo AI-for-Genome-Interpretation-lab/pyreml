@@ -12,7 +12,9 @@ import time
 
 from .Optimizer import OptiMix
 from .GaussianComponents import Random, Residual
+from .Variance import Variance
 from ._version import __version__
+
 
 class MixedModel:
 
@@ -88,30 +90,9 @@ class MixedModel:
         random_blocks_inv = []
         varparams = []
 
-        masks_t = [torch.tensor(m, dtype=torch.bool, device=device) for m in masks]
-
-        def _V_block(M, c, L, comp):
-            # Per-effect contribution to the direct-path V:
-            #     term = (F S F') ⊙ K_obs
-            # with F (n_obs, d) the response-block-diagonal component values and
-            # K_obs = K restricted to the observed stacking. This is exact for the
-            # response-block-diagonal incidence (Z_e = block_diag over responses of
-            # M[mask]), so the (dL)² Kronecker block and the ZGZ' product are never
-            # formed. For constant-K right hands (iid, str) K_obs is frozen once;
-            # trainable-K hands gather build_K() on every call.
-            comp.migrate(torch.double)
-            M3 = torch.as_tensor(M, dtype=torch.double, device=device).reshape(len(M), c, L)
-            F = torch.block_diag(*[M3[m].sum(-1) for m in masks_t])
-            lev = M3.abs().sum(1).argmax(1)
-            lev_obs = torch.cat([lev[m] for m in masks_t])
-            if comp.right_hand in ("iid", "str"):
-                K = comp.build_K()
-                k_obs = K[lev_obs][:, lev_obs]
-            else:
-                k_obs = None
-            return {"F": F, "lev": lev_obs, "k_obs": k_obs, "comp": comp}
-
-        V_blocks = []
+        # per-effect designs feeding the structured decomposition, residual
+        # appended last so that Variance can flag it
+        designs = []
 
         for r in random:
             Z_base = r.design(data, response, scale=scale, device = device)
@@ -121,7 +102,7 @@ class MixedModel:
             random_blocks.append(r.varmeth())
             random_blocks_inv.append(r.varmeth_inv())
             varparams.extend(r.varparams)
-            V_blocks.append(_V_block(Z_base, r.c, r.L, r))
+            designs.append((Z_base, r.c, r.L, r))
 
         if Z_blocks:
             Z = np.hstack(Z_blocks)
@@ -131,7 +112,9 @@ class MixedModel:
         W_blocks = residual.design(data, response, scale=scale, device = device)
         W = block_diag(*[W_blocks[m] for m in masks])
         residual.check_Rtrick(W)
-        V_blocks.append(_V_block(W_blocks, residual.c, residual.L, residual))
+        designs.append((W_blocks, residual.c, residual.L, residual))
+
+        variance = Variance.from_designs(designs, masks, device)
 
         varparams.extend(residual.varparams)
 
@@ -182,30 +165,29 @@ class MixedModel:
         mm.fixed_names = fixed_names
         mm.residual = residual
         mm.random = [rand for rand in random]
-        mm._V_blocks = V_blocks
+        mm.variance = variance
 
-        # SMW-path residual structure: Zg/Xg embed the incidence and design in
-        # the full (response × level) space so that Rinv applications become
-        # Kronecker-multiplies (Sinv⊗Kinv) and Rinv (n×n) is never formed.
-        # Built when the Kronecker identities hold: Rtrick residual (fully
-        # diagonal) or balanced data (no missing response×level cell). This is
-        # also the gate for the analytic SMW backward ( self._C_blocks is not None).
-        mm._C_blocks = None
-        if mm._Z is not None and (residual.Rtrick or mm.n == residual.d * residual.L):
-            d, L = residual.d, residual.L
-            grid = mm._W.argmax(1)
-            Zg = mm._Z.new_zeros(d * L, mm._Z.shape[1])
-            Zg[grid] = mm._Z
-            Xg = mm._Z.new_zeros(d * L, mm._X.shape[1])
-            Xg[grid] = mm._X
-            mm._C_blocks = {"grid": grid, "Zg": Zg, "Xg": Xg,
-                            "r_i": grid // L, "l_i": grid % L}
+        variance.embed_residual(mm._Z, mm._X, mm._W, residual)
 
-        if not mm.residual.Rtrick :
+        # SMW resolution, in three layers of increasing authority.
+        #
+        # 1. optimization rule: what is worth doing given the dimensions and
+        #    the residual structure
+        # 2. user decision: overrides the heuristic, since only the caller
+        #    knows what they are measuring
+        # 3. operability rule: the residual embedding either exists or it does
+        #    not, and no preference can conjure it
+
+        if not residual.Rtrick:
             mm.SMW = False
-            
+
         if SMW is not None:
             mm.SMW = SMW
+
+        if variance.embed is None:
+            mm.SMW = False
+
+        mm.migrate()
 
         return mm
 
@@ -238,6 +220,8 @@ class MixedModel:
             self.SMW = False
         elif varmeth is None:                # only the Woodbury path is available
             self.SMW = True
+        elif Z is None:                      # nothing to correct: V = R
+            self.SMW = False
         else:                                # both paths are available: choose by dimension
             self.SMW = (self.q < self.n)
 
@@ -248,23 +232,16 @@ class MixedModel:
         self.varmeth     = types.MethodType(varmeth, self) if varmeth is not None else None
         self.varmeth_inv = types.MethodType(varmeth_inv, self) if varmeth_inv is not None else None
 
-        # structured-path containers, populated by from_dataframe only: the
-        # low-level constructor has no per-effect decomposition to exploit and
-        # falls back to the dense forward and the autograd backward.
-        self._V_blocks = []
-        self._C_blocks = None
+        # empty decomposition: the low-level constructor has no per-effect
+        # structure to exploit, so both optimizations fall back on their own.
+        # from_dataframe replaces this with the real one.
+        self.variance = Variance()
 
-        # closed-form gradient of the REML loss (direct path, and SMW path for
-        # structured residuals, models built by from_dataframe); set to False
-        # to fall back to the autograd backward
+        # closed-form gradient of the REML loss instead of autograd; set to
+        # False to fall back to the graph. The other axis, the structured
+        # forward, lives on the Variance (variance.structured), since it is a
+        # property of the decomposition rather than of the model.
         self.analytic_backward = True
-
-        # structured forward: V assembled from the (F S F') ⊙ K_obs blocks
-        # (direct path) and Rinv applied as a Kronecker multiply (SMW path).
-        # Set to False to fall back to the dense ZGZ' + R / dense Rinv forward.
-        # Independent of analytic_backward: the two axes can be benchmarked
-        # separately.
-        self.structured_forward = True
 
         self.opti_REML = OptiMix(
             params = [self.beta, *(p["tensor"] for p in self.varparams)],
@@ -295,15 +272,7 @@ class MixedModel:
         if residual is not None:
             residual.migrate(dtype)
 
-        for blk in self._V_blocks:
-            blk["F"] = blk["F"].to(dtype)
-            if blk["k_obs"] is not None:
-                blk["k_obs"] = blk["k_obs"].to(dtype)
-
-        cb = self._C_blocks
-        if cb is not None:
-            cb["Zg"] = cb["Zg"].to(dtype)
-            cb["Xg"] = cb["Xg"].to(dtype)
+        self.variance.to(dtype)
 
     def log(self):
         if not self._log:
@@ -616,473 +585,49 @@ class MixedModel:
         if residual is not None:
             residual.format_variance()
 
-    # ---- shared direct-path pieces ---------------------------------------
-    # V is built as a sum of structured blocks (F S F') ⊙ K_obs, and its
-    # gradient as the matching grains F'(A ⊙ K_obs)F. Both the autograd path
-    # (REML_loss) and the analytic path (_REML_loss_analytic) go through these
-    # single entry points, so the two routes only differ by how the backward
-    # is taken. The block helpers are the direct-path instance of the
-    # (A S A') ⊙ P mechanic common to V (A = F, P = K_obs) and C (A = I_q,
-    # P = precomputed incidence gramme).
-
-    def _block_K_obs(self, blk):
-        """
-        K_obs_e = K_e[lev][:, lev] restricted to the observed stacking.
-        Frozen once at construction for constant-K hands (iid, str); gathered
-        from build_K() on every call when K is trainable (het, k_obs is None).
-        """
-        if blk["k_obs"] is not None:
-            return blk["k_obs"]
-        K = blk["comp"].build_K()
-        return K[blk["lev"]][:, blk["lev"]]
-
-    def _block_term(self, blk):
-        """
-        Structured contribution of one block to V: V_e = (F S_e F') ⊙ K_obs.
-        """
-        S = blk["comp"].build_S_full()
-        term = blk["F"] @ S @ blk["F"].T
-        return term * self._block_K_obs(blk)
-
-    def _block_grain(self, blk, A):
-        """
-        Gradient constants of the REML loss wrt one block's variance
-        parameters, evaluated at the current point from the gradient matrix A:
-
-            grain_S = F'(A ⊙ K_obs)F          (dℓ/dS_e)
-            grain_K = (A ⊙ F S_e F')[lev][lev]  (dℓ/dK_e, trainable K only)
-
-        Returns (S, grain_S, grain_K) with grain_K = None when K is frozen.
-        A is a constant (no graph): pairing the grains with S_full /
-        build_K() through the ghost loss yields exactly dℓ/dθ without the
-        spurious cross terms that an autograd graph would add.
-        """
-        S = blk["comp"].build_S_full()
-        K_obs = self._block_K_obs(blk)
-        grain_S = blk["F"].T @ (A * K_obs.detach()) @ blk["F"]
-        if blk["k_obs"] is not None:
-            return S, grain_S, None
-        grain_K = (A * (blk["F"] @ S.detach() @ blk["F"].T))[blk["lev"]][:, blk["lev"]]
-        return S, grain_S, grain_K
-
-    def _varmeth_full(self):
-        """
-        Direct-path covariance V = ZGZ' + R, through the structured blocks when
-        available and enabled (structured_forward, models built by
-        from_dataframe), and through the dense ZGZ' + R otherwise.
-        """
-        if self.structured_forward:
-            V = self._varmeth_direct()
-            if V is not None:
-                return V
-        G, R = self.varmeth()
-        return R if self._Z is None else self._Z @ G @ self._Z.T + R
-
-    def _REML_terms(self, V, r, const):
-        """
-        The three REML terms and the Cholesky factor of V, from one
-        factorization L = chol(V):
-
-            logdet_V = 2 Σ log(diag L),   quad = r'V⁻¹r,   k_reml = logdet(X'V⁻¹X).
-
-        L is reused by the analytic backward (V⁻¹ = L⁻ᵀL⁻¹), so the two paths
-        never factor V twice.
-        """
-        L = torch.linalg.cholesky(V)
-        M = torch.linalg.solve_triangular(L, r, upper=False)
-        logdet_V = 2.0 * torch.sum(torch.log(torch.diag(L)))
-        quad = (M.T @ M).squeeze()
-        k_reml = torch.logdet(self._X.T @ torch.cholesky_solve(self._X, L))
-        return L, logdet_V, quad, k_reml
-
-    def _varmeth_direct(self):
-        """
-        Build V = Σ (F S F') ⊙ K_obs directly, without forming any (dL)²
-        Kronecker block nor the ZGZ' product. Exact for response-block-diagonal
-        incidence (models built by from_dataframe). Returns None when no
-        structured blocks are available (low-level constructor).
-        """
-        blocks = self._V_blocks
-        if not blocks:
-            return None
-
-        V = None
-        for blk in blocks:
-            term = self._block_term(blk)
-            V = term if V is None else V + term
-        return V
-
-    def _R_kron_apply(self):
-        """
-        Rinv as an operator on the embedded (d·L, ·) space, plus logdet(R).
-
-        Never forms Rinv (n×n) nor the (d·L)² Kronecker block: the diagonal
-        residual reduces to an elementwise scale, the full one to a pair of
-        contractions with Sinv and Kinv. Requires _C_blocks (Rtrick residual or
-        balanced data). Shared by the structured forward and by the analytic
-        SMW backward, which needs P = Rinv·Z even when the forward ran dense.
-        """
-        resid = self.residual
-        d, n_lev = resid.d, resid.L
-        blk = self._C_blocks
-        Sinv, logdet_S = resid.build_Sinv()
-        Kinv, logdet_K = resid.build_Kinv()
-
-        if resid.R_is_diagonal:
-            sd = Sinv.diag()[:, None, None]
-            kd = Kinv.diag()[None, :, None]
-
-            def apply(Mg):
-                return (Mg.reshape(d, n_lev, -1) * sd * kd).reshape(d * n_lev, -1)
-
-            logdet_R = -torch.sum(
-                torch.log(Sinv.diag()[blk["r_i"]] * Kinv.diag()[blk["l_i"]])
-            )
-        else:
-            def apply(Mg):
-                U = Mg.reshape(d, n_lev, -1)
-                return torch.einsum('ij,jlm,kl->ikm', Sinv, U, Kinv).reshape(d * n_lev, -1)
-
-            logdet_R = n_lev * logdet_S + d * logdet_K
-
-        return apply, logdet_R
-
-    def _smw_forward(self, r):
-        """
-        SMW-path forward for Z present: the capacitance C = Ginv + Z'R⁻¹Z, its
-        Cholesky factor, the three REML terms, and the projections reused by the
-        analytic SMW backward.
-
-        Two routes assembling the same terms in the same order (they agree to
-        roundoff): the structured one applies Rinv as a Kronecker multiply on
-        the embedded space (structured_forward, _C_blocks available), the dense
-        one goes through varmeth_inv(). aux["P_full"] is only produced by the
-        structured route; _analytic_backward_smw rebuilds it when needed.
-        """
-        structured = self.structured_forward and self._C_blocks is not None
-
-        if structured:
-            blk = self._C_blocks
-            grid = blk["grid"]
-            apply, logdet_R = self._R_kron_apply()
-
-            rg = blk["Zg"].new_zeros(blk["Zg"].shape[0], 1)
-            rg[grid] = r
-
-            applyZ = apply(blk["Zg"])
-            applyR = apply(rg)
-            applyX = apply(blk["Xg"])
-
-            ZtRiZ = blk["Zg"].T @ applyZ
-            Rir = applyR[grid]
-            ZtRir = blk["Zg"].T @ applyR
-            RiX = applyX[grid]
-            ZtRiX = blk["Zg"].T @ applyX
-            RinvZ = applyZ[grid]
-            P_full = applyZ
-
-            # random effects: block-diagonal Kronecker inverses (no residual Rinv)
-            inv_logdets = [rnd.varmeth_inv()() for rnd in self.random]
-            Ginv = torch.block_diag(*[gi for gi, _ in inv_logdets])
-            logdet_G = sum(ld for _, ld in inv_logdets)
-
-        else:
-            Ginv, Rinv, logdet_G, logdet_R = self.varmeth_inv()
-            ZtRinv = self._Z.T @ Rinv
-            ZtRiZ = ZtRinv @ self._Z
-            RinvZ = ZtRinv.T
-            Rir = Rinv @ r
-            ZtRir = self._Z.T @ Rir
-            RiX = Rinv @ self._X
-            ZtRiX = self._Z.T @ RiX
-            P_full = None
-
-        C = Ginv + ZtRiZ
-        Lc = torch.linalg.cholesky(C)
-        logdet_C = 2.0 * torch.sum(torch.log(torch.diagonal(Lc)))
-        logdet_V = logdet_R + logdet_G + logdet_C
-
-        quad = (r.T @ Rir).squeeze() \
-            - (ZtRir.T @ torch.cholesky_solve(ZtRir, Lc)).squeeze()
-        XtViX = self._X.T @ RiX - ZtRiX.T @ torch.cholesky_solve(ZtRiX, Lc)
-        k_reml = torch.logdet(XtViX)
-        Lx = torch.linalg.cholesky(XtViX)
-
-        aux = {"ZtRiZ": ZtRiZ, "Rir": Rir, "ZtRir": ZtRir,
-               "RiX": RiX, "ZtRiX": ZtRiX, "RinvZ": RinvZ,
-               "P_full": P_full, "XtViX": XtViX, "Lx": Lx}
-        return Lc, logdet_V, quad, k_reml, aux
-
     def REML_loss(self, return_everything = False):
+        """
+        -2 log L_REML = logdet V + r'V-inverse r + logdet(X'V-inverse X) + const.
 
-        if (
-            self.analytic_backward
-            and not self.SMW
-            and self._V_blocks
-        ):
-            return self._REML_loss_analytic(return_everything)
-
-        if self.analytic_backward and self.SMW and self._C_blocks is not None:
-            return self._REML_loss_smw_analytic(return_everything)
-
+        The closed-form gradient reads the per-effect decomposition, which only
+        from_dataframe builds, and on the SMW path it also needs the residual
+        embedding: without either, the autograd graph is the only route. When it
+        does apply, the forward runs under no_grad and the returned loss is a
+        fresh leaf, so that Optimizer's loss.backward() stays valid while the
+        parameter gradients come from the ghost loss instead.
+        """
         beta = self.beta.to(self.dtype)
         r = self._y - self._X @ beta
-        const    = (self.n - self.p) * math.log(2 * math.pi)
+        const = (self.n - self.p) * math.log(2 * math.pi)
 
+        analytic = self.analytic_backward and bool(self.variance.blocks)
         if self.SMW:
-            # ---- Sherman–Morrison–Woodbury: from structured inverses, V never formed ----
-            if self._Z is None:
-                Ginv, Rinv, logdet_G, logdet_R = self.varmeth_inv()
-                logdet_V = logdet_R
-                quad     = (r.T @ Rinv @ r).squeeze()
-                L = torch.linalg.cholesky(self._X.T @ Rinv @ self._X) # for tolerance computation in OptiMix
-                k_reml = 2.0 * torch.sum(torch.log(torch.diagonal(L)))
-            else:
-                L, logdet_V, quad, k_reml, _ = self._smw_forward(r)
+            analytic = analytic and self.variance.embed is not None
 
+        # dense fallback, evaluated by the Variance only when the structured
+        # forward is off or unavailable (low-level constructor)
+        def dense_V():
+            G, R = self.varmeth()
+            return R if self._Z is None else self._Z @ G @ self._Z.T + R
+
+        if analytic:
+            with torch.no_grad():
+                solve = self._factor(r, dense_V)
+                loss = (solve.logdet_V + solve.quad + solve.k_reml + const).detach()
+            self._apply_grains(solve)
+            loss = loss.requires_grad_(True)
         else:
-            # ---- Direct: single Cholesky of V = ZGZ' + R ----
-            V = self._varmeth_full()
-            L, logdet_V, quad, k_reml = self._REML_terms(V, r, const)
+            solve = self._factor(r, dense_V)
+            loss = solve.logdet_V + solve.quad + solve.k_reml + const
 
-        loss = logdet_V + quad + k_reml + const
+        if analytic:
+            loss = loss.detach()
+            self._apply_grains(solve)
+            loss = loss.requires_grad_(True)
 
         if not return_everything:
             return loss
-        else:
-            return loss, logdet_V, quad, k_reml, const, L
-
-    def _REML_loss_analytic(self, return_everything = False):
-        """
-        Direct-path REML loss with the closed-form gradient.
-
-        The forward pass is byte-identical to the dense REML_loss (same V, same
-        Cholesky, same three terms); it runs under no_grad because the gradient
-        never flows back through the graph: dℓ/dθ = tr(A dV/dθ) is evaluated
-        analytically in _analytic_backward, which only needs the factor L, the
-        residual r and the variance blocks (F, lev, k_obs).
-
-        The returned loss is a fresh leaf (requires_grad) so that Optimizer's
-        loss.backward() stays valid; the parameter gradients come from the ghost
-        loss. The SMW path has its own analytic route (_REML_loss_smw_analytic).
-        """
-        with torch.no_grad():
-            beta = self.beta.to(self.dtype)
-            r = self._y - self._X @ beta
-            const = (self.n - self.p) * math.log(2 * math.pi)
-
-            # ---- Direct: structured V from the variance blocks ----
-            V = self._varmeth_full()
-            L, logdet_V, quad, k_reml = self._REML_terms(V, r, const)
-
-            loss = (logdet_V + quad + k_reml + const).detach()
-
-        self._analytic_backward(L)
-
-        loss = loss.requires_grad_(True)
-
-        if not return_everything:
-            return loss
-        else:
-            return loss, logdet_V, quad, k_reml, const, L
-
-    def _analytic_backward(self, L):
-        """
-        Closed-form gradient of the REML loss along the direct path.
-
-        With r = y − Xβ and V the full (dense) covariance, the loss reads
-            ℓ = logdet V + r'V⁻¹r + logdet(X'V⁻¹X) + const,
-        whose gradient wrt a variance parameter θ is tr(A dV/dθ) with
-            A = V⁻¹ − V⁻¹rr'V⁻¹ − V⁻¹X(X'V⁻¹X)⁻¹X'V⁻¹.
-        Each block contributes V_e = (F S_e F') ⊙ K_obs_e to V, so
-            dℓ/dS_e = F'(A ⊙ K_obs_e)F,          (trainable K_e) dℓ/dK_e = (A⊙FS_eF')[lev][:,lev],
-        and the parameters of S_e / K_e receive their gradient through a ghost
-        loss <grain_S, S_full> (+ <grain_K, build_K>) whose graph is the exact
-        one built by build_S / build_K (jitter is constant and cancels). beta is
-        the only parameter not reachable from the blocks: dℓ/dβ = −2X'V⁻¹r.
-        """
-        if not torch.is_grad_enabled():
-            return
-
-        X = self._X
-        r = self._y - self._X @ self.beta.detach().to(self.dtype)
-
-        # V⁻¹ = L⁻ᵀL⁻¹. torch.cholesky_inverse is pathologically slow in CPU
-        # double (a dense inverse), so build the triangular inverse through
-        # BLAS trsm and one symmetric matmul, then get u and Wp from L⁻¹
-        # instead of two extra cholesky_solve calls.
-        I = torch.eye(L.shape[0], dtype=L.dtype, device=L.device)
-        Li = torch.linalg.solve_triangular(L, I, upper=False)
-        Vi = Li.T @ Li
-        u  = Li.T @ (Li @ r)
-        Wp = Li.T @ (Li @ X)
-        Mt = torch.linalg.inv(X.T @ Wp)
-
-        A = Vi - u @ u.T - Wp @ Mt @ Wp.T
-
-        ghost = None
-        for blk in self._V_blocks:
-            S, grain_S, grain_K = self._block_grain(blk, A)
-            ghost = (grain_S * S).sum() if ghost is None else ghost + (grain_S * S).sum()
-            if grain_K is not None:
-                ghost = ghost + (grain_K * blk["comp"].build_K()).sum()
-
-        ghost.backward()
-
-        self.beta.grad = (-2.0 * (X.T @ u)).to(self.beta.dtype)
-
-    def _REML_loss_smw_analytic(self, return_everything = False):
-        """
-        SMW-path REML loss with the closed-form gradient (mirror of
-        _REML_loss_analytic on the direct path).
-
-        The forward pass reuses the same _smw_forward as the autograd branch
-        (structured Kronecker-multiplies for Rtrick/balanced residuals), under
-        no_grad: the gradient never flows back through the graph. The three
-        terms are identical to the dense SMW path to roundoff. The backward is
-        evaluated analytically in _analytic_backward_smw, which only reuses
-        forward intermediates (Z'R⁻¹Z, Z'R⁻¹r, Z'R⁻¹X, u = V⁻¹r, ViX = V⁻¹X)
-        and never forms V (n×n). Gated by  self._C_blocks is not None; dense-masked
-        residuals on unbalanced data keep the autograd backward.
-        """
-        with torch.no_grad():
-            beta = self.beta.to(self.dtype)
-            r = self._y - self._X @ beta
-            const = (self.n - self.p) * math.log(2 * math.pi)
-
-            L, logdet_V, quad, k_reml, aux = self._smw_forward(r)
-
-            loss = (logdet_V + quad + k_reml + const).detach()
-
-        self._analytic_backward_smw(L, aux)
-
-        loss = loss.requires_grad_(True)
-
-        if not return_everything:
-            return loss
-        else:
-            return loss, logdet_V, quad, k_reml, const, L
-
-    def _analytic_backward_smw(self, Lc, aux):
-        """
-        Closed-form gradient of the REML loss along the SMW path.
-
-        With r = y − Xβ and V = R + ZGZ', the loss gradient is tr(A dV/dθ)
-        with A = V⁻¹ − V⁻¹rr'V⁻¹ − V⁻¹X(X'V⁻¹X)⁻¹X'V⁻¹. Since only G (random)
-        and R (residual) depend on θ, and dG/dS_e = dS_e⊗K_e, dR/dS_R = W(dS_R⊗K_R)W',
-        everything reduces to projections of A on the q×q capacitance space
-        (never forming V):
-            Z'V⁻¹Z = Z'R⁻¹Z − (Z'R⁻¹Z)C⁻¹(Z'R⁻¹Z),
-            Z'V⁻¹r = Z'R⁻¹r − (Z'R⁻¹Z)C⁻¹(Z'R⁻¹r),  Z'V⁻¹X likewise,
-        and for the block of effect e, M_e = (Z'V⁻¹Z − Z'V⁻¹rr'V⁻¹Z
-        − Z'V⁻¹X(X'V⁻¹X)⁻¹X'V⁻¹Z)_e reshaped (d, L, d, L):
-            grain_S_e = einsum('iljm,lm->ij', M4_e, K_e),  grain_K_e = einsum('ij,iljm->lm', S_e, M4_e).
-        The residual grains are:
-          diagonal R (R_is_diagonal): with A_ii = diag(V⁻¹)_i − u_i² − diag(X'V⁻¹X Xᵢ·),
-              grain_S_R[r,r] = Σ_{i∈r} A_ii K_R[l_i,l_i], and het grain_K_R[l,l] = Σ_i A_ii S_R[r_i,r_i];
-          full R (Rtrick/balanced): grain_S_R[r,s] = S_R⁻¹[r,s]·L − tr(C⁻¹ P_r'P_s) − u_r'u_s
-              − tr((X'V⁻¹X)⁻¹ Y_r'Y_s), with P = R⁻¹Z, Y = V⁻¹X, blocks over responses.
-        beta is the only parameter not reachable from the blocks: dℓ/dβ = −2X'V⁻¹r.
-
-        Independent of the forward route: every quantity is either a forward
-        by-product carried by aux or rebuilt here, so the analytic backward can
-        run on top of the dense forward (structured_forward=False).
-        """
-        if not torch.is_grad_enabled():
-            return
-
-        X = self._X
-        Z = self._Z
-        r = self._y - self._X @ self.beta.detach().to(self.dtype)
-
-        ZtRiZ = aux["ZtRiZ"]; Rir = aux["Rir"]; ZtRir = aux["ZtRir"]
-        RiX = aux["RiX"]; ZtRiX = aux["ZtRiX"]; RinvZ = aux["RinvZ"]
-        Lx = aux["Lx"]
-
-        # V⁻¹ pieces through the capacitance (Woodbury projections), C⁻¹ via
-        # cholesky_solve on the forward factor Lc — V is never formed.
-        u = Rir - RinvZ @ torch.cholesky_solve(ZtRir, Lc)          # V⁻¹r
-        ViX = RiX - RinvZ @ torch.cholesky_solve(ZtRiX, Lc)        # V⁻¹X
-        ZVir = ZtRir - ZtRiZ @ torch.cholesky_solve(ZtRir, Lc)     # Z'V⁻¹r
-        ZViX = ZtRiX - ZtRiZ @ torch.cholesky_solve(ZtRiX, Lc)     # Z'V⁻¹X
-        C_z = torch.cholesky_solve(ZtRiZ, Lc)
-        ZViZ = ZtRiZ - ZtRiZ @ C_z                                 # Z'V⁻¹Z
-        M = ZViZ - ZVir @ ZVir.T - ZViX @ torch.cholesky_solve(ZViX.T, Lx)
-
-        # ---- random-effect grains ----
-        ghost = None
-        off = 0
-        for rnd in self.random:
-            qe = rnd.d * rnd.L
-            Me = M[off:off + qe, off:off + qe]
-            off += qe
-            S = rnd.build_S_full()
-            Ke = rnd.build_K()
-            M4 = Me.reshape(rnd.k * rnd.c, rnd.L, rnd.k * rnd.c, rnd.L)
-            grain_S = torch.einsum('iljm,lm->ij', M4, Ke).detach()
-            ghost = (grain_S * S).sum() if ghost is None else ghost + (grain_S * S).sum()
-            if rnd.right_hand not in ("iid", "str"):
-                grain_K = torch.einsum('ij,iljm->lm', S, M4).detach()
-                ghost = ghost + (grain_K * Ke).sum()
-
-        # ---- residual grains ----
-        resid = self.residual
-        d, n_lev = resid.d, resid.L
-        blk = self._C_blocks
-        grid = blk["grid"]
-
-        if resid.R_is_diagonal:
-            Sinv, _ = resid.build_Sinv()
-            Kinv, _ = resid.build_Kinv()
-            ri, li = blk["r_i"], blk["l_i"]
-            w = Sinv[ri, ri] * Kinv[li, li]                    # diag(R⁻¹)
-            Iq = torch.eye(Z.shape[1], dtype=Lc.dtype, device=Lc.device)
-            ZLi = Z @ torch.linalg.solve_triangular(Lc.T, Iq, upper=True)
-            diag_Vi = w - w * w * (ZLi * ZLi).sum(1)           # diag(V⁻¹)
-            Ip = torch.eye(X.shape[1], dtype=Lc.dtype, device=Lc.device)
-            Tx = ViX @ torch.linalg.solve_triangular(Lx.T, Ip, upper=True)
-            A_ii = (diag_Vi - (u * u).flatten() - (Tx * Tx).sum(1)).detach()
-            Sfull = resid.build_S()
-            Kinv_d = Kinv.detach()
-            grain_S = torch.zeros(d, d, dtype=A_ii.dtype, device=A_ii.device)
-            grain_S.index_put_((ri, ri), A_ii / Kinv_d[li, li], accumulate=True)
-            ghost = ghost + (grain_S * Sfull).sum()
-            if resid.right_hand == "het":
-                grain_K = torch.zeros(n_lev, n_lev, dtype=A_ii.dtype, device=A_ii.device)
-                grain_K.index_put_((li, li), A_ii * Sfull.detach()[ri, ri], accumulate=True)
-                ghost = ghost + (grain_K * resid.build_K()).sum()
-        else:
-            # full residual: grain_S_R[r,s] = S_R⁻¹[r,s]·L − tr(C⁻¹P_r'P_s)
-            # − u_r'u_s − tr((X'V⁻¹X)⁻¹Y_r'Y_s). The trace terms over the
-            # response blocks are read off B = P C⁻¹ P' and F = Y (X'V⁻¹X)⁻¹ Y'
-            # (one matmul each), not from d² per-block products.
-            Sinv, _ = resid.build_Sinv()
-            P = aux["P_full"]                                  # dL×q, embedded R⁻¹Z
-            if P is None:
-                # dense forward (structured_forward=False): the embedded R⁻¹Z is
-                # not a forward by-product, so rebuild it. Only this branch needs
-                # it; the diagonal-residual branch above is already route-agnostic.
-                apply, _ = self._R_kron_apply()
-                P = apply(blk["Zg"])
-            ug = P.new_zeros(d * n_lev); ug[grid] = u.flatten()
-            Yg = P.new_zeros(d * n_lev, X.shape[1]); Yg[grid] = ViX
-            Cinv = torch.cholesky_inverse(Lc)
-            Xinv = torch.cholesky_inverse(Lx)
-            B = P @ Cinv @ P.T
-            F = Yg @ Xinv @ Yg.T
-            grain_S = torch.zeros(d, d, dtype=Lc.dtype, device=Lc.device)
-            for rs in range(d):
-                br = slice(rs * n_lev, (rs + 1) * n_lev)
-                ug_r = ug[br]
-                for s in range(d):
-                    bs = slice(s * n_lev, (s + 1) * n_lev)
-                    grain_S[rs, s] = (Sinv[rs, s] * n_lev - B[br, bs].trace()
-                                      - (ug_r @ ug[bs]) - F[br, bs].trace())
-            ghost = ghost + (grain_S.detach() * resid.build_S()).sum()
-
-        ghost.backward()
-
-        self.beta.grad = (-2.0 * (X.T @ u)).to(self.beta.dtype)
+        return loss, solve.logdet_V, solve.quad, solve.k_reml, const, solve.L
 
     def HMME(self):
         """
@@ -1234,4 +779,3 @@ class MixedModel:
                 self.AIC_meth = "ML"
 
         self.AIC = self.neg2loglik + 2 * self.n_params
-
