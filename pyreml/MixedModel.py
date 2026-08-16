@@ -610,20 +610,33 @@ class MixedModel:
             G, R = self.varmeth()
             return R if self._Z is None else self._Z @ G @ self._Z.T + R
 
-        if analytic:
-            with torch.no_grad():
-                solve = self._factor(r, dense_V)
-                loss = (solve.logdet_V + solve.quad + solve.k_reml + const).detach()
-            self._apply_grains(solve)
-            loss = loss.requires_grad_(True)
-        else:
-            solve = self._factor(r, dense_V)
-            loss = solve.logdet_V + solve.quad + solve.k_reml + const
+        def factor():
+            if self.SMW:
+                return self.variance.capacitance(
+                    self._X, self._Z, r, self.residual, self.varmeth_inv
+                )
+            return self.variance.direct_solve(self._X, r, dense_V)
 
         if analytic:
-            loss = loss.detach()
-            self._apply_grains(solve)
+            with torch.no_grad():
+                solve = factor()
+                loss = (solve.logdet_V + solve.quad + solve.k_reml + const).detach()
+
+            # closed-form gradient, injected through a ghost loss: solve.grains()
+            # returns tr(A dV/dtheta) already contracted into (tensor, grain)
+            # pairs, the tensor carrying the parameter graph and the grain being
+            # a constant. beta is the only parameter outside that mechanism.
+            if torch.is_grad_enabled():
+                ghost = torch.zeros((), dtype=self.dtype, device=self.device)
+                for tensor, grain in solve.grains():
+                    ghost = ghost + (grain * tensor).sum()
+                ghost.backward()
+                self.beta.grad = solve.beta_grain().to(self.beta.dtype)
+
             loss = loss.requires_grad_(True)
+        else:
+            solve = factor()
+            loss = solve.logdet_V + solve.quad + solve.k_reml + const
 
         if not return_everything:
             return loss

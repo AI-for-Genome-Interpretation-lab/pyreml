@@ -317,9 +317,7 @@ class Solve:
     grain read off it.
 
     Not an interface. `DirectSolve` and `Capacitance` each expose logdet_V,
-    quad, k_reml, L and grains(), but nothing here declares or enforces that —
-    the caller duck-types, and ResidualOnlySolve satisfies the same shape
-    without inheriting anything.
+    quad, k_reml, L and grains(), but nothing here declares or enforces that
     """
 
     def __init__(self, variance: Variance, X: torch.Tensor, r: torch.Tensor):
