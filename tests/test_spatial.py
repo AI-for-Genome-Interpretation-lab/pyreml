@@ -120,19 +120,21 @@ class Run:
 
     case: dict
     smw: bool
+    opti: bool
 
     @property
     def id(self) -> str:
         solver = "woodbury" if self.smw else "direct"
-        return f"{solver}-{self.case['id']}"
+        route = "opt" if self.opti else "plain"
+        return f"{solver}-{route}-{self.case['id']}"
 
 
 # All cases run directly. All but the two AR structures also run with Woodbury.
 RUNS = [
     Run(case=case, smw=True, opti=opti)
     for case in CASES
-    for opti in (True, False)
     if case["id"] not in {"ar_iso", "ar_ani"}
+    for opti in (True, False)
 ] + [
     Run(case=case, smw=False, opti=opti)
     for case in CASES
@@ -269,7 +271,6 @@ def mod(run, expected):
         SMW=run.smw,
         structured_forward=run.opti,
         analytic_backward=run.opti,
-        device = DEVICE,
         device = DEVICE,
     ).fit(DTYPE, verbose  = False)
 
