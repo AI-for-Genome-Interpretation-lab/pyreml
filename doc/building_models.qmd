@@ -59,42 +59,46 @@ Check for convergence of the last REML step before interpreting the model output
 All times are expressed in seconds.
 
 ```txt
-2026-08-07T12:58:31Z
+2026-08-17T11:38:44Z
 ------------------------------------------------------------
   platform
     device                  cuda
     gpu                     NVIDIA A100 80GB PCIe
-    pyreml                  0.3.0
+    pyreml                  0.4.0
     torch                   2.8.0+cu128
     cuda                    12.8
 ------------------------------------------------------------
   model
-    n obs                   15000
+    n obs                   20000
     n fixed effects         1
-    n random effects        15000
+    n random effects        20000
     n variance parameters   2
+------------------------------------------------------------
+  solving
     SMW                     False
+    structured forward      True
+    analytical backward     True
 ------------------------------------------------------------
   OLS - double
     time                    0.00
 ------------------------------------------------------------
   REML - double
-    time                    67.69
+    time                    27.22
     convergence             True
-    REML -2logLik           78561.6262563281
-    absolute tolerance          0.0000078562
+    REML -2logLik           107376.9638550121
+    absolute tolerance           0.0000107377
     degenerate              False
     digits tolerance total  10.00
     digits machine          15.65
     digits cancellation     0.00
-    digits roundoff         2.09
-    digits conditionning    0.16
+    digits roundoff         2.15
+    digits conditionning    0.48
     n steps total           3
     n steps adam            0
 ------------------------------------------------------------
   HMME - double
-    time                    9.17
-    REML loss               78561.6262563281
+    time                    15.96
+    REML loss               107376.9638550121
 ------------------------------------------------------------
 ```
 

@@ -167,6 +167,8 @@ class OptiMix():
         # Exact, and >= 0 by the triangle inequality.
         cancellation = sum(abs(t) for t in terms) / abs(self._workingloss)
         self.digits_cancellation = np.log10(cancellation)
+        if abs(self.digits_cancellation) < 1e-10:
+            self.digits_cancellation = 0.0
 
         # roundoff accumulated over ~m^3/3 flops. Random-walk growth sqrt(m),
         # not Wilkinson's worst case m (aligned signs, pessimistic by 1-2 orders).
