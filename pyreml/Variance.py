@@ -167,7 +167,7 @@ class Variance:
         block diagonal of the per-response component values and lev follows the
         same stacking.
         """
-        masks_t = [torch.as_tensor(m, dtype=torch.bool, device=device) for m in masks]
+        masks_t = [torch.tensor(m, dtype=torch.bool, device=device) for m in masks]
         blocks = []
 
         for i, (M, c, L, comp) in enumerate(designs):
