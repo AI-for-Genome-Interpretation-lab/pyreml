@@ -25,6 +25,9 @@ with open(DATA_DIR / "regression_fixed.json") as f:
 with open(DATA_DIR / "regression_random.json") as f:
     EXPECTED_RANDOM_REG = json.load(f)
 
+SOLVING = [(True, True), (True, False), (False, True), (False, False)]
+SOLVING_IDS = ["woodbury-opt", "woodbury-plain", "direct-opt", "direct-plain"]
+
 
 @pytest.fixture
 def df():
@@ -48,8 +51,9 @@ def mod_ols(df):
     ).fit(DTYPE, verbose  = False)
 
 
-@pytest.fixture(params=[True, False], ids=["woodbury", "direct"])
+@pytest.fixture(params=SOLVING, ids=SOLVING_IDS)
 def mod_lmm(df, request):
+    smw, opti = request.param
     return MixedModel.from_dataframe(
         data=df,
         response="height",
@@ -59,9 +63,12 @@ def mod_lmm(df, request):
             formula="1 + circumference",
             left_hand="full",
         ),
-        SMW=request.param,
+        SMW=smw,
+        structured_forward=opti,
+        analytic_backward=opti,
         device = DEVICE,
     ).fit(DTYPE, verbose  = False)
+
 
 @pytest.fixture
 def df_longitudinal():

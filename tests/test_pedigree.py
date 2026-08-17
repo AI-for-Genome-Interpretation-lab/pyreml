@@ -19,6 +19,17 @@ from pyreml import MixedModel, Random, Residual, A_pedigree, D_pedigree, larix a
 DEVICE = "cpu"
 DTYPE = "mixed"
 
+_SOLVING_KERNEL_PARAMS = [
+    (smw, opti, kind)
+    for smw in (True, False)
+    for opti in (True, False)
+    for kind in ("covariance", "precision")
+]
+_SOLVING_KERNEL_IDS = [
+    f"{'woodbury' if smw else 'direct'}-{'opt' if opti else 'plain'}-{kind}"
+    for smw, opti, kind in _SOLVING_KERNEL_PARAMS
+]
+
 DATA_DIR = Path(__file__).parent / "data"
 
 with open(DATA_DIR / "pedigree_kinship.json") as f:
@@ -172,20 +183,10 @@ def kinship_train(pedigree_full, df_train):
 
     return A, D, ped_ids
 
-_SMW_KERNEL_PARAMS = [
-    (smw, kind)
-    for smw in (True, False)
-    for kind in ("covariance", "precision")
-]
-_SMW_KERNEL_IDS = [
-    f"{'woodbury' if smw else 'direct'}-{kind}"
-    for smw, kind in _SMW_KERNEL_PARAMS
-]
 
-
-@pytest.fixture(params=_SMW_KERNEL_PARAMS, ids=_SMW_KERNEL_IDS)
+@pytest.fixture(params=_SOLVING_KERNEL_PARAMS, ids=_SOLVING_KERNEL_IDS)
 def mod_uni(df_train, kinship_train, request):
-    smw, kind = request.param
+    smw, opti, kind = request.param
     A, D, ped_ids = kinship_train
     return MixedModel.from_dataframe(
         data     = df_train,
@@ -204,13 +205,15 @@ def mod_uni(df_train, kinship_train, request):
             ),
         ],
         SMW = smw,
+        structured_forward = opti,
+        analytic_backward = opti,
         device = DEVICE,
     ).fit(DTYPE, verbose  = False)
 
 
-@pytest.fixture(params=_SMW_KERNEL_PARAMS, ids=_SMW_KERNEL_IDS)
+@pytest.fixture(params=_SOLVING_KERNEL_PARAMS, ids=_SOLVING_KERNEL_IDS)
 def mod_diag(df_train, kinship_train, request):
-    smw, kind = request.param
+    smw, opti, kind = request.param
     A, _, ped_ids = kinship_train
     return MixedModel.from_dataframe(
         data     = df_train,
@@ -230,13 +233,15 @@ def mod_diag(df_train, kinship_train, request):
             left_hand = "diag",
         ),
         SMW = smw,
+        structured_forward = opti,
+        analytic_backward = opti,
         device = DEVICE,
     ).fit(DTYPE, verbose  = False)
 
 
-@pytest.fixture(params=_SMW_KERNEL_PARAMS, ids=_SMW_KERNEL_IDS)
+@pytest.fixture(params=_SOLVING_KERNEL_PARAMS, ids=_SOLVING_KERNEL_IDS)
 def mod_str(df_train, kinship_train, request):
-    smw, kind = request.param
+    smw, opti, kind = request.param
     A, _, ped_ids = kinship_train
     return MixedModel.from_dataframe(
         data     = df_train,
@@ -256,6 +261,8 @@ def mod_str(df_train, kinship_train, request):
             left_hand    = "full",
         ),
         SMW = smw,
+        structured_forward = opti,
+        analytic_backward = opti,
         device = DEVICE,
     ).fit(DTYPE, verbose  = False)
 
