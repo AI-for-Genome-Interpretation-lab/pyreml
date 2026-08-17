@@ -103,21 +103,6 @@ line search, with Adam [@kingma_adam_2017] as a fallback for steps the line
 search cannot complete. The variance parameters and $\mathbf{\beta}$ are
 optimized jointly.
 
-Each iteration evaluates the objective (the *forward*) and its gradient (the
-*backward*). Both are computed from the structure of the variance rather than
-from its dense form, along two independent axes described below. Either can be
-switched off, which is useful for benchmarking and leaves the estimates
-unchanged:
-
-```python
-model.variance.structured = False   # dense forward
-model.analytic_backward = False     # autograd backward
-```
-
-Both default to `True` for models built with `from_dataframe`. The low-level
-constructor carries no per-effect decomposition and always falls back to the
-dense forward and the autograd backward.
-
 ### Structured forward
 
 Assembling $\mathbf{V}$ as $\mathbf{Z}\mathbf{G}\mathbf{Z}^\top + \mathbf{R}$
