@@ -95,8 +95,16 @@ class Block:
         pairs = [(S, (self.F.T @ (A * K_obs.detach()) @ self.F).detach())]
 
         if K is not None:
-            grain_K = (A * (self.F @ S.detach() @ self.F.T))[self.lev][:, self.lev]
-            pairs.append((K, grain_K.detach()))
+            # scatter, not gather: dl/dK[l,m] sums the observation-level entries
+            # over every pair (i,j) landing on levels (l,m). A gather indexed by
+            # lev reads an n×n matrix at level positions, which only coincides
+            # when L == n and lev is the identity — true for the ungridded hands,
+            # out of bounds for the gridded AR structures where L > n.
+            M = (A * (self.F @ S.detach() @ self.F.T)).detach()
+            n_lev = self.comp.L
+            rows = M.new_zeros(n_lev, M.shape[1]).index_add_(0, self.lev, M)
+            grain_K = M.new_zeros(n_lev, n_lev).index_add_(0, self.lev, rows.T).T
+            pairs.append((K, grain_K))
 
         return pairs
 
