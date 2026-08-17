@@ -111,16 +111,18 @@ class OptiMix():
             if criterion is None:
                 relative_tol = self.tolerance()
                 absolute_tol = abs(current) * 10.0 ** -relative_tol
-            else:
-                absolute_tol = criterion
 
-            # degenerate case: back to the hard-coded absolute threshold
-            # => maybe it's a hard beginning, maybe it's degenerate and we
-            # seek stagnation
-            if absolute_tol > MAX_ABS_TOL:
-                self.degenerate = True
-                absolute_tol = MAX_ABS_TOL
+                # degenerate case: back to the hard-coded absolute threshold
+                # => maybe it's a hard beginning, maybe it's degenerate and we
+                # seek stagnation
+                if absolute_tol > MAX_ABS_TOL:
+                    self.degenerate = True
+                    absolute_tol = MAX_ABS_TOL
+                else:
+                    self.degenerate = False
             else:
+                # explicit user threshold: taken at face value, no clamping
+                absolute_tol = criterion
                 self.degenerate = False
 
             self.absolute_tolerance = absolute_tol
