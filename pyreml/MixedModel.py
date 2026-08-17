@@ -592,8 +592,9 @@ class MixedModel:
     ):
         """
         Restricted maximum likelihood estimation of the variance components + beta
-        - n_epochs: the number of epochs
-        - convergence; the convergence criterion.
+        - n_epoch: the number of epochs
+        - criterion: debug only. Overrides the adaptive tolerance with a fixed
+          absolute threshold on |delta -2logL|. Leave it to None in production.
         """
 
         self.opti_REML.run(
