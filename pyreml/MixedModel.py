@@ -588,6 +588,7 @@ class MixedModel:
     def REML(
         self,
         n_epoch: int = 10_000,
+        criterion: float = None,
     ):
         """
         Restricted maximum likelihood estimation of the variance components + beta
@@ -597,6 +598,7 @@ class MixedModel:
 
         self.opti_REML.run(
             n_epoch=n_epoch,
+            criterion = criterion,
         )
 
         for rand in getattr(self, "random", []):

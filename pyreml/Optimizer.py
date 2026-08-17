@@ -60,7 +60,7 @@ class OptiMix():
     def run(
         self,
         n_epoch: int = 10_000,
-        max_digits = None,
+        criterion = None,
     ):
         self.loss = []
         self.converged = False
@@ -75,7 +75,7 @@ class OptiMix():
         self.start = time.time()
 
         for _ in range(n_epoch):
-            self.step(max_digits=max_digits)
+            self.step(criterion = criterion)
             if self.converged:
                 if self.degenerate:
                     self.converged = False
@@ -98,7 +98,7 @@ class OptiMix():
             line_search_fn = self.lbfgs_line_search_fn,
         )
 
-    def step(self, max_digits = None):
+    def step(self, criterion = None):
         self.snap = [p.detach().clone() for p in self.params]
 
         try:
@@ -108,8 +108,11 @@ class OptiMix():
             self.set_adam()
             self.adam_step = 0
 
-            relative_tol = self.tolerance(max_digits)
-            absolute_tol = abs(current) * 10.0 ** -relative_tol
+            if criterion is None:
+                relative_tol = self.tolerance()
+                absolute_tol = abs(current) * 10.0 ** -relative_tol
+            else:
+                absolute_tol = criterion
 
             # degenerate case: back to the hard-coded absolute threshold
             # => maybe it's a hard beginning, maybe it's degenerate and we
@@ -140,7 +143,7 @@ class OptiMix():
 
         self.previous = current
 
-    def tolerance(self, max_digits = None):
+    def tolerance(self):
         """
         Adaptive relative tolerance on -2logL, sized on the number of significant
         digits that survive the numerical evaluation of the likelihood.
@@ -190,7 +193,7 @@ class OptiMix():
         # the cap is what guarantees a floor on the speed-up.
         retained = min(
             self.digits_machine - (self.digits_cancellation + self.digits_roundoff + self.digits_conditionning),
-            MAX_DIGITS if max_digits is None else max_digits,
+            MAX_DIGITS
         )
 
         # scaled on the current loglik only: an early outlier must not widen it
