@@ -129,14 +129,15 @@ class Run:
 
 # All cases run directly. All but the two AR structures also run with Woodbury.
 RUNS = [
-    Run(case=case, smw=True)
+    Run(case=case, smw=True, opti=opti)
     for case in CASES
+    for opti in (True, False)
     if case["id"] not in {"ar_iso", "ar_ani"}
 ] + [
-    Run(case=case, smw=False)
+    Run(case=case, smw=False, opti=opti)
     for case in CASES
+    for opti in (True, False)
 ]
-
 
 # --------------------------------------------------------------------------- #
 # Helpers / data
@@ -266,6 +267,9 @@ def mod(run, expected):
         fixed="1",
         random=eff,
         SMW=run.smw,
+        structured_forward=run.opti,
+        analytic_backward=run.opti,
+        device = DEVICE,
         device = DEVICE,
     ).fit(DTYPE, verbose  = False)
 
