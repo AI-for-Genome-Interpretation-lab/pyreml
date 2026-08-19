@@ -89,18 +89,106 @@ parameters [@patterson_recovery_1971; @harville_maximum_1977]:
 
 $$
 -2\ell_{\text{REML}} = \log\lvert\mathbf{V}\rvert
-+ (\mathbf{y}-\mathbf{X}\mathbf{\beta})^\top\mathbf{V}^{-1}
-  (\mathbf{y}-\mathbf{X}\mathbf{\beta})
++ \mathbf{r}^\top\mathbf{V}^{-1}\mathbf{r}
 + \log\lvert\mathbf{X}^\top\mathbf{V}^{-1}\mathbf{X}\rvert
-+ (n - p) \log(2\pi).
++ (n - p) \log(2\pi),
 $$
+
+with $\mathbf{r} = \mathbf{y}-\mathbf{X}\mathbf{\beta}$.
 
 ### Optimization
 
-The objective is differentiated by automatic differentiation and optimized with
-L-BFGS [@liu_limited_1989] under a strong-Wolfe line search, with Adam [@kingma_adam_2017] as a fallback for steps
-the line search cannot complete.
-The variance parameters and $\mathbf{\beta}$ are optimized jointly.
+The objective is optimized with L-BFGS [@liu_limited_1989] under a strong-Wolfe
+line search, with Adam [@kingma_adam_2017] as a fallback for steps the line
+search cannot complete. The variance parameters and $\mathbf{\beta}$ are
+optimized jointly.
+
+### Structured forward
+
+Assembling $\mathbf{V}$ as $\mathbf{Z}\mathbf{G}\mathbf{Z}^\top + \mathbf{R}$
+materialises the Kronecker blocks $\mathbf{\Sigma_a} \otimes \mathbf{K_a}$ and
+multiplies through every column of $\mathbf{Z_a}$, one per level and component,
+even though the result only depends on the $d_\mathbf{a}$ component values each
+observation carries.
+The incidence built by `from_dataframe` is one-hot in levels: each row of
+$\mathbf{Z_a}$ loads a single level $s(i)$, while carrying $d_\mathbf{a}$
+arbitrary values. This holds for random regression, for coordinate kernels and
+for pedigree expansion alike. Effect $\mathbf{a}$ then contributes:
+$$
+\mathbf{V_a} =
+\left(\mathbf{F_a}\,\mathbf{\Sigma_a}\,\mathbf{F_a}^\top\right)
+\odot \mathbf{K_a}^{\text{obs}},
+\qquad
+\left[\mathbf{K_a}^{\text{obs}}\right]_{ij} =
+\left[\mathbf{K_a}\right]_{s(i)\,s(j)},
+$$
+with $\odot$ the elementwise product and $\mathbf{F_a}$ the $n \times
+d_\mathbf{a}$ matrix of component values, block-diagonal across responses: each
+row carries the $c_\mathbf{a}$ values of its own response, so that
+$d_\mathbf{a} = k\,c_\mathbf{a}$ over $k$ responses. The full covariance is
+$\mathbf{V} = \sum_\mathbf{a} \mathbf{V_a}$, residual included, and neither
+$\mathbf{G_a}$ nor $\mathbf{Z_a}\mathbf{G_a}\mathbf{Z_a}^\top$ is ever formed.
+The number of levels no longer drives the cost of assembling $\mathbf{V}$, only
+the number of components does.
+
+The same idea applies to $\mathbf{R}^{-1}$, which the [SMW](#smw) identity
+requires as a dense $n \times n$ matrix. Observations are instead lifted into
+the full response $\times$ level space, where applying $\mathbf{R}^{-1}$ becomes
+a Kronecker contraction and $\mathbf{R}^{-1}$ is never formed.
+
+The structured forward path is switched off when:
+
+- using the `from_dataframe` high level builder, the user forces `structured_forward = False`;
+- always when using the low level builder.
+
+### Analytical backward
+
+The REML gradient with respect to any variance parameter $\theta$ has a closed
+form:
+$$
+\frac{\partial(-2\ell_{\text{REML}})}{\partial\theta} =
+\operatorname{tr}\!\left(\mathbf{A}\,\frac{\partial\mathbf{V}}{\partial\theta}\right),
+$$
+$$
+\mathbf{A} = \mathbf{V}^{-1} -
+\mathbf{V}^{-1}\mathbf{r}\mathbf{r}^\top\mathbf{V}^{-1} -
+\mathbf{V}^{-1}\mathbf{X}
+\left(\mathbf{X}^\top\mathbf{V}^{-1}\mathbf{X}\right)^{-1}
+\mathbf{X}^\top\mathbf{V}^{-1},
+$$
+with $\partial(-2\ell_{\text{REML}})/\partial\mathbf{\beta} =
+-2\,\mathbf{X}^\top\mathbf{V}^{-1}\mathbf{r}$.
+The forward therefore runs without recording a graph. Reusing the decomposition
+above, the trace contracts into one constant per variance matrix,
+$$
+\operatorname{grain}(\mathbf{\Sigma_a}) =
+\mathbf{F_a}^\top\left(\mathbf{A} \odot \mathbf{K_a}^{\text{obs}}\right)\mathbf{F_a},
+\qquad
+\left[\operatorname{grain}(\mathbf{K_a})\right]_{st} =
+\sum_{\substack{i\,:\,s(i)=s \\ j\,:\,s(j)=t}}
+\left[\mathbf{A} \odot
+\mathbf{F_a}\mathbf{\Sigma_a}\mathbf{F_a}^\top\right]_{ij},
+$$
+the second one scattering the observation-level entries onto the levels they
+land on, rather than reading them at level positions. The two only coincide
+when $L_\mathbf{a} = n$, which the gridded structures break. Differentiation is
+then applied to the inner products of these constants with $\mathbf{\Sigma_a}$
+and $\mathbf{K_a}$ alone. Automatic differentiation still performs the last
+step, but only across the parameterization of each variance matrix
+(log-Cholesky, factor-analytic, and so on), never across the factorization of
+$\mathbf{V}$ or the Kronecker products. The grains pair against
+$\mathbf{\Sigma_a}$ jitter included, as the forward uses it: meeting the same
+graph is what keeps the jitter contribution to
+$\partial\mathbf{\Sigma_a}/\partial\theta$ from being silently dropped.
+
+On the SMW path $\mathbf{A}$ is never formed either: the same three terms are
+projected onto the $q \times q$ capacitance space, where the grains are read off
+the block of each effect.
+
+The analytical backward path is switched off when:
+
+- using the `from_dataframe` high level builder, the user forces `analytic_backward = False`;
+- always when using the low level builder.
 
 ### Convergence criterion
 

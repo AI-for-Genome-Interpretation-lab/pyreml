@@ -12,7 +12,9 @@ import time
 
 from .Optimizer import OptiMix
 from .GaussianComponents import Random, Residual
+from .Variance import Variance
 from ._version import __version__
+
 
 class MixedModel:
 
@@ -25,6 +27,8 @@ class MixedModel:
         random: None | Random | list[Random] = None,
         residual: Residual | None = None,
         SMW: bool | None = None,
+        structured_forward: bool | None = None,
+        analytic_backward: bool | None = None,
         device: str = "cpu",
     ):
 
@@ -88,6 +92,10 @@ class MixedModel:
         random_blocks_inv = []
         varparams = []
 
+        # per-effect designs feeding the structured decomposition, residual
+        # appended last so that Variance can flag it
+        designs = []
+
         for r in random:
             Z_base = r.design(data, response, scale=scale, device = device)
             Z_e = block_diag(*[Z_base[m] for m in masks])
@@ -96,6 +104,7 @@ class MixedModel:
             random_blocks.append(r.varmeth())
             random_blocks_inv.append(r.varmeth_inv())
             varparams.extend(r.varparams)
+            designs.append((Z_base, r.c, r.L, r))
 
         if Z_blocks:
             Z = np.hstack(Z_blocks)
@@ -105,6 +114,9 @@ class MixedModel:
         W_blocks = residual.design(data, response, scale=scale, device = device)
         W = block_diag(*[W_blocks[m] for m in masks])
         residual.check_Rtrick(W)
+        designs.append((W_blocks, residual.c, residual.L, residual))
+
+        variance = Variance.from_designs(designs, masks, device)
 
         varparams.extend(residual.varparams)
 
@@ -155,12 +167,42 @@ class MixedModel:
         mm.fixed_names = fixed_names
         mm.residual = residual
         mm.random = [rand for rand in random]
+        mm.variance = variance
 
-        if not mm.residual.Rtrick :
+        variance.embed_residual(mm._Z, mm._X, mm._W, residual)
+
+        # SMW resolution, in three layers of increasing authority.
+        #
+        # 1. optimization rule: what is worth doing given the dimensions and
+        #    the residual structure
+        # 2. user decision: overrides the heuristic, since only the caller
+        #    knows what they are measuring
+        # 3. operability rule: the residual embedding either exists or it does
+        #    not, and no preference can conjure it
+
+        if not residual.Rtrick:
             mm.SMW = False
-            
         if SMW is not None:
             mm.SMW = SMW
+        if variance.embed is None:
+            mm.SMW = False
+
+        # solving strategy, resolved once, on the same three layers as SMW: both
+        # optimizations need the per-effect decomposition this constructor
+        # builds, the caller may then switch either off, and neither can be
+        # switched on against a structure that does not support it.
+        mm.structured_forward = True
+        mm.analytic_backward = True
+
+        if structured_forward is not None:
+            mm.structured_forward = structured_forward
+        if analytic_backward is not None:
+            mm.analytic_backward = analytic_backward
+        if not variance.blocks:
+            mm.structured_forward = False
+            mm.analytic_backward = False
+
+        mm.migrate()
 
         return mm
 
@@ -193,6 +235,8 @@ class MixedModel:
             self.SMW = False
         elif varmeth is None:                # only the Woodbury path is available
             self.SMW = True
+        elif Z is None:                      # nothing to correct: V = R
+            self.SMW = False
         else:                                # both paths are available: choose by dimension
             self.SMW = (self.q < self.n)
 
@@ -202,6 +246,17 @@ class MixedModel:
         self.do_REML     = do_REML
         self.varmeth     = types.MethodType(varmeth, self) if varmeth is not None else None
         self.varmeth_inv = types.MethodType(varmeth_inv, self) if varmeth_inv is not None else None
+
+        # empty decomposition: the low-level constructor has no per-effect
+        # structure to exploit, so both optimizations fall back on their own.
+        # from_dataframe replaces this with the real one.
+        self.variance = Variance()
+
+        # no per-effect decomposition here, so neither optimization applies.
+        # from_dataframe replaces all three once its structures are built.
+        self.variance = Variance()
+        self.structured_forward = False
+        self.analytic_backward = False
 
         self.opti_REML = OptiMix(
             params = [self.beta, *(p["tensor"] for p in self.varparams)],
@@ -231,6 +286,8 @@ class MixedModel:
         residual = getattr(self, "residual", None)
         if residual is not None:
             residual.migrate(dtype)
+
+        self.variance.to(dtype)
 
     def log(self):
         if not self._log:
@@ -278,9 +335,13 @@ class MixedModel:
 
         # model
         model_keys = ["n obs", "n fixed effects", "n random effects",
-                      "n variance parameters", "SMW"]
+                      "n variance parameters"]
         model = [(k, fmt(k, head[k])) for k in model_keys if k in head]
         blocks.append(("model", model))
+
+        solving_keys = ["SMW", "structured forward", "analytical backward"]
+        solving = [(k, fmt(k, head[k])) for k in solving_keys if k in head]
+        blocks.append(("solving", solving))
 
         # steps
         for e in entries:
@@ -330,6 +391,8 @@ class MixedModel:
             "n fixed effects": self.p,
             "n random effects": self.q,
             "SMW": self.SMW,
+            "structured forward": self.structured_forward,
+            "analytical backward": self.analytic_backward,
             "pyreml": __version__,
             "torch": torch.__version__,
         }
@@ -525,15 +588,18 @@ class MixedModel:
     def REML(
         self,
         n_epoch: int = 10_000,
+        criterion: float = None,
     ):
         """
         Restricted maximum likelihood estimation of the variance components + beta
-        - n_epochs: the number of epochs
-        - convergence; the convergence criterion.
+        - n_epoch: the number of epochs
+        - criterion: debug only. Overrides the adaptive tolerance with a fixed
+          absolute threshold on |delta -2logL|. Leave it to None in production.
         """
 
         self.opti_REML.run(
             n_epoch=n_epoch,
+            criterion = criterion,
         )
 
         for rand in getattr(self, "random", []):
@@ -544,59 +610,61 @@ class MixedModel:
             residual.format_variance()
 
     def REML_loss(self, return_everything = False):
+        """
+        -2 log L_REML = logdet V + r'V-inverse r + logdet(X'V-inverse X) + const.
 
+        The closed-form gradient reads the per-effect decomposition, which only
+        from_dataframe builds, and on the SMW path it also needs the residual
+        embedding: without either, the autograd graph is the only route. When it
+        does apply, the forward runs under no_grad and the returned loss is a
+        fresh leaf, so that Optimizer's loss.backward() stays valid while the
+        parameter gradients come from the ghost loss instead.
+        """
         beta = self.beta.to(self.dtype)
         r = self._y - self._X @ beta
-        const    = (self.n - self.p) * math.log(2 * math.pi)
+        const = (self.n - self.p) * math.log(2 * math.pi)
 
-        if self.SMW:
-            # ---- Sherman–Morrison–Woodbury: from structured inverses, V never formed ----
-            Ginv, Rinv, logdet_G, logdet_R = self.varmeth_inv()
-
-            if self._Z is None:
-                logdet_V = logdet_R
-                quad     = (r.T @ Rinv @ r).squeeze()
-                L = torch.linalg.cholesky(self._X.T @ Rinv @ self._X) # for tolerance computation in OptiMix
-                k_reml = 2.0 * torch.sum(torch.log(torch.diagonal(L)))
-            
-            else:
-                Z = self._Z
-                C  = Ginv + Z.T @ Rinv @ Z                        # (q, q) capacitance
-                L = torch.linalg.cholesky(C)
-                logdet_C = 2.0 * torch.sum(torch.log(torch.diagonal(L)))
-                logdet_V = logdet_R + logdet_G + logdet_C         # determinant lemma
-
-                # r' V^-1 r = r'R⁻¹r − (Z'R⁻¹r)' C⁻¹ (Z'R⁻¹r)
-                Rir   = Rinv @ r
-                ZtRir = Z.T @ Rir
-                quad  = (r.T @ Rir).squeeze() \
-                    - (ZtRir.T @ torch.cholesky_solve(ZtRir, L)).squeeze()
-
-                # X' V^-1 X = X'R⁻¹X − (Z'R⁻¹X)' C⁻¹ (Z'R⁻¹X)
-                RiX   = Rinv @ self._X
-                ZtRiX = Z.T @ RiX
-                XtViX = self._X.T @ RiX - ZtRiX.T @ torch.cholesky_solve(ZtRiX, L)
-                k_reml = torch.logdet(XtViX)
-
-        else:
-            # ---- Direct: single Cholesky of V = ZGZ' + R ----
+        # dense fallback, evaluated by the Variance only when the structured
+        # forward is off or unavailable (low-level constructor)
+        def dense_V():
             G, R = self.varmeth()
+            return R if self._Z is None else self._Z @ G @ self._Z.T + R
 
-            V = R if self._Z is None else self._Z @ G @ self._Z.T + R
+        def factor():
+            if self.SMW:
+                return self.variance.capacitance(
+                    self._X, self._Z, r, self.residual, self.varmeth_inv,
+                    self.structured_forward,
+                )
+            else:
+                return self.variance.direct_solve(
+                    self._X, r, dense_V, self.structured_forward,
+                )
 
-            L = torch.linalg.cholesky(V)
-            M  = torch.linalg.solve_triangular(L, r, upper=False)
+        if self.analytic_backward:
+            with torch.no_grad():
+                solve = factor()
+                loss = (solve.logdet_V + solve.quad + solve.k_reml + const).detach()
 
-            logdet_V = 2.0 * torch.sum(torch.log(torch.diag(L)))
-            quad     = (M.T @ M).squeeze()
-            k_reml   = torch.logdet(self._X.T @ torch.cholesky_solve(self._X, L))
+            # closed-form gradient, injected through a ghost loss: solve.grains()
+            # returns tr(A dV/dtheta) already contracted into (tensor, grain)
+            # pairs, the tensor carrying the parameter graph and the grain being
+            # a constant. beta is the only parameter outside that mechanism.
+            if torch.is_grad_enabled():
+                ghost = torch.zeros((), dtype=self.dtype, device=self.device)
+                for tensor, grain in solve.grains():
+                    ghost = ghost + (grain * tensor).sum()
+                ghost.backward()
+                self.beta.grad = solve.beta_grain().to(self.beta.dtype)
 
-        loss = logdet_V + quad + k_reml + const
+            loss = loss.requires_grad_(True)
+        else:
+            solve = factor()
+            loss = solve.logdet_V + solve.quad + solve.k_reml + const
 
         if not return_everything:
             return loss
-        else:
-            return loss, logdet_V, quad, k_reml, const, L
+        return loss, solve.logdet_V, solve.quad, solve.k_reml, const, solve.L
 
     def HMME(self):
         """
@@ -748,4 +816,3 @@ class MixedModel:
                 self.AIC_meth = "ML"
 
         self.AIC = self.neg2loglik + 2 * self.n_params
-

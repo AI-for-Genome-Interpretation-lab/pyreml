@@ -24,6 +24,9 @@ TERMS = ["Intercept", "x"]
 
 MODELS = ["bl_resp", "bl_form", "kr_resp", "kr_form"]
 
+SOLVING = [(True, True), (True, False), (False, True), (False, False)]
+SOLVING_IDS = ["woodbury-opt", "woodbury-plain", "direct-opt", "direct-plain"]
+
 @pytest.fixture(scope="session")
 def ref():
     with open(REF_JSON) as f:
@@ -63,8 +66,9 @@ def sim(ref):
 def G(sim):
     return A_genomic(sim["X"], shrink=True)
 
-@pytest.fixture(scope="session", params=[True, False], ids=["woodbury", "direct"])
+@pytest.fixture(scope="session", params=SOLVING, ids=SOLVING_IDS)
 def fitted_het(sim, G, request):
+    smw, opti = request.param
     return MixedModel.from_dataframe(
         data       = sim["df_long"],
         response   = "y",
@@ -79,12 +83,15 @@ def fitted_het(sim, G, request):
             right_hand   = "het",
             het_formula  = "C(envt)",
         ),
-        SMW = request.param,
+        SMW = smw,
+        structured_forward = opti,
+        analytic_backward = opti,
         device = DEVICE,
     ).fit(DTYPE, verbose  = False)
 
-@pytest.fixture(scope="session", params=[True, False], ids=["woodbury", "direct"])
+@pytest.fixture(scope="session", params=SOLVING, ids=SOLVING_IDS)
 def fitted_fa(sim, G, request):
+    smw, opti = request.param
     return MixedModel.from_dataframe(
         data     = sim["df_cols"],
         response = [f"y_{envt}" for envt in range(P)],
@@ -101,7 +108,9 @@ def fitted_fa(sim, G, request):
         residual = Residual(
             left_hand    = "diag",
         ),
-        SMW = request.param,
+        SMW = smw,
+        structured_forward = opti,
+        analytic_backward = opti,
         device = DEVICE,
     ).fit(DTYPE, verbose  = False)
 
@@ -124,10 +133,12 @@ def sim_blkr(ref_blkr):
     }
 
 @pytest.fixture(scope="session", params=[
-    (lh, smw) for lh in MODELS for smw in (True, False)
-], ids=lambda p: f"{p[0]}-{'woodbury' if p[1] else 'direct'}")
+    (lh, smw, opti, f"{lh}-{sid}")
+    for lh in MODELS
+    for (smw, opti), sid in zip(SOLVING, SOLVING_IDS)
+], ids=lambda p: p[3])
 def fitted_blkr(sim_blkr, G, request):
-    lh, smw = request.param
+    lh, smw, opti, _ = request.param
     mod = MixedModel.from_dataframe(
         data     = sim_blkr["df_cols"],
         response = RESPONSES,
@@ -142,6 +153,8 @@ def fitted_blkr(sim_blkr, G, request):
         ),
         residual = Residual(left_hand="diag"),
         SMW = smw,
+        structured_forward = opti,
+        analytic_backward = opti,
         device = DEVICE,
     ).fit(DTYPE, verbose  = False)
     return lh, mod
