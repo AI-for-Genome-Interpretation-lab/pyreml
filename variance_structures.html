@@ -65,7 +65,7 @@ div.csl-indent {
 <link href="site_libs/quarto-html/quarto-syntax-highlighting-64a204ab8560d761af7679ceaba22944.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-891a63acb694879a3b1b15723d3f33f0.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-6bf3986441be2fe8563c2b853f7d0cb8.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -470,7 +470,7 @@ window.Quarto = {
 <h2 class="anchored" data-anchor-id="jitter">Jitter</h2>
 <p>In some cases, <span class="math inline">\(\mathbf{\Sigma_a}\)</span> (or <span class="math inline">\(\mathbf{\Sigma_R}\)</span>) may exhibit a perfect correlation of <span class="math inline">\(1\)</span> or <span class="math inline">\(-1\)</span> which is expected and meaningful. However, such situation makes <span class="math inline">\(\mathbf{G}\)</span> (respectively <span class="math inline">\(\mathbf{R}\)</span>) singular. For this reason, a <code>jitter</code> argument (<span class="math inline">\(\varepsilon\)</span>) (0 by default, and <em>e.g</em> <code>jitter = 1e-6</code> for an actual effect) is available for <code>Random</code> and <code>Residual</code>. It improves the conditioning of <span class="math inline">\(\mathbf{\Sigma_a}\)</span> (respectively <span class="math inline">\(\mathbf{\Sigma_R}\)</span>) with a relative and an absolute increase of the diagonal:</p>
 <p><span class="math display">\[
-\mathbf{\Sigma_a} \approx
+\mathbf{\Sigma_a^{\text{jitter}}} =
 \mathbf{\Sigma_a}
 +
 \varepsilon \mathbf{I}

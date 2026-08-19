@@ -100,7 +100,7 @@ div.csl-indent {
 <link href="site_libs/quarto-html/quarto-syntax-highlighting-64a204ab8560d761af7679ceaba22944.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-891a63acb694879a3b1b15723d3f33f0.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-6bf3986441be2fe8563c2b853f7d0cb8.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -248,6 +248,8 @@ window.Quarto = {
   <ul class="collapse">
   <li><a href="#reml-loss" id="toc-reml-loss" class="nav-link" data-scroll-target="#reml-loss">REML loss</a></li>
   <li><a href="#optimization" id="toc-optimization" class="nav-link" data-scroll-target="#optimization">Optimization</a></li>
+  <li><a href="#structured-forward" id="toc-structured-forward" class="nav-link" data-scroll-target="#structured-forward">Structured forward</a></li>
+  <li><a href="#analytical-backward" id="toc-analytical-backward" class="nav-link" data-scroll-target="#analytical-backward">Analytical backward</a></li>
   <li><a href="#convergence-criterion" id="toc-convergence-criterion" class="nav-link" data-scroll-target="#convergence-criterion">Convergence criterion</a></li>
   </ul></li>
   <li><a href="#hmme" id="toc-hmme" class="nav-link" data-scroll-target="#hmme">HMME</a></li>
@@ -335,15 +337,61 @@ window.Quarto = {
 <p>The variance parameters and <span class="math inline">\(\mathbf{\beta}\)</span> are estimated by direct gradient descent of the negative log-likelihood <span class="citation" data-cites="simchoni_integrating_2023">(<a href="#ref-simchoni_integrating_2023" role="doc-biblioref">Simchoni &amp; Rosset, 2023</a>)</span>, restricted (REML) so as to yield unbiased estimates of the variance parameters <span class="citation" data-cites="patterson_recovery_1971 harville_maximum_1977">(<a href="#ref-harville_maximum_1977" role="doc-biblioref">Harville, 1977</a>; <a href="#ref-patterson_recovery_1971" role="doc-biblioref">Patterson &amp; Thompson, 1971</a>)</span>:</p>
 <p><span class="math display">\[
 -2\ell_{\text{REML}} = \log\lvert\mathbf{V}\rvert
-+ (\mathbf{y}-\mathbf{X}\mathbf{\beta})^\top\mathbf{V}^{-1}
-  (\mathbf{y}-\mathbf{X}\mathbf{\beta})
++ \mathbf{r}^\top\mathbf{V}^{-1}\mathbf{r}
 + \log\lvert\mathbf{X}^\top\mathbf{V}^{-1}\mathbf{X}\rvert
-+ (n - p) \log(2\pi).
++ (n - p) \log(2\pi),
 \]</span></p>
+<p>with <span class="math inline">\(\mathbf{r} = \mathbf{y}-\mathbf{X}\mathbf{\beta}\)</span>.</p>
 </section>
 <section id="optimization" class="level3">
 <h3 class="anchored" data-anchor-id="optimization">Optimization</h3>
-<p>The objective is differentiated by automatic differentiation and optimized with L-BFGS <span class="citation" data-cites="liu_limited_1989">(<a href="#ref-liu_limited_1989" role="doc-biblioref">Liu &amp; Nocedal, 1989</a>)</span> under a strong-Wolfe line search, with Adam <span class="citation" data-cites="kingma_adam_2017">(<a href="#ref-kingma_adam_2017" role="doc-biblioref">Kingma &amp; Ba, 2017</a>)</span> as a fallback for steps the line search cannot complete. The variance parameters and <span class="math inline">\(\mathbf{\beta}\)</span> are optimized jointly.</p>
+<p>The objective is optimized with L-BFGS <span class="citation" data-cites="liu_limited_1989">(<a href="#ref-liu_limited_1989" role="doc-biblioref">Liu &amp; Nocedal, 1989</a>)</span> under a strong-Wolfe line search, with Adam <span class="citation" data-cites="kingma_adam_2017">(<a href="#ref-kingma_adam_2017" role="doc-biblioref">Kingma &amp; Ba, 2017</a>)</span> as a fallback for steps the line search cannot complete. The variance parameters and <span class="math inline">\(\mathbf{\beta}\)</span> are optimized jointly.</p>
+</section>
+<section id="structured-forward" class="level3">
+<h3 class="anchored" data-anchor-id="structured-forward">Structured forward</h3>
+<p>Assembling <span class="math inline">\(\mathbf{V}\)</span> as <span class="math inline">\(\mathbf{Z}\mathbf{G}\mathbf{Z}^\top + \mathbf{R}\)</span> materialises the Kronecker blocks <span class="math inline">\(\mathbf{\Sigma_a} \otimes \mathbf{K_a}\)</span> and multiplies through every column of <span class="math inline">\(\mathbf{Z_a}\)</span>, one per level and component, even though the result only depends on the <span class="math inline">\(d_\mathbf{a}\)</span> component values each observation carries. The incidence built by <code>from_dataframe</code> is one-hot in levels: each row of <span class="math inline">\(\mathbf{Z_a}\)</span> loads a single level <span class="math inline">\(s(i)\)</span>, while carrying <span class="math inline">\(d_\mathbf{a}\)</span> arbitrary values. This holds for random regression, for coordinate kernels and for pedigree expansion alike. Effect <span class="math inline">\(\mathbf{a}\)</span> then contributes: <span class="math display">\[
+\mathbf{V_a} =
+\left(\mathbf{F_a}\,\mathbf{\Sigma_a}\,\mathbf{F_a}^\top\right)
+\odot \mathbf{K_a}^{\text{obs}},
+\qquad
+\left[\mathbf{K_a}^{\text{obs}}\right]_{ij} =
+\left[\mathbf{K_a}\right]_{s(i)\,s(j)},
+\]</span> with <span class="math inline">\(\odot\)</span> the elementwise product and <span class="math inline">\(\mathbf{F_a}\)</span> the <span class="math inline">\(n \times
+d_\mathbf{a}\)</span> matrix of component values, block-diagonal across responses: each row carries the <span class="math inline">\(c_\mathbf{a}\)</span> values of its own response, so that <span class="math inline">\(d_\mathbf{a} = k\,c_\mathbf{a}\)</span> over <span class="math inline">\(k\)</span> responses. The full covariance is <span class="math inline">\(\mathbf{V} = \sum_\mathbf{a} \mathbf{V_a}\)</span>, residual included, and neither <span class="math inline">\(\mathbf{G_a}\)</span> nor <span class="math inline">\(\mathbf{Z_a}\mathbf{G_a}\mathbf{Z_a}^\top\)</span> is ever formed. The number of levels no longer drives the cost of assembling <span class="math inline">\(\mathbf{V}\)</span>, only the number of components does.</p>
+<p>The same idea applies to <span class="math inline">\(\mathbf{R}^{-1}\)</span>, which the <a href="#smw">SMW</a> identity requires as a dense <span class="math inline">\(n \times n\)</span> matrix. Observations are instead lifted into the full response <span class="math inline">\(\times\)</span> level space, where applying <span class="math inline">\(\mathbf{R}^{-1}\)</span> becomes a Kronecker contraction and <span class="math inline">\(\mathbf{R}^{-1}\)</span> is never formed.</p>
+<p>The structured forward path is switched off when:</p>
+<ul>
+<li>using the <code>from_dataframe</code> high level builder, the user forces <code>structured_forward = False</code>;</li>
+<li>always when using the low level builder.</li>
+</ul>
+</section>
+<section id="analytical-backward" class="level3">
+<h3 class="anchored" data-anchor-id="analytical-backward">Analytical backward</h3>
+<p>The REML gradient with respect to any variance parameter <span class="math inline">\(\theta\)</span> has a closed form: <span class="math display">\[
+\frac{\partial(-2\ell_{\text{REML}})}{\partial\theta} =
+\operatorname{tr}\!\left(\mathbf{A}\,\frac{\partial\mathbf{V}}{\partial\theta}\right),
+\]</span> <span class="math display">\[
+\mathbf{A} = \mathbf{V}^{-1} -
+\mathbf{V}^{-1}\mathbf{r}\mathbf{r}^\top\mathbf{V}^{-1} -
+\mathbf{V}^{-1}\mathbf{X}
+\left(\mathbf{X}^\top\mathbf{V}^{-1}\mathbf{X}\right)^{-1}
+\mathbf{X}^\top\mathbf{V}^{-1},
+\]</span> with <span class="math inline">\(\partial(-2\ell_{\text{REML}})/\partial\mathbf{\beta} =
+-2\,\mathbf{X}^\top\mathbf{V}^{-1}\mathbf{r}\)</span>. The forward therefore runs without recording a graph. Reusing the decomposition above, the trace contracts into one constant per variance matrix, <span class="math display">\[
+\operatorname{grain}(\mathbf{\Sigma_a}) =
+\mathbf{F_a}^\top\left(\mathbf{A} \odot \mathbf{K_a}^{\text{obs}}\right)\mathbf{F_a},
+\qquad
+\left[\operatorname{grain}(\mathbf{K_a})\right]_{st} =
+\sum_{\substack{i\,:\,s(i)=s \\ j\,:\,s(j)=t}}
+\left[\mathbf{A} \odot
+\mathbf{F_a}\mathbf{\Sigma_a}\mathbf{F_a}^\top\right]_{ij},
+\]</span> the second one scattering the observation-level entries onto the levels they land on, rather than reading them at level positions. The two only coincide when <span class="math inline">\(L_\mathbf{a} = n\)</span>, which the gridded structures break. Differentiation is then applied to the inner products of these constants with <span class="math inline">\(\mathbf{\Sigma_a}\)</span> and <span class="math inline">\(\mathbf{K_a}\)</span> alone. Automatic differentiation still performs the last step, but only across the parameterization of each variance matrix (log-Cholesky, factor-analytic, and so on), never across the factorization of <span class="math inline">\(\mathbf{V}\)</span> or the Kronecker products. The grains pair against <span class="math inline">\(\mathbf{\Sigma_a}\)</span> jitter included, as the forward uses it: meeting the same graph is what keeps the jitter contribution to <span class="math inline">\(\partial\mathbf{\Sigma_a}/\partial\theta\)</span> from being silently dropped.</p>
+<p>On the SMW path <span class="math inline">\(\mathbf{A}\)</span> is never formed either: the same three terms are projected onto the <span class="math inline">\(q \times q\)</span> capacitance space, where the grains are read off the block of each effect.</p>
+<p>The analytical backward path is switched off when:</p>
+<ul>
+<li>using the <code>from_dataframe</code> high level builder, the user forces <code>analytic_backward = False</code>;</li>
+<li>always when using the low level builder.</li>
+</ul>
 </section>
 <section id="convergence-criterion" class="level3">
 <h3 class="anchored" data-anchor-id="convergence-criterion">Convergence criterion</h3>
