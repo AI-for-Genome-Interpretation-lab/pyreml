@@ -310,7 +310,7 @@ is available for `Random` and `Residual`. It improves the conditioning of $\math
 increase of the diagonal:
 
 $$
-\mathbf{\Sigma_a} \approx
+\mathbf{\Sigma_a^{\text{jitter}}} =
 \mathbf{\Sigma_a}
 +
 \varepsilon \mathbf{I}
