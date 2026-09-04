@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.10.18">
+<meta name="generator" content="quarto-1.9.37">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
@@ -12,13 +12,10 @@
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
 */
+code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
-div.columns{display: flex; gap: 1.5em;}
-div.column{flex: auto;}
-@media screen {
-div.columns{gap: min(4vw, 1.5em);}
-div.column{overflow-x: auto;}
-}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
 div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
 ul.task-list{list-style: none;}
 ul.task-list li input[type="checkbox"] {
@@ -97,10 +94,10 @@ div.csl-indent {
 <script src="site_libs/quarto-html/tippy.umd.min.js"></script>
 <script src="site_libs/quarto-html/anchor.min.js"></script>
 <link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-64a204ab8560d761af7679ceaba22944.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-7f8f88aac4f3542376d5c11b86a4c14d.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-6bf3986441be2fe8563c2b853f7d0cb8.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-8124cdf9140e22d01433ca88cc906b30.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -130,7 +127,7 @@ div.csl-indent {
 }</script>
 
   <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
-  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js" type="text/javascript"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
 
 <script type="text/javascript">
 const typesetMath = (el) => {
@@ -248,17 +245,13 @@ window.Quarto = {
   <ul class="collapse">
   <li><a href="#reml-loss" id="toc-reml-loss" class="nav-link" data-scroll-target="#reml-loss">REML loss</a></li>
   <li><a href="#optimization" id="toc-optimization" class="nav-link" data-scroll-target="#optimization">Optimization</a></li>
+  <li><a href="#smw" id="toc-smw" class="nav-link" data-scroll-target="#smw">SMW</a></li>
   <li><a href="#structured-forward" id="toc-structured-forward" class="nav-link" data-scroll-target="#structured-forward">Structured forward</a></li>
   <li><a href="#analytical-backward" id="toc-analytical-backward" class="nav-link" data-scroll-target="#analytical-backward">Analytical backward</a></li>
   <li><a href="#convergence-criterion" id="toc-convergence-criterion" class="nav-link" data-scroll-target="#convergence-criterion">Convergence criterion</a></li>
   </ul></li>
   <li><a href="#hmme" id="toc-hmme" class="nav-link" data-scroll-target="#hmme">HMME</a></li>
   <li><a href="#akaike-information-criterion" id="toc-akaike-information-criterion" class="nav-link" data-scroll-target="#akaike-information-criterion">Akaike information criterion</a></li>
-  <li><a href="#smw" id="toc-smw" class="nav-link" data-scroll-target="#smw">SMW</a>
-  <ul class="collapse">
-  <li><a href="#interest-of-smw-for-reml" id="toc-interest-of-smw-for-reml" class="nav-link" data-scroll-target="#interest-of-smw-for-reml">Interest of SMW for REML</a></li>
-  <li><a href="#implementation-of-smw" id="toc-implementation-of-smw" class="nav-link" data-scroll-target="#implementation-of-smw">Implementation of SMW</a></li>
-  </ul></li>
   <li><a href="#monitoring" id="toc-monitoring" class="nav-link" data-scroll-target="#monitoring">Monitoring</a></li>
   </ul>
 </nav>
@@ -315,10 +308,9 @@ window.Quarto = {
 <p>The fixed effects are first estimated by ordinary least squares,</p>
 <p><span class="math display">\[
 \hat{\mathbf{\beta}}_{\text{OLS}} =
-(\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top\mathbf{y}.
+(\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top\mathbf{y},
 \]</span></p>
-<p>If the model carries no random effect, an <code>iid</code> residual and a single response, then the OLS solution is already the answer and training stops here.</p>
-<p>Otherwise the OLS estimate initializes <span class="math inline">\(\mathbf{\beta}\)</span> before REML. This initialization is always performed by <code>.fit()</code> and is strongly recommended for lower level uses of <span class="pyreml">pyreml</span>.</p>
+<p>implying <span class="math inline">\(\mathbf{X}\)</span> to be full-rank. If the model carries no random effect, an <code>iid</code> residual and a single response, then the OLS solution is already the answer and training stops here. Otherwise the OLS estimate initializes <span class="math inline">\(\mathbf{\beta}\)</span> before REML. This initialization is always performed by <code>.fit()</code> and is strongly recommended for lower level uses of <span class="pyreml">pyreml</span>.</p>
 </section>
 <section id="reml" class="level2">
 <h2 class="anchored" data-anchor-id="reml">REML</h2>
@@ -330,10 +322,9 @@ window.Quarto = {
 \]</span></p>
 <p>and the marginal covariance of the observations follows as:</p>
 <p><span class="math display">\[
-\mathbf{V} = \mathbf{Z}\mathbf{G}\mathbf{Z}^\top + \mathbf{R},
+\mathbf{V} = \mathbf{Z}\mathbf{G}\mathbf{Z}^\top + \mathbf{R}.
 \]</span></p>
-<p>with residual variance <span class="math inline">\(\mathbf{R} = \mathbf{W}\left(\mathbf{\Sigma_R} \otimes \mathbf{K_R}\right)\mathbf{W}^\top\)</span>.</p>
-<p>Training estimates the variance parameters carried by the <span class="math inline">\(\mathbf{\Sigma_a}\)</span>, <span class="math inline">\(\mathbf{K_a}\)</span>, <span class="math inline">\(\mathbf{\Sigma_R}\)</span> and <span class="math inline">\(\mathbf{K_R}\)</span> jointly with <span class="math inline">\(\mathbf{\beta}\)</span>, then obtains the random effects <span class="math inline">\(\mathbf{u}\)</span>.</p>
+<p>Because observations may be missing in unbalanced designs, <span class="math inline">\(\mathbf{\Sigma_R} \otimes \mathbf{K_R}\)</span> is assembled over all original rows and then restricted to the observed entries through a residual “incidence” <span class="math inline">\(\mathbf{W}\)</span> such as: <span class="math inline">\(\mathbf{R} = \mathbf{W}\left(\mathbf{\Sigma_R} \otimes \mathbf{K_R}\right)\mathbf{W}^\top\)</span>.</p>
 <p>The variance parameters and <span class="math inline">\(\mathbf{\beta}\)</span> are estimated by direct gradient descent of the negative log-likelihood <span class="citation" data-cites="simchoni_integrating_2023">(<a href="#ref-simchoni_integrating_2023" role="doc-biblioref">Simchoni &amp; Rosset, 2023</a>)</span>, restricted (REML) so as to yield unbiased estimates of the variance parameters <span class="citation" data-cites="patterson_recovery_1971 harville_maximum_1977">(<a href="#ref-harville_maximum_1977" role="doc-biblioref">Harville, 1977</a>; <a href="#ref-patterson_recovery_1971" role="doc-biblioref">Patterson &amp; Thompson, 1971</a>)</span>:</p>
 <p><span class="math display">\[
 -2\ell_{\text{REML}} = \log\lvert\mathbf{V}\rvert
@@ -347,18 +338,128 @@ window.Quarto = {
 <h3 class="anchored" data-anchor-id="optimization">Optimization</h3>
 <p>The objective is optimized with L-BFGS <span class="citation" data-cites="liu_limited_1989">(<a href="#ref-liu_limited_1989" role="doc-biblioref">Liu &amp; Nocedal, 1989</a>)</span> under a strong-Wolfe line search, with Adam <span class="citation" data-cites="kingma_adam_2017">(<a href="#ref-kingma_adam_2017" role="doc-biblioref">Kingma &amp; Ba, 2017</a>)</span> as a fallback for steps the line search cannot complete. The variance parameters and <span class="math inline">\(\mathbf{\beta}\)</span> are optimized jointly.</p>
 </section>
+<section id="smw" class="level3">
+<h3 class="anchored" data-anchor-id="smw">SMW</h3>
+<p>The REML computation uses the Sherman–Morrison–Woodbury identity (SMW) <span class="citation" data-cites="MR38136">(<a href="#ref-MR38136" role="doc-biblioref">Woodbury, 1950</a>)</span> which can have an important impact on the performance of the models depending on their specification.</p>
+<section id="interest-of-smw-for-reml" class="level4">
+<h4 class="anchored" data-anchor-id="interest-of-smw-for-reml">Interest of SMW for REML</h4>
+<p>The use of SMW aims at avoiding forming and inverting <span class="math inline">\(\mathbf{V}\)</span> directly:</p>
+<p><span class="math display">\[
+\begin{align}
+\mathbf{V}^{-1}
+    &amp;= \left(\mathbf{Z}\mathbf{G}\mathbf{Z}^{\top} + \mathbf{R}\right)^{-1} \\
+    &amp;= \mathbf{R}^{-1}
+    - \mathbf{R}^{-1}\mathbf{Z}
+   \mathbf{C}^{-1}
+    \mathbf{Z}^{\top}\mathbf{R}^{-1},
+\end{align}
+\]</span></p>
+<p>with the capacitance matrix <span class="math inline">\(\mathbf{C}\)</span>:</p>
+<p><span class="math display">\[
+\mathbf{C} = \mathbf{Z}^{\top}\mathbf{R}^{-1}\mathbf{Z} + \mathbf{G}^{-1}.
+\]</span></p>
+<p>The associated determinant lemma gives the REML log-determinant without forming <span class="math inline">\(\mathbf{V}\)</span> either:</p>
+<p><span class="math display">\[
+\log |\mathbf{V}|
+    = \log |\mathbf{R}|
+    + \log |\mathbf{G}|
+    + \log |\mathbf{C}|.
+\]</span></p>
+<p>Therefore, the problem transposes from inverting <span class="math inline">\(\mathbf{V}\)</span> to inverting <span class="math inline">\(\mathbf{C}\)</span>, <span class="math inline">\(\mathbf{G}\)</span> and <span class="math inline">\(\mathbf{R}\)</span>.</p>
+<p>Using the properties of direct sum and Kronecker product:</p>
+<p><span class="math display">\[
+\mathbf{G}^{-1} = \bigoplus_\mathbf{a} (\mathbf{\Sigma_a}^{-1} \otimes \mathbf{K_a}^{-1}).
+\]</span></p>
+<p>For the residual (see <a href="./variance_structures.html#the-residual">this section</a>):</p>
+<p><span class="math display">\[
+\mathbf{R}^{-1} = \mathbf{W}\left(\mathbf{\Sigma_R}^{-1} \otimes \mathbf{K_R}^{-1}\right)\mathbf{W}^\top,
+\]</span></p>
+<p>which only stands under some conditions, including:</p>
+<ul>
+<li>if <span class="math inline">\(\mathbf{W} = \mathbf{I}\)</span>;</li>
+<li>or if both <span class="math inline">\(\mathbf{\Sigma_R}\)</span> and <span class="math inline">\(\mathbf{K_R}\)</span> are diagonal, as <span class="math inline">\(\mathbf{W}\)</span> is a mere row-column selector.</li>
+</ul>
+<p>Most left-hand and right-hand term inverses can be broken down even further, avoiding expensive computations for <span class="math inline">\(\mathbf{G}^{-1}\)</span> and <span class="math inline">\(\mathbf{R}^{-1}\)</span>. The SMW path trades the complexity of inverting a dense <span class="math inline">\(\mathbf{V}_{n \times n}\)</span> for inverting a dense <span class="math inline">\(\mathbf{C}_{q \times q}\)</span> at each step.</p>
+</section>
+<section id="implementation-of-smw" class="level4">
+<h4 class="anchored" data-anchor-id="implementation-of-smw">Implementation of SMW</h4>
+<p>SMW is usually more efficient when <span class="math inline">\(q &lt; n\)</span>, with <span class="math inline">\(q\)</span> the number of columns of <span class="math inline">\(\mathbf{Z}\)</span> (the total dimension of <span class="math inline">\(\mathbf{u}\)</span>) and <span class="math inline">\(n\)</span> the number of stacked observations (<em>i.e.</em> <span class="math inline">\(\mathbf{Z}\)</span> is narrower than tall). Indeed, inverting the <span class="math inline">\(q \times q\)</span> matrix <span class="math inline">\(\mathbf{C}\)</span> is cheaper than inverting the <span class="math inline">\(n \times n\)</span> matrix <span class="math inline">\(\mathbf{V}\)</span> only when <span class="math inline">\(q &lt; n\)</span>.</p>
+<p><span class="pyreml">pyreml</span> mostly conforms to this “dimensional rule”, selecting <code>SMW=True</code> when <span class="math inline">\(q &lt; n\)</span>, <code>SMW=False</code> otherwise.</p>
+<p>However:</p>
+<ul>
+<li>using the high-level <code>from_dataframe</code> constructor, if the user forces <code>SMW=True</code> or <code>False</code> then their decision takes precedence over any other rule.</li>
+<li>using the high-level <code>from_dataframe</code> constructor, if all of the following conditions are met then SMW is switched off regardless of the dimensional rule:
+<ul>
+<li><span class="math inline">\(\mathbf{W} \neq \mathbf{I}\)</span>, which can arise for instance with several unbalanced options, or when using autoregressive structures.</li>
+<li>the residual covariance <span class="math inline">\(\mathbf{R}\)</span> is not designed as a diagonal matrix.</li>
+</ul></li>
+</ul>
+<p>Indeed, in this situation <span class="math inline">\(\mathbf{R}^{-1} \neq \mathbf{W}\left(\mathbf{\Sigma_R}^{-1} \otimes \mathbf{K_R}^{-1}\right)\mathbf{W}^\top\)</span> and inverting the <span class="math inline">\(n \times n\)</span> matrix <span class="math inline">\(\mathbf{R}\)</span> is just as expensive as inverting <span class="math inline">\(\mathbf{V}\)</span>.</p>
+<ul>
+<li>with the low-level constructor:
+<ul>
+<li>if <code>varmeth_inv</code> only is provided, SMW is forced on;</li>
+<li>if <code>varmeth</code> only is provided, SMW is forced off;</li>
+<li>if both methods are available, the dimensional rule applies.</li>
+</ul></li>
+</ul>
+</section>
+</section>
 <section id="structured-forward" class="level3">
 <h3 class="anchored" data-anchor-id="structured-forward">Structured forward</h3>
-<p>Assembling <span class="math inline">\(\mathbf{V}\)</span> as <span class="math inline">\(\mathbf{Z}\mathbf{G}\mathbf{Z}^\top + \mathbf{R}\)</span> materialises the Kronecker blocks <span class="math inline">\(\mathbf{\Sigma_a} \otimes \mathbf{K_a}\)</span> and multiplies through every column of <span class="math inline">\(\mathbf{Z_a}\)</span>, one per level and component, even though the result only depends on the <span class="math inline">\(d_\mathbf{a}\)</span> component values each observation carries. The incidence built by <code>from_dataframe</code> is one-hot in levels: each row of <span class="math inline">\(\mathbf{Z_a}\)</span> loads a single level <span class="math inline">\(s(i)\)</span>, while carrying <span class="math inline">\(d_\mathbf{a}\)</span> arbitrary values. This holds for random regression, for coordinate kernels and for pedigree expansion alike. Effect <span class="math inline">\(\mathbf{a}\)</span> then contributes: <span class="math display">\[
-\mathbf{V_a} =
-\left(\mathbf{F_a}\,\mathbf{\Sigma_a}\,\mathbf{F_a}^\top\right)
-\odot \mathbf{K_a}^{\text{obs}},
+<p>Consider a random regression with three levels and four observations, an intercept and a covariate <span class="math inline">\(x\)</span> being carried on each level:</p>
+<p><span class="math display">\[
+\newcommand{\z}{{\color{lightgray}0}}
+\mathbf{Z_a} =
+\begin{pmatrix}
+1 &amp; \z &amp; \z &amp; x_1 &amp; \z &amp; \z\\
+1 &amp; \z &amp; \z &amp; x_2 &amp; \z &amp; \z\\
+\z &amp; 1 &amp; \z &amp; \z &amp; x_3 &amp; \z\\
+\z &amp; \z &amp; 1 &amp; \z &amp; \z &amp; x_4
+\end{pmatrix}.
+\]</span></p>
+<p><span class="math inline">\(\mathbf{Z_a}\)</span> can be entirely described by the pair <span class="math inline">\((\mathbf{F_a}, s)\)</span>, defined as the values each observation carries and the level it loads them on:</p>
+<p><span class="math display">\[
+\mathbf{F_a} =
+\begin{pmatrix}
+1 &amp; x_1\\ 1 &amp; x_2\\ 1 &amp; x_3\\ 1 &amp; x_4
+\end{pmatrix},
 \qquad
+s = (1, 1, 2, 3).
+\]</span></p>
+<p>Row <span class="math inline">\(i\)</span> of <span class="math inline">\(\mathbf{F_a}\)</span> is written <span class="math inline">\(\mathbf{f}_i\)</span>, and <span class="math inline">\(s(i)\)</span> is the level loaded by observation <span class="math inline">\(i\)</span>. Over several responses, <span class="math inline">\(\mathbf{F_a}\)</span> is block-diagonal: each row carries the values of its own response, matching the response blocks of <span class="math inline">\(\mathbf{\Sigma_a}\)</span>.</p>
+<p>Assembling <span class="math inline">\(\mathbf{V_a} = \mathbf{Z_a}\mathbf{G_a}\mathbf{Z_a}^\top\)</span> directly forms the Kronecker block <span class="math inline">\(\mathbf{G_a} = \mathbf{\Sigma_a} \otimes \mathbf{K_a}\)</span>, then multiplies through every column of <span class="math inline">\(\mathbf{Z_a}\)</span>. Yet each row of <span class="math inline">\(\mathbf{Z_a}\)</span> being confined to a single level, entry <span class="math inline">\((i,j)\)</span> of that product reduces to the covariance between the values carried by observations <span class="math inline">\(i\)</span> and <span class="math inline">\(j\)</span>, scaled by the kernel entry between the levels they load:</p>
+<p><span class="math display">\[
+[\mathbf{V_a}]_{ij} =
+\mathbf{f}_i^\top\,\mathbf{\Sigma_a}\,\mathbf{f}_j\,
+[\mathbf{K_a}]_{s(i)\,s(j)}.
+\]</span></p>
+<p>The right-hand factor collects into <span class="math inline">\(\mathbf{K_a}\)</span> read at the observed level pairs:</p>
+<p><span class="math display">\[
 \left[\mathbf{K_a}^{\text{obs}}\right]_{ij} =
 \left[\mathbf{K_a}\right]_{s(i)\,s(j)},
-\]</span> with <span class="math inline">\(\odot\)</span> the elementwise product and <span class="math inline">\(\mathbf{F_a}\)</span> the <span class="math inline">\(n \times
-d_\mathbf{a}\)</span> matrix of component values, block-diagonal across responses: each row carries the <span class="math inline">\(c_\mathbf{a}\)</span> values of its own response, so that <span class="math inline">\(d_\mathbf{a} = k\,c_\mathbf{a}\)</span> over <span class="math inline">\(k\)</span> responses. The full covariance is <span class="math inline">\(\mathbf{V} = \sum_\mathbf{a} \mathbf{V_a}\)</span>, residual included, and neither <span class="math inline">\(\mathbf{G_a}\)</span> nor <span class="math inline">\(\mathbf{Z_a}\mathbf{G_a}\mathbf{Z_a}^\top\)</span> is ever formed. The number of levels no longer drives the cost of assembling <span class="math inline">\(\mathbf{V}\)</span>, only the number of components does.</p>
-<p>The same idea applies to <span class="math inline">\(\mathbf{R}^{-1}\)</span>, which the <a href="#smw">SMW</a> identity requires as a dense <span class="math inline">\(n \times n\)</span> matrix. Observations are instead lifted into the full response <span class="math inline">\(\times\)</span> level space, where applying <span class="math inline">\(\mathbf{R}^{-1}\)</span> becomes a Kronecker contraction and <span class="math inline">\(\mathbf{R}^{-1}\)</span> is never formed.</p>
+\qquad
+\mathbf{K_a}^{\text{obs}} =
+\begin{pmatrix}
+K_{11} &amp; K_{11} &amp; K_{12} &amp; K_{13}\\
+K_{11} &amp; K_{11} &amp; K_{12} &amp; K_{13}\\
+K_{21} &amp; K_{21} &amp; K_{22} &amp; K_{23}\\
+K_{31} &amp; K_{31} &amp; K_{32} &amp; K_{33}
+\end{pmatrix},
+\]</span></p>
+<p>so that the whole contribution is written as a Hadamard (elementwise) product <span class="math inline">\(\odot\)</span>:</p>
+<p><span class="math display">\[
+\mathbf{V_a} =
+\left(\mathbf{F_a}\,\mathbf{\Sigma_a}\,\mathbf{F_a}^\top\right)
+\odot \mathbf{K_a}^{\text{obs}}.
+\]</span></p>
+<p>Neither <span class="math inline">\(\mathbf{G_a}\)</span> nor <span class="math inline">\(\mathbf{Z_a}\mathbf{G_a}\mathbf{Z_a}^\top\)</span> is ever formed, sparing both the memory and the time they would cost. This was exemplified with random regression, but holds for any effect built by <code>from_dataframe</code>. The full covariance follows as <span class="math inline">\(\mathbf{V} = \sum_\mathbf{a} \mathbf{V_a}\)</span>, residual included.</p>
+<p>On the <a href="#smw">SMW</a> path, a second structured forward optimization is applied to prevent the formation of <span class="math inline">\(\mathbf{R}^{-1}\)</span> and of the Kronecker block <span class="math inline">\(\mathbf{\Sigma_R}^{-1} \otimes \mathbf{K_R}^{-1}\)</span> it is read from. Any <span class="math inline">\(\mathbf{Z}\)</span>, <span class="math inline">\(\mathbf{X}\)</span> or <span class="math inline">\(\mathbf{r}\)</span> column can be reshaped as a matrix <span class="math inline">\(\mathbf{U}\)</span> over the level <span class="math inline">\(\times\)</span> response grid:</p>
+<p><span class="math display">\[
+\mathbf{R}^{-1}\operatorname{vec}(\mathbf{U})
+= \operatorname{vec}\left(\mathbf{K_R}^{-1}\,\mathbf{U}\,\mathbf{\Sigma_R}^{-1}\right).
+\]</span></p>
+<p>The levels are contracted along the rows, the responses along the columns, and the result is flattened back. Two small products replace one large inverse, which is never formed. Unbalanced designs leave part of the grid empty, which is what the residual incidence <span class="math inline">\(\mathbf{W}\)</span> encodes. Operands are therefore lifted onto the complete grid, contracted, and read back at the observed cells afterwards.</p>
 <p>The structured forward path is switched off when:</p>
 <ul>
 <li>using the <code>from_dataframe</code> high level builder, the user forces <code>structured_forward = False</code>;</li>
@@ -376,17 +477,33 @@ d_\mathbf{a}\)</span> matrix of component values, block-diagonal across response
 \mathbf{V}^{-1}\mathbf{X}
 \left(\mathbf{X}^\top\mathbf{V}^{-1}\mathbf{X}\right)^{-1}
 \mathbf{X}^\top\mathbf{V}^{-1},
-\]</span> with <span class="math inline">\(\partial(-2\ell_{\text{REML}})/\partial\mathbf{\beta} =
--2\,\mathbf{X}^\top\mathbf{V}^{-1}\mathbf{r}\)</span>. The forward therefore runs without recording a graph. Reusing the decomposition above, the trace contracts into one constant per variance matrix, <span class="math display">\[
-\operatorname{grain}(\mathbf{\Sigma_a}) =
+\]</span></p>
+<p>with <span class="math inline">\(\partial(-2\ell_{\text{REML}})/\partial\mathbf{\beta} =
+-2\,\mathbf{X}^\top\mathbf{V}^{-1}\mathbf{r}\)</span>. As <span class="math inline">\(\mathbf{V} = \sum_\mathbf{a}\mathbf{V_a}\)</span>, for a given random effect (or the residual), the trace permutes into:</p>
+<p><span class="math display">\[
+\frac{\partial(-2\ell_{\text{REML}})}{\partial\theta_\mathbf{a}} =
+\operatorname{tr}\!\left(\mathbf{Z_a}^\top\mathbf{A}\,\mathbf{Z_a}\;
+\frac{\partial\mathbf{G_a}}{\partial\theta_\mathbf{a}}\right).
+\]</span></p>
+<p><span class="math inline">\(\mathbf{A}\)</span> is therefore evaluated once at the current point and shared by every variance parameter. Reusing the decomposition of <a href="#structured-forward">structured forward</a>, where <span class="math inline">\(\mathbf{Z_a}\)</span> is replaced by <span class="math inline">\((\mathbf{F_a}, s)\)</span> and <span class="math inline">\(\mathbf{G_a}\)</span> by <span class="math inline">\(\mathbf{\Sigma_a}\)</span> and <span class="math inline">\(\mathbf{K_a}\)</span>, the trace contracts onto each variance matrix:</p>
+<p><span class="math display">\[
+\frac{\partial(-2\ell_{\text{REML}})}{\partial\mathbf{\Sigma_a}} =
 \mathbf{F_a}^\top\left(\mathbf{A} \odot \mathbf{K_a}^{\text{obs}}\right)\mathbf{F_a},
 \qquad
-\left[\operatorname{grain}(\mathbf{K_a})\right]_{st} =
+\left[\frac{\partial(-2\ell_{\text{REML}})}{\partial\mathbf{K_a}}\right]_{st} =
 \sum_{\substack{i\,:\,s(i)=s \\ j\,:\,s(j)=t}}
 \left[\mathbf{A} \odot
-\mathbf{F_a}\mathbf{\Sigma_a}\mathbf{F_a}^\top\right]_{ij},
-\]</span> the second one scattering the observation-level entries onto the levels they land on, rather than reading them at level positions. The two only coincide when <span class="math inline">\(L_\mathbf{a} = n\)</span>, which the gridded structures break. Differentiation is then applied to the inner products of these constants with <span class="math inline">\(\mathbf{\Sigma_a}\)</span> and <span class="math inline">\(\mathbf{K_a}\)</span> alone. Automatic differentiation still performs the last step, but only across the parameterization of each variance matrix (log-Cholesky, factor-analytic, and so on), never across the factorization of <span class="math inline">\(\mathbf{V}\)</span> or the Kronecker products. The grains pair against <span class="math inline">\(\mathbf{\Sigma_a}\)</span> jitter included, as the forward uses it: meeting the same graph is what keeps the jitter contribution to <span class="math inline">\(\partial\mathbf{\Sigma_a}/\partial\theta\)</span> from being silently dropped.</p>
-<p>On the SMW path <span class="math inline">\(\mathbf{A}\)</span> is never formed either: the same three terms are projected onto the <span class="math inline">\(q \times q\)</span> capacitance space, where the grains are read off the block of each effect.</p>
+\mathbf{F_a}\mathbf{\Sigma_a}\mathbf{F_a}^\top\right]_{ij}.
+\]</span></p>
+<p>On the <a href="#smw">SMW</a> path, <span class="math inline">\(\mathbf{V}\)</span> is never formed, so neither is <span class="math inline">\(\mathbf{A}\)</span>. The trace is then read in the level space, from <span class="math inline">\(\mathbf{Z}^\top\mathbf{A}\mathbf{Z}\)</span> directly:</p>
+<p><span class="math display">\[
+\mathbf{Z}^\top\mathbf{A}\mathbf{Z} = \mathbf{Z}^\top\mathbf{V}^{-1}\mathbf{Z} - \left(\mathbf{Z}^\top\mathbf{V}^{-1}\mathbf{r}\right)\left(\mathbf{Z}^\top\mathbf{V}^{-1}\mathbf{r}\right)^\top - \left(\mathbf{Z}^\top\mathbf{V}^{-1}\mathbf{X}\right)\left(\mathbf{X}^\top\mathbf{V}^{-1}\mathbf{X}\right)^{-1}\left(\mathbf{Z}^\top\mathbf{V}^{-1}\mathbf{X}\right)^\top
+\]</span> which uses 3 quantities the SMW projection already delivers through <span class="math inline">\(\mathbf{C}\)</span>:</p>
+<p><span class="math display">\[
+\mathbf{Z}^\top\mathbf{V}^{-1}\mathbf{M} = \mathbf{Z}^\top\mathbf{R}^{-1}\mathbf{M} - \left(\mathbf{Z}^\top\mathbf{R}^{-1}\mathbf{Z}\right)\mathbf{C}^{-1}\left(\mathbf{Z}^\top\mathbf{R}^{-1}\mathbf{M}\right),
+\qquad \mathbf{M} \in \{\mathbf{Z}, \mathbf{r}, \mathbf{X}\}
+\]</span></p>
+<p>PyTorch autograd is therefore disabled through the assembly and factorisation of <span class="math inline">\(\mathbf{V}\)</span> (<span class="math inline">\(\mathbf{C}\)</span> on the SMW path). Automatic differentiation is only left with the last step, from each variance matrix to its own parameterization, and never traverses the Kronecker products.</p>
 <p>The analytical backward path is switched off when:</p>
 <ul>
 <li>using the <code>from_dataframe</code> high level builder, the user forces <code>analytic_backward = False</code>;</li>
@@ -440,73 +557,6 @@ d_\mathbf{a}\)</span> matrix of component values, block-diagonal across response
 \]</span></p>
 <p>and AIC post REML/HMME is computed using the restricted likelihood (<span class="math inline">\(-2\ell_{\text{REML}}\)</span>).</p>
 <p>In both cases, AIC is obtained by the addition of twice the total number of parameters (<span class="math inline">\(\beta\)</span>, and all independent variance parameters).</p>
-</section>
-<section id="smw" class="level2">
-<h2 class="anchored" data-anchor-id="smw">SMW</h2>
-<p>The REML computation uses the Sherman–Morrison–Woodbury identity (SMW) <span class="citation" data-cites="MR38136">(<a href="#ref-MR38136" role="doc-biblioref">Woodbury, 1950</a>)</span> which can have an important impact on the performance of the models depending on their specification.</p>
-<section id="interest-of-smw-for-reml" class="level3">
-<h3 class="anchored" data-anchor-id="interest-of-smw-for-reml">Interest of SMW for REML</h3>
-<p>The use of SMW aims at avoiding forming and inverting <span class="math inline">\(\mathbf{V}\)</span> directly:</p>
-<p><span class="math display">\[
-\begin{align}
-\mathbf{V}^{-1}
-    &amp;= \left(\mathbf{Z}\mathbf{G}\mathbf{Z}^{\top} + \mathbf{R}\right)^{-1} \\
-    &amp;= \mathbf{R}^{-1}
-    - \mathbf{R}^{-1}\mathbf{Z}
-   \mathbf{C}^{-1}
-    \mathbf{Z}^{\top}\mathbf{R}^{-1},
-\end{align}
-\]</span></p>
-<p>with the capacitance matrix <span class="math inline">\(\mathbf{C}\)</span>:</p>
-<p><span class="math display">\[
-\mathbf{C} = \mathbf{Z}^{\top}\mathbf{R}^{-1}\mathbf{Z} + \mathbf{G}^{-1}.
-\]</span></p>
-<p>The associated determinant lemma gives the REML log-determinant without forming <span class="math inline">\(\mathbf{V}\)</span> either:</p>
-<p><span class="math display">\[
-\log |\mathbf{V}|
-    = \log |\mathbf{R}|
-    + \log |\mathbf{G}|
-    + \log |\mathbf{C}|.
-\]</span></p>
-<p>Therefore, the problem transposes from inverting <span class="math inline">\(\mathbf{V}\)</span> to inverting <span class="math inline">\(\mathbf{C}\)</span>, <span class="math inline">\(\mathbf{G}\)</span> and <span class="math inline">\(\mathbf{R}\)</span>.</p>
-<p>Using the properties of direct sum and Kronecker product:</p>
-<p><span class="math display">\[
-\mathbf{G}^{-1} = \bigoplus_\mathbf{a} (\mathbf{\Sigma_a}^{-1} \otimes \mathbf{K_a}^{-1}).
-\]</span></p>
-<p>For the residual (see <a href="./variance_structures.html#the-residual">this section</a>):</p>
-<p><span class="math display">\[
-\mathbf{R}^{-1} = \mathbf{W}\left(\mathbf{\Sigma_R}^{-1} \otimes \mathbf{K_R}^{-1}\right)\mathbf{W}^\top,
-\]</span></p>
-<p>which only stands under some conditions, including:</p>
-<ul>
-<li>if <span class="math inline">\(\mathbf{W} = \mathbf{I}\)</span>;</li>
-<li>or if both <span class="math inline">\(\mathbf{\Sigma_R}\)</span> and <span class="math inline">\(\mathbf{K_R}\)</span> are diagonal, as <span class="math inline">\(\mathbf{W}\)</span> is a mere row-column selector.</li>
-</ul>
-<p>Most left-hand and right-hand term inverses can be broken down even further, avoiding expensive computations for <span class="math inline">\(\mathbf{G}^{-1}\)</span> and <span class="math inline">\(\mathbf{R}^{-1}\)</span>. The SMW path trades the complexity of inverting a dense <span class="math inline">\(\mathbf{V}_{n \times n}\)</span> for inverting a dense <span class="math inline">\(\mathbf{C}_{q \times q}\)</span> at each step.</p>
-</section>
-<section id="implementation-of-smw" class="level3">
-<h3 class="anchored" data-anchor-id="implementation-of-smw">Implementation of SMW</h3>
-<p>SMW is usually more efficient when <span class="math inline">\(q &lt; n\)</span>, with <span class="math inline">\(q\)</span> the number of columns of <span class="math inline">\(\mathbf{Z}\)</span> (the total dimension of <span class="math inline">\(\mathbf{u}\)</span>) and <span class="math inline">\(n\)</span> the number of stacked observations (<em>i.e.</em> <span class="math inline">\(\mathbf{Z}\)</span> is narrower than tall). Indeed, inverting the <span class="math inline">\(q \times q\)</span> matrix <span class="math inline">\(\mathbf{C}\)</span> is cheaper than inverting the <span class="math inline">\(n \times n\)</span> matrix <span class="math inline">\(\mathbf{V}\)</span> only when <span class="math inline">\(q &lt; n\)</span>.</p>
-<p><span class="pyreml">pyreml</span> mostly conforms to this “dimensional rule”, selecting <code>SMW=True</code> when <span class="math inline">\(q &lt; n\)</span>, <code>SMW=False</code> otherwise.</p>
-<p>However:</p>
-<ul>
-<li>using the high-level <code>from_dataframe</code> constructor, if the user forces <code>SMW=True</code> or <code>False</code> then their decision takes precedence over any other rule.</li>
-<li>using the high-level <code>from_dataframe</code> constructor, if all of the following conditions are met then SMW is switched off regardless of the dimensional rule:
-<ul>
-<li><span class="math inline">\(\mathbf{W} \neq \mathbf{I}\)</span>, which can arise for instance with several unbalanced options, or when using autoregressive structures.</li>
-<li>the residual covariance <span class="math inline">\(\mathbf{R}\)</span> is not designed as a diagonal matrix.</li>
-</ul></li>
-</ul>
-<p>Indeed, in this situation <span class="math inline">\(\mathbf{R}^{-1} \neq \mathbf{W}\left(\mathbf{\Sigma_R}^{-1} \otimes \mathbf{K_R}^{-1}\right)\mathbf{W}^\top\)</span> and inverting the <span class="math inline">\(n \times n\)</span> matrix <span class="math inline">\(\mathbf{R}\)</span> is just as expensive as inverting <span class="math inline">\(\mathbf{V}\)</span>.</p>
-<ul>
-<li>with the low-level constructor:
-<ul>
-<li>if <code>varmeth_inv</code> only is provided, SMW is forced on;</li>
-<li>if <code>varmeth</code> only is provided, SMW is forced off;</li>
-<li>if both methods are available, the dimensional rule applies.</li>
-</ul></li>
-</ul>
-</section>
 </section>
 <section id="monitoring" class="level2">
 <h2 class="anchored" data-anchor-id="monitoring">Monitoring</h2>
