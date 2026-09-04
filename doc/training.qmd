@@ -316,7 +316,7 @@ $$
 with $\partial(-2\ell_{\text{REML}})/\partial\mathbf{\beta} =
 -2\,\mathbf{X}^\top\mathbf{V}^{-1}\mathbf{r}$.
 As $\mathbf{V} = \sum_\mathbf{a}\mathbf{V_a}$,
-for a given random effect, the trace permutes into:
+for a given random effect (or the residual), the trace permutes into:
 
 $$
 \frac{\partial(-2\ell_{\text{REML}})}{\partial\theta_\mathbf{a}} =
@@ -324,9 +324,8 @@ $$
 \frac{\partial\mathbf{G_a}}{\partial\theta_\mathbf{a}}\right).
 $$
 
-$\mathbf{A}$ is therefore only ever needed as
-$\mathbf{Z_a}^\top\mathbf{A}\mathbf{Z_a}$, which does not depend on
-$\theta_\mathbf{a}$. Reusing the decomposition of
+$\mathbf{A}$ is therefore evaluated once at the current point and shared by
+every variance parameter. Reusing the decomposition of
 [structured forward](#structured-forward), where $\mathbf{Z_a}$ is replaced by
 $(\mathbf{F_a}, s)$ and $\mathbf{G_a}$ by $\mathbf{\Sigma_a}$ and
 $\mathbf{K_a}$, the trace contracts onto each variance matrix:
@@ -341,13 +340,10 @@ $$
 \mathbf{F_a}\mathbf{\Sigma_a}\mathbf{F_a}^\top\right]_{ij}.
 $$
 
-PyTorch autograd is therefore disabled through the assembly and factorisation
-of $\mathbf{V}$. Automatic differentiation is therefore only left with the last step, from each
-variance matrix to its own parameterization, and never traverses the
-factorisation of $\mathbf{V}$ nor the Kronecker products.
-
 On the [SMW](#smw) path, $\mathbf{V}$ is never formed, so neither is
-$\mathbf{A}$. The same derivatives are obtained from:
+$\mathbf{A}$. The trace is then read in the level space, from
+$\mathbf{Z}^\top\mathbf{A}\mathbf{Z}$ directly:
+
 $$
 \mathbf{Z}^\top\mathbf{A}\mathbf{Z} = \mathbf{Z}^\top\mathbf{V}^{-1}\mathbf{Z} - \left(\mathbf{Z}^\top\mathbf{V}^{-1}\mathbf{r}\right)\left(\mathbf{Z}^\top\mathbf{V}^{-1}\mathbf{r}\right)^\top - \left(\mathbf{Z}^\top\mathbf{V}^{-1}\mathbf{X}\right)\left(\mathbf{X}^\top\mathbf{V}^{-1}\mathbf{X}\right)^{-1}\left(\mathbf{Z}^\top\mathbf{V}^{-1}\mathbf{X}\right)^\top
 $$
@@ -357,6 +353,11 @@ $$
 \mathbf{Z}^\top\mathbf{V}^{-1}\mathbf{M} = \mathbf{Z}^\top\mathbf{R}^{-1}\mathbf{M} - \left(\mathbf{Z}^\top\mathbf{R}^{-1}\mathbf{Z}\right)\mathbf{C}^{-1}\left(\mathbf{Z}^\top\mathbf{R}^{-1}\mathbf{M}\right),
 \qquad \mathbf{M} \in \{\mathbf{Z}, \mathbf{r}, \mathbf{X}\}
 $$
+
+PyTorch autograd is therefore disabled through the assembly and factorisation
+of $\mathbf{V}$ ($\mathbf{C}$ on the SMW path). Automatic differentiation is
+only left with the last step, from each variance matrix to its own
+parameterization, and never traverses the Kronecker products.
 
 The analytical backward path is switched off when:
 
