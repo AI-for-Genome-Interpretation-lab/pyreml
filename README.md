@@ -8,8 +8,20 @@ Models are fitted by direct differentiation of the Restricted Maximum Likelihood
 
 Install **pyreml** with `pip`:
 
-```py
+```sh
 pip install pyreml
+```
+
+Or `conda`:
+
+```sh
+conda install -c conda-forge pyreml
+```
+
+Or build it from source:
+```sh
+git clone https://github.com/ai-for-genome-interpretation-lab/pyreml.git
+pip install ./pyreml
 ```
 
 ## Main concepts

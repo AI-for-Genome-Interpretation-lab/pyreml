@@ -19,6 +19,19 @@ Install [pyreml]{.pyreml} with `pip`:
 pip install pyreml
 ```
 
+Or `conda`:
+
+```bash
+conda install -c conda-forge pyreml
+```
+
+Or build it from source:
+
+```bash
+git clone https://github.com/ai-for-genome-interpretation-lab/pyreml.git
+pip install ./pyreml
+```
+
 ## The model
 
 [pyreml]{.pyreml} fits the linear mixed model:

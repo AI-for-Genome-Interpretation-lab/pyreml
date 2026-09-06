@@ -48,12 +48,11 @@ The fixed effects are first estimated by ordinary least squares,
 
 $$
 \hat{\mathbf{\beta}}_{\text{OLS}} =
-(\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top\mathbf{y}.
+(\mathbf{X}^\top\mathbf{X})^{-1}\mathbf{X}^\top\mathbf{y},
 $$
 
-If the model carries no random effect, an `iid` residual and a single response,
+implying $\mathbf{X}$ to be full-rank. If the model carries no random effect, an `iid` residual and a single response,
 then the OLS solution is already the answer and training stops here.
-
 Otherwise the OLS estimate initializes $\mathbf{\beta}$ before REML.
 This initialization is always performed by `.fit()` and is strongly recommended
 for lower level uses of [pyreml]{.pyreml}.
@@ -73,15 +72,14 @@ $$
 and the marginal covariance of the observations follows as:
 
 $$
-\mathbf{V} = \mathbf{Z}\mathbf{G}\mathbf{Z}^\top + \mathbf{R},
+\mathbf{V} = \mathbf{Z}\mathbf{G}\mathbf{Z}^\top + \mathbf{R}.
 $$
 
-with residual variance
+Because observations may be missing in unbalanced designs,
+$\mathbf{\Sigma_R} \otimes \mathbf{K_R}$
+is assembled over all original rows and then restricted to the observed
+entries through a residual “incidence” $\mathbf{W}$ such as:
 $\mathbf{R} = \mathbf{W}\left(\mathbf{\Sigma_R} \otimes \mathbf{K_R}\right)\mathbf{W}^\top$.
-
-Training estimates the variance parameters carried by the $\mathbf{\Sigma_a}$,
-$\mathbf{K_a}$, $\mathbf{\Sigma_R}$ and $\mathbf{K_R}$ jointly with $\mathbf{\beta}$, then obtains
-the random effects $\mathbf{u}$.
 
 The variance parameters and $\mathbf{\beta}$ are estimated by direct gradient descent of the
 negative log-likelihood [@simchoni_integrating_2023], restricted (REML) so as to yield unbiased estimates of the variance
@@ -103,38 +101,196 @@ line search, with Adam [@kingma_adam_2017] as a fallback for steps the line
 search cannot complete. The variance parameters and $\mathbf{\beta}$ are
 optimized jointly.
 
+### SMW
+
+The REML computation uses the Sherman–Morrison–Woodbury identity (SMW) [@MR38136]
+which can have an important impact on the performance of the models
+depending on their specification.
+
+#### Interest of SMW for REML
+
+The use of SMW aims at avoiding forming and inverting $\mathbf{V}$ directly:
+
+$$
+\begin{align}
+\mathbf{V}^{-1}
+    &= \left(\mathbf{Z}\mathbf{G}\mathbf{Z}^{\top} + \mathbf{R}\right)^{-1} \\
+    &= \mathbf{R}^{-1}
+    - \mathbf{R}^{-1}\mathbf{Z}
+   \mathbf{C}^{-1}
+    \mathbf{Z}^{\top}\mathbf{R}^{-1},
+\end{align}
+$$
+
+with the capacitance matrix $\mathbf{C}$:
+
+$$
+\mathbf{C} = \mathbf{Z}^{\top}\mathbf{R}^{-1}\mathbf{Z} + \mathbf{G}^{-1}.
+$$
+
+The associated determinant lemma gives the REML log-determinant without forming
+$\mathbf{V}$ either:
+
+$$
+\log |\mathbf{V}|
+    = \log |\mathbf{R}|
+    + \log |\mathbf{G}|
+    + \log |\mathbf{C}|.
+$$
+
+Therefore, the problem transposes from inverting $\mathbf{V}$ to inverting $\mathbf{C}$, $\mathbf{G}$ and $\mathbf{R}$.
+
+Using the properties of direct sum and Kronecker product:
+
+$$
+\mathbf{G}^{-1} = \bigoplus_\mathbf{a} (\mathbf{\Sigma_a}^{-1} \otimes \mathbf{K_a}^{-1}).
+$$
+
+For the residual (see [this section](variance_structures.qmd#the-residual)):
+
+$$
+\mathbf{R}^{-1} = \mathbf{W}\left(\mathbf{\Sigma_R}^{-1} \otimes \mathbf{K_R}^{-1}\right)\mathbf{W}^\top,
+$$
+
+which only stands under some conditions, including:
+
+- if $\mathbf{W} = \mathbf{I}$;
+- or if both $\mathbf{\Sigma_R}$ and $\mathbf{K_R}$ are diagonal, as 
+$\mathbf{W}$ is a mere row-column selector.
+
+Most left-hand and right-hand term inverses can be broken down even further, avoiding expensive computations for $\mathbf{G}^{-1}$ and $\mathbf{R}^{-1}$. The SMW path trades the complexity of inverting a dense $\mathbf{V}_{n \times n}$ for inverting a dense $\mathbf{C}_{q \times q}$ at each step.
+
+#### Implementation of SMW
+
+SMW is usually more efficient when $q < n$, with $q$
+the number of columns of $\mathbf{Z}$
+(the total dimension of $\mathbf{u}$) and $n$ the
+number of stacked observations (*i.e.* $\mathbf{Z}$
+is narrower than tall). Indeed, inverting the $q \times q$
+matrix $\mathbf{C}$ is cheaper than inverting the $n \times n$ matrix
+$\mathbf{V}$ only when $q < n$. 
+
+[pyreml]{.pyreml} mostly conforms to this "dimensional rule",
+selecting `SMW=True` when $q < n$, `SMW=False` otherwise.
+
+However:
+
+- using the high-level `from_dataframe` constructor, if the user
+forces `SMW=True` or `False` then their decision takes precedence
+over any other rule.
+- using the high-level `from_dataframe` constructor, if all
+of the following conditions are met then SMW is switched off
+regardless of the dimensional rule:
+    - $\mathbf{W} \neq \mathbf{I}$, which can arise for instance with several unbalanced options, or when using autoregressive structures.
+    - the residual covariance $\mathbf{R}$ is not designed as a diagonal matrix.
+
+Indeed, in this situation
+$\mathbf{R}^{-1} \neq \mathbf{W}\left(\mathbf{\Sigma_R}^{-1} \otimes \mathbf{K_R}^{-1}\right)\mathbf{W}^\top$
+and inverting the $n \times n$ matrix $\mathbf{R}$ is just as expensive as inverting
+$\mathbf{V}$.
+
+- with the low-level constructor:
+    - if `varmeth_inv` only is provided, SMW is forced on;
+    - if `varmeth` only is provided, SMW is forced off;
+    - if both methods are available, the dimensional rule applies.
+
+
 ### Structured forward
 
-Assembling $\mathbf{V}$ as $\mathbf{Z}\mathbf{G}\mathbf{Z}^\top + \mathbf{R}$
-materialises the Kronecker blocks $\mathbf{\Sigma_a} \otimes \mathbf{K_a}$ and
-multiplies through every column of $\mathbf{Z_a}$, one per level and component,
-even though the result only depends on the $d_\mathbf{a}$ component values each
-observation carries.
-The incidence built by `from_dataframe` is one-hot in levels: each row of
-$\mathbf{Z_a}$ loads a single level $s(i)$, while carrying $d_\mathbf{a}$
-arbitrary values. This holds for random regression, for coordinate kernels and
-for pedigree expansion alike. Effect $\mathbf{a}$ then contributes:
+Consider a random regression with three levels and four observations, an
+intercept and a covariate $x$ being carried on each level:
+
+$$
+\newcommand{\z}{{\color{lightgray}0}}
+\mathbf{Z_a} =
+\begin{pmatrix}
+1 & \z & \z & x_1 & \z & \z\\
+1 & \z & \z & x_2 & \z & \z\\
+\z & 1 & \z & \z & x_3 & \z\\
+\z & \z & 1 & \z & \z & x_4
+\end{pmatrix}.
+$$
+
+$\mathbf{Z_a}$ can be entirely described by the pair
+$(\mathbf{F_a}, s)$, defined as the values each observation carries and
+the level it loads them on:
+
+$$
+\mathbf{F_a} =
+\begin{pmatrix}
+1 & x_1\\ 1 & x_2\\ 1 & x_3\\ 1 & x_4
+\end{pmatrix},
+\qquad
+s = (1, 1, 2, 3).
+$$
+
+Row $i$ of $\mathbf{F_a}$ is written $\mathbf{f}_i$, and $s(i)$ is the level
+loaded by observation $i$. Over several responses, $\mathbf{F_a}$ is
+block-diagonal: each row carries the values of its own response, matching the
+response blocks of $\mathbf{\Sigma_a}$.
+
+Assembling $\mathbf{V_a} = \mathbf{Z_a}\mathbf{G_a}\mathbf{Z_a}^\top$
+directly forms the Kronecker block
+$\mathbf{G_a} = \mathbf{\Sigma_a} \otimes \mathbf{K_a}$, then
+multiplies through every column of $\mathbf{Z_a}$. Yet each row of
+$\mathbf{Z_a}$ being confined to a single level, entry $(i,j)$ of that
+product reduces to the covariance between the values carried by
+observations $i$ and $j$, scaled by the kernel entry between the levels
+they load:
+
+$$
+[\mathbf{V_a}]_{ij} =
+\mathbf{f}_i^\top\,\mathbf{\Sigma_a}\,\mathbf{f}_j\,
+[\mathbf{K_a}]_{s(i)\,s(j)}.
+$$
+
+The right-hand factor collects into $\mathbf{K_a}$ read at the observed
+level pairs:
+
+$$
+\left[\mathbf{K_a}^{\text{obs}}\right]_{ij} =
+\left[\mathbf{K_a}\right]_{s(i)\,s(j)},
+\qquad
+\mathbf{K_a}^{\text{obs}} =
+\begin{pmatrix}
+K_{11} & K_{11} & K_{12} & K_{13}\\
+K_{11} & K_{11} & K_{12} & K_{13}\\
+K_{21} & K_{21} & K_{22} & K_{23}\\
+K_{31} & K_{31} & K_{32} & K_{33}
+\end{pmatrix},
+$$
+
+so that the whole contribution is written as a Hadamard (elementwise) product $\odot$:
+
 $$
 \mathbf{V_a} =
 \left(\mathbf{F_a}\,\mathbf{\Sigma_a}\,\mathbf{F_a}^\top\right)
-\odot \mathbf{K_a}^{\text{obs}},
-\qquad
-\left[\mathbf{K_a}^{\text{obs}}\right]_{ij} =
-\left[\mathbf{K_a}\right]_{s(i)\,s(j)},
+\odot \mathbf{K_a}^{\text{obs}}.
 $$
-with $\odot$ the elementwise product and $\mathbf{F_a}$ the $n \times
-d_\mathbf{a}$ matrix of component values, block-diagonal across responses: each
-row carries the $c_\mathbf{a}$ values of its own response, so that
-$d_\mathbf{a} = k\,c_\mathbf{a}$ over $k$ responses. The full covariance is
-$\mathbf{V} = \sum_\mathbf{a} \mathbf{V_a}$, residual included, and neither
-$\mathbf{G_a}$ nor $\mathbf{Z_a}\mathbf{G_a}\mathbf{Z_a}^\top$ is ever formed.
-The number of levels no longer drives the cost of assembling $\mathbf{V}$, only
-the number of components does.
 
-The same idea applies to $\mathbf{R}^{-1}$, which the [SMW](#smw) identity
-requires as a dense $n \times n$ matrix. Observations are instead lifted into
-the full response $\times$ level space, where applying $\mathbf{R}^{-1}$ becomes
-a Kronecker contraction and $\mathbf{R}^{-1}$ is never formed.
+Neither $\mathbf{G_a}$ nor $\mathbf{Z_a}\mathbf{G_a}\mathbf{Z_a}^\top$ is ever
+formed, sparing both the memory and the time they would cost.
+This was exemplified with random regression, but
+holds for any effect built by `from_dataframe`. The full
+covariance follows as $\mathbf{V} = \sum_\mathbf{a} \mathbf{V_a}$,
+residual included.
+
+On the [SMW](#smw) path, a second structured forward optimization is applied
+to prevent the formation of $\mathbf{R}^{-1}$ and of the Kronecker block
+$\mathbf{\Sigma_R}^{-1} \otimes \mathbf{K_R}^{-1}$ it is read from.
+Any $\mathbf{Z}$, $\mathbf{X}$ or $\mathbf{r}$ column 
+can be reshaped as a matrix $\mathbf{U}$ over the level $\times$ response grid:
+
+$$
+\mathbf{R}^{-1}\operatorname{vec}(\mathbf{U})
+= \operatorname{vec}\left(\mathbf{K_R}^{-1}\,\mathbf{U}\,\mathbf{\Sigma_R}^{-1}\right).
+$$
+
+The levels are contracted along the rows, the responses along the columns, and the
+result is flattened back. Two small products replace one large inverse, which
+is never formed. Unbalanced designs leave part of the grid empty, which is what the residual
+incidence $\mathbf{W}$ encodes. Operands are therefore lifted onto the
+complete grid, contracted, and read back at the observed cells afterwards.
 
 The structured forward path is switched off when:
 
@@ -156,34 +312,52 @@ $$
 \left(\mathbf{X}^\top\mathbf{V}^{-1}\mathbf{X}\right)^{-1}
 \mathbf{X}^\top\mathbf{V}^{-1},
 $$
+
 with $\partial(-2\ell_{\text{REML}})/\partial\mathbf{\beta} =
 -2\,\mathbf{X}^\top\mathbf{V}^{-1}\mathbf{r}$.
-The forward therefore runs without recording a graph. Reusing the decomposition
-above, the trace contracts into one constant per variance matrix,
+As $\mathbf{V} = \sum_\mathbf{a}\mathbf{V_a}$,
+for a given random effect (or the residual), the trace permutes into:
+
 $$
-\operatorname{grain}(\mathbf{\Sigma_a}) =
+\frac{\partial(-2\ell_{\text{REML}})}{\partial\theta_\mathbf{a}} =
+\operatorname{tr}\!\left(\mathbf{Z_a}^\top\mathbf{A}\,\mathbf{Z_a}\;
+\frac{\partial\mathbf{G_a}}{\partial\theta_\mathbf{a}}\right).
+$$
+
+$\mathbf{A}$ is therefore evaluated once at the current point and shared by
+every variance parameter. Reusing the decomposition of
+[structured forward](#structured-forward), where $\mathbf{Z_a}$ is replaced by
+$(\mathbf{F_a}, s)$ and $\mathbf{G_a}$ by $\mathbf{\Sigma_a}$ and
+$\mathbf{K_a}$, the trace contracts onto each variance matrix:
+
+$$
+\frac{\partial(-2\ell_{\text{REML}})}{\partial\mathbf{\Sigma_a}} =
 \mathbf{F_a}^\top\left(\mathbf{A} \odot \mathbf{K_a}^{\text{obs}}\right)\mathbf{F_a},
 \qquad
-\left[\operatorname{grain}(\mathbf{K_a})\right]_{st} =
+\left[\frac{\partial(-2\ell_{\text{REML}})}{\partial\mathbf{K_a}}\right]_{st} =
 \sum_{\substack{i\,:\,s(i)=s \\ j\,:\,s(j)=t}}
 \left[\mathbf{A} \odot
-\mathbf{F_a}\mathbf{\Sigma_a}\mathbf{F_a}^\top\right]_{ij},
+\mathbf{F_a}\mathbf{\Sigma_a}\mathbf{F_a}^\top\right]_{ij}.
 $$
-the second one scattering the observation-level entries onto the levels they
-land on, rather than reading them at level positions. The two only coincide
-when $L_\mathbf{a} = n$, which the gridded structures break. Differentiation is
-then applied to the inner products of these constants with $\mathbf{\Sigma_a}$
-and $\mathbf{K_a}$ alone. Automatic differentiation still performs the last
-step, but only across the parameterization of each variance matrix
-(log-Cholesky, factor-analytic, and so on), never across the factorization of
-$\mathbf{V}$ or the Kronecker products. The grains pair against
-$\mathbf{\Sigma_a}$ jitter included, as the forward uses it: meeting the same
-graph is what keeps the jitter contribution to
-$\partial\mathbf{\Sigma_a}/\partial\theta$ from being silently dropped.
 
-On the SMW path $\mathbf{A}$ is never formed either: the same three terms are
-projected onto the $q \times q$ capacitance space, where the grains are read off
-the block of each effect.
+On the [SMW](#smw) path, $\mathbf{V}$ is never formed, so neither is
+$\mathbf{A}$. The trace is then read in the level space, from
+$\mathbf{Z}^\top\mathbf{A}\mathbf{Z}$ directly:
+
+$$
+\mathbf{Z}^\top\mathbf{A}\mathbf{Z} = \mathbf{Z}^\top\mathbf{V}^{-1}\mathbf{Z} - \left(\mathbf{Z}^\top\mathbf{V}^{-1}\mathbf{r}\right)\left(\mathbf{Z}^\top\mathbf{V}^{-1}\mathbf{r}\right)^\top - \left(\mathbf{Z}^\top\mathbf{V}^{-1}\mathbf{X}\right)\left(\mathbf{X}^\top\mathbf{V}^{-1}\mathbf{X}\right)^{-1}\left(\mathbf{Z}^\top\mathbf{V}^{-1}\mathbf{X}\right)^\top
+$$
+which uses 3 quantities the SMW projection already delivers through $\mathbf{C}$:
+
+$$
+\mathbf{Z}^\top\mathbf{V}^{-1}\mathbf{M} = \mathbf{Z}^\top\mathbf{R}^{-1}\mathbf{M} - \left(\mathbf{Z}^\top\mathbf{R}^{-1}\mathbf{Z}\right)\mathbf{C}^{-1}\left(\mathbf{Z}^\top\mathbf{R}^{-1}\mathbf{M}\right),
+\qquad \mathbf{M} \in \{\mathbf{Z}, \mathbf{r}, \mathbf{X}\}
+$$
+
+PyTorch autograd is therefore disabled through the assembly and factorisation
+of $\mathbf{V}$ ($\mathbf{C}$ on the SMW path). Automatic differentiation is
+only left with the last step, from each variance matrix to its own
+parameterization, and never traverses the Kronecker products.
 
 The analytical backward path is switched off when:
 
@@ -287,99 +461,6 @@ and AIC post REML/HMME is computed using the restricted likelihood ($-2\ell_{\te
 
 In both cases, AIC is obtained by the addition of twice the total number of parameters ($\beta$,
 and all independent variance parameters).
-
-## SMW
-
-The REML computation uses the Sherman–Morrison–Woodbury identity (SMW) [@MR38136]
-which can have an important impact on the performance of the models
-depending on their specification.
-
-### Interest of SMW for REML
-
-The use of SMW aims at avoiding forming and inverting $\mathbf{V}$ directly:
-
-$$
-\begin{align}
-\mathbf{V}^{-1}
-    &= \left(\mathbf{Z}\mathbf{G}\mathbf{Z}^{\top} + \mathbf{R}\right)^{-1} \\
-    &= \mathbf{R}^{-1}
-    - \mathbf{R}^{-1}\mathbf{Z}
-   \mathbf{C}^{-1}
-    \mathbf{Z}^{\top}\mathbf{R}^{-1},
-\end{align}
-$$
-
-with the capacitance matrix $\mathbf{C}$:
-
-$$
-\mathbf{C} = \mathbf{Z}^{\top}\mathbf{R}^{-1}\mathbf{Z} + \mathbf{G}^{-1}.
-$$
-
-The associated determinant lemma gives the REML log-determinant without forming
-$\mathbf{V}$ either:
-
-$$
-\log |\mathbf{V}|
-    = \log |\mathbf{R}|
-    + \log |\mathbf{G}|
-    + \log |\mathbf{C}|.
-$$
-
-Therefore, the problem transposes from inverting $\mathbf{V}$ to inverting $\mathbf{C}$, $\mathbf{G}$ and $\mathbf{R}$.
-
-Using the properties of direct sum and Kronecker product:
-
-$$
-\mathbf{G}^{-1} = \bigoplus_\mathbf{a} (\mathbf{\Sigma_a}^{-1} \otimes \mathbf{K_a}^{-1}).
-$$
-
-For the residual (see [this section](variance_structures.qmd#the-residual)):
-
-$$
-\mathbf{R}^{-1} = \mathbf{W}\left(\mathbf{\Sigma_R}^{-1} \otimes \mathbf{K_R}^{-1}\right)\mathbf{W}^\top,
-$$
-
-which only stands under some conditions, including:
-
-- if $\mathbf{W} = \mathbf{I}$;
-- or if both $\mathbf{\Sigma_R}$ and $\mathbf{K_R}$ are diagonal, as 
-$\mathbf{W}$ is a mere row-column selector.
-
-Most left-hand and right-hand term inverses can be broken down even further, avoiding expensive computations for $\mathbf{G}^{-1}$ and $\mathbf{R}^{-1}$. The SMW path trades the complexity of inverting a dense $\mathbf{V}_{n \times n}$ for inverting a dense $\mathbf{C}_{q \times q}$ at each step.
-
-### Implementation of SMW
-
-SMW is usually more efficient when $q < n$, with $q$
-the number of columns of $\mathbf{Z}$
-(the total dimension of $\mathbf{u}$) and $n$ the
-number of stacked observations (*i.e.* $\mathbf{Z}$
-is narrower than tall). Indeed, inverting the $q \times q$
-matrix $\mathbf{C}$ is cheaper than inverting the $n \times n$ matrix
-$\mathbf{V}$ only when $q < n$. 
-
-[pyreml]{.pyreml} mostly conforms to this "dimensional rule",
-selecting `SMW=True` when $q < n$, `SMW=False` otherwise.
-
-However:
-
-- using the high-level `from_dataframe` constructor, if the user
-forces `SMW=True` or `False` then their decision takes precedence
-over any other rule.
-- using the high-level `from_dataframe` constructor, if all
-of the following conditions are met then SMW is switched off
-regardless of the dimensional rule:
-    - $\mathbf{W} \neq \mathbf{I}$, which can arise for instance with several unbalanced options, or when using autoregressive structures.
-    - the residual covariance $\mathbf{R}$ is not designed as a diagonal matrix.
-
-Indeed, in this situation
-$\mathbf{R}^{-1} \neq \mathbf{W}\left(\mathbf{\Sigma_R}^{-1} \otimes \mathbf{K_R}^{-1}\right)\mathbf{W}^\top$
-and inverting the $n \times n$ matrix $\mathbf{R}$ is just as expensive as inverting
-$\mathbf{V}$.
-
-- with the low-level constructor:
-    - if `varmeth_inv` only is provided, SMW is forced on;
-    - if `varmeth` only is provided, SMW is forced off;
-    - if both methods are available, the dimensional rule applies.
 
 ## Monitoring
 
