@@ -370,18 +370,32 @@ class Variance:
         """
         d, n_lev = residual.d, residual.L
         Sinv, logdet_S = residual.build_Sinv()
-        Kinv, logdet_K = residual.build_Kinv()
+
+        if residual.K_is_diagonal:
+            # K inverse is diagonal: keep only its diagonal, never form the
+            # L×L Kinv. Reachable either with a diagonal R (scale on the
+            # levels) or, when K is diagonal but S is not, with a single
+            # contraction over the response dimension.
+            kd, logdet_K = residual.build_Kinv_diag()
+        else:
+            Kinv, logdet_K = residual.build_Kinv()
 
         if residual.R_is_diagonal:
             sd = Sinv.diag()[:, None, None]
-            kd = Kinv.diag()[None, :, None]
+            kd = kd[None, :, None]
 
             def apply(Mg):
                 return (Mg.reshape(d, n_lev, -1) * sd * kd).reshape(d * n_lev, -1)
 
             logdet_R = -torch.sum(
-                torch.log(Sinv.diag()[self.embed.r_i] * Kinv.diag()[self.embed.l_i])
+                torch.log(Sinv.diag()[self.embed.r_i] * kd.flatten()[self.embed.l_i])
             )
+        elif residual.K_is_diagonal:
+            def apply(Mg):
+                U = Mg.reshape(d, n_lev, -1)
+                return torch.einsum('ij,jlm->ilm', Sinv, U * kd[None, :, None]).reshape(d * n_lev, -1)
+
+            logdet_R = n_lev * logdet_S + d * logdet_K
         else:
             def apply(Mg):
                 U = Mg.reshape(d, n_lev, -1)
@@ -632,12 +646,14 @@ class Capacitance(Solve):
         d, n_lev = resid.d, resid.L
 
         Sinv, _ = resid.build_Sinv()
-        Kinv, _ = resid.build_Kinv()
         S_full = resid.build_S_full()
 
         if resid.R_is_diagonal:
+            # K is diagonal in this regime (right_hand iid/het): only its
+            # inverse diagonal is ever read, so the L×L Kinv is never formed.
+            kd, _ = resid.build_Kinv_diag()
             ri, li = embed.r_i, embed.l_i
-            w = Sinv[ri, ri] * Kinv[li, li]
+            w = Sinv[ri, ri] * kd[li]
 
             Iq = torch.eye(self.Z.shape[1], dtype=self.L.dtype, device=self.L.device)
             ZLi = self.Z @ torch.linalg.solve_triangular(self.L.T, Iq, upper=True)
@@ -649,7 +665,7 @@ class Capacitance(Solve):
             A_ii = (diag_Vi - (self._u * self._u).flatten() - (Tx * Tx).sum(1)).detach()
 
             grain_S = torch.zeros(d, d, dtype=A_ii.dtype, device=A_ii.device)
-            grain_S.index_put_((ri, ri), A_ii / Kinv.detach()[li, li], accumulate=True)
+            grain_S.index_put_((ri, ri), A_ii / kd.detach()[li], accumulate=True)
             yield S_full, grain_S
 
             if resid.right_hand == "het":
