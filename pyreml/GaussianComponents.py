@@ -573,17 +573,17 @@ class GaussianComponent:
         strides = np.array([int(np.prod(sizes[a + 1:])) for a in range(axes)])
         self.level_cell = ((Pint - starts) * strides).sum(axis=1)  # (L_obs,)
 
-        # embed the level incidence (Z grouped, W residual) into the grid columns;
-        # uniqueness guarantees at most one level per cell, the rest stay empty.
-        src = self.W if self.is_residual else self.Z          # (n, c * L_obs)
-        L_obs = len(self.level_cell)
-        grid_incidence = np.zeros((src.shape[0], self.c * L_grid))
-        for j in range(self.c):
-            grid_incidence[:, j * L_grid + self.level_cell] = src[:, j * L_obs:(j + 1) * L_obs]
-
+        # embed the level incidence into the grid columns; uniqueness guarantees
+        # at most one level per cell, the rest stay empty.
         if self.is_residual:
-            self.W = grid_incidence
+            # the selector simply follows its levels onto the grid cells
+            self.grid = self.level_cell[self.grid]
         else:
+            src = self.Z                                   # (n, c * L_obs)
+            L_obs = len(self.level_cell)
+            grid_incidence = np.zeros((src.shape[0], self.c * L_grid))
+            for j in range(self.c):
+                grid_incidence[:, j * L_grid + self.level_cell] = src[:, j * L_obs:(j + 1) * L_obs]
             self.Z = grid_incidence
 
         self.index = grid_cells
@@ -1025,22 +1025,37 @@ class GaussianComponent:
                 raise ValueError(f"unsupported right hand type: {self.right_hand}")
         
     def varmeth_inv(self) -> Callable:
-        """
-        Return the closure producing this effect's inverse block and logdet:
-            () -> (S^{-1} ⊗ K^{-1},  L·logdet S + d·logdet K)
-        at the working dtype (Sinv, Kinv and both logdets are already emitted in
-        self.dtype).
-        """
-        d = self.d
-
-        def block_inv() -> tuple[torch.Tensor, torch.Tensor]:
+        def block(grid: torch.Tensor | None = None):
             Sinv, logdet_S = self.build_Sinv()
             Kinv, logdet_K = self.build_Kinv()
-            Ginv_e = torch.kron(Sinv.contiguous(), Kinv.contiguous())
-            logdet_Ge = self.L * logdet_S + d * logdet_K
-            return Ginv_e, logdet_Ge
 
-        return block_inv
+            if grid is None:
+                # no masking: R = R_tot = S⊗K, invert and logdet by Kronecker structure
+                Rinv = torch.kron(Sinv.contiguous(), Kinv.contiguous())
+                logdet_R = self.L * logdet_S + self.d * logdet_K
+                return Rinv, logdet_R
+
+            if self.Rtrick:
+                # masked but selection-commuting: the masked inverse is read at
+                # the selected cells, never through the (d·L)² Kronecker block
+                r_i, l_i = grid // self.L, grid % self.L
+                if self.R_is_diagonal:
+                    diag = Sinv.diagonal()[r_i] * Kinv.diagonal()[l_i]
+                    Rinv = torch.diag(diag)
+                    logdet_R = -torch.sum(torch.log(diag))
+                else:
+                    Rinv = Sinv[r_i][:, r_i] * Kinv[l_i][:, l_i]
+                    logdet_R = self.L * logdet_S + self.d * logdet_K
+                return Rinv, logdet_R
+
+            # masked and dense: form R then factor
+            R = self.varmeth()()[grid][:, grid]
+            L = torch.linalg.cholesky(R)
+            Rinv = torch.cholesky_inverse(L)
+            logdet_R = 2.0 * torch.sum(torch.log(torch.diagonal(L)))
+            return Rinv, logdet_R
+
+        return block
 
     def format_variance(self) -> None:
         """
@@ -1662,7 +1677,7 @@ class Residual(GaussianComponent):
                 )
             self.make_coords(data, checkerboard=True)   # rebuilds self.W over the grid
         
-        self.n, self.q = self.W.shape
+        self.n, self.q = len(self.grid), self.c * self.L
         self.d = self.k * self.c
 
         if self.distance is not None:
@@ -1673,12 +1688,13 @@ class Residual(GaussianComponent):
             self.precision = torch.as_tensor(np.asarray(self.precision), dtype=torch.double, device=self.device)
 
         self.init_varparams()         # -> self.varparams, self.log_S, (self.log_rho)
-        return self.W
+        return self.grid
     
-    def check_Rtrick(self, W):
+    def check_Rtrick(self, grid) -> None:
+        n = len(grid)
         self.W_is_identity = (
-            W.shape[0] == W.shape[1]
-            and np.allclose(W, np.eye(W.shape[0]))
+            n == self.d * self.L
+            and bool(np.array_equal(np.asarray(grid), np.arange(n)))
         )
         self.R_is_diagonal = (
             self.left_hand in ("iid", "diag")
@@ -1702,64 +1718,41 @@ class Residual(GaussianComponent):
         self.c = 1
         self.L = len(self.index)
         self.grid = np.arange(self.L)
-        self.W = None
 
     def format_residuals(
         self,
         residuals: torch.Tensor,
-        Wtot: torch.Tensor,
+        grid: torch.Tensor,
     ) -> None:
         """
-        Receive the model residuals from the fitted equations, store them, and build
-        the labelled table.
+        Receive the model residuals from the fitted equations, store them, and
+        build the labelled table.
 
-        `Wtot` is the residual incidence matrix actually used by MixedModel after
-        response-wise missing-data masking. Each row of Wtot corresponds to one
-        retained observation in the stacked response vector y.
-
-        Row order follows the native stacking order of y:
-            response-outer, observed-row-inner
-
-        The original observation index is reconstructed from the non-zero column of
-        Wtot.
+        `grid` is the residual selector actually used by MixedModel after
+        response-wise missing-data masking: grid[i] is the (response, level)
+        cell of the i-th retained observation, in the native stacking order of y
+        (response-outer, observed-row-inner).
         """
         self.residuals = residuals
 
-        W_np = Wtot.detach().cpu().numpy() if isinstance(Wtot, torch.Tensor) else np.asarray(Wtot)
+        g = grid.detach().cpu().numpy() if isinstance(grid, torch.Tensor) else np.asarray(grid)
         vals = residuals.detach().cpu().numpy().ravel()
 
-        n_obs = self.W.shape[0]
+        response_idx = g // self.L
+        observation_idx = g % self.L
 
-        rows = []
+        self.table = pd.DataFrame({
+            "observation": observation_idx,
+            "response": [self.responses[r] for r in response_idx],
+            "residual": vals,
+        })
 
-        for i, value in enumerate(vals):
-            nz = np.flatnonzero(W_np[i])
-
-            if len(nz) != 1:
-                raise ValueError(
-                    "Each row of Wtot must contain exactly one non-zero entry."
-                )
-
-            global_col = int(nz[0])
-            response_idx = global_col // n_obs
-            observation_idx = global_col % n_obs
-
-            rows.append(
-                (
-                    observation_idx,
-                    self.responses[response_idx],
-                    float(value),
-                )
-            )
-
-        self.table = pd.DataFrame(
-            rows,
-            columns=["observation", "response", "residual"],
-        )
-
-        # compute SD
+        # SD: only diag(W R_tot W') is needed, i.e. R_tot read at the selected
+        # cells, so neither R_tot nor R is formed
         with torch.no_grad():
-            R = Wtot @ self.varmeth()() @ Wtot.T
-            sd = torch.sqrt(torch.diagonal(R)).cpu().numpy()
+            gt = torch.as_tensor(g, device=self.device)
+            Sd = self.build_S_full().diagonal()
+            Kd = self.build_K().diagonal()
+            sd = torch.sqrt(Sd[gt // self.L] * Kd[gt % self.L]).cpu().numpy()
 
         self.table["SD"] = sd

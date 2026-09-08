@@ -111,10 +111,13 @@ class MixedModel:
         else:
             Z = None
 
-        W_blocks = residual.design(data, response, scale=scale, device = device)
-        W = block_diag(*[W_blocks[m] for m in masks])
-        residual.check_Rtrick(W)
-        designs.append((W_blocks, residual.c, residual.L, residual))
+        grid_base = residual.design(data, response, scale=scale, device = device)
+        # response-outer stacking: response r occupies cells [r·L, (r+1)·L)
+        grid_res = np.concatenate([
+            grid_base[m] + r * residual.L for r, m in enumerate(masks)
+        ])
+        residual.check_Rtrick(grid_res)
+        designs.append((grid_base, residual.c, residual.L, residual))
 
         variance = Variance.from_designs(designs, masks, device)
 
@@ -122,7 +125,7 @@ class MixedModel:
 
         X = torch.as_tensor(X, dtype=torch.double, device=device)
         Z = torch.as_tensor(Z, dtype=torch.double, device=device) if Z is not None else None
-        W = torch.as_tensor(W, dtype=torch.double, device=device)
+        w_grid = torch.as_tensor(grid_res, dtype=torch.long, device=device)
         y = torch.as_tensor(y, dtype=torch.double, device=device).reshape(-1, 1)
 
         do_REML = (
@@ -133,7 +136,7 @@ class MixedModel:
 
         def varmeth(self):
             R_tot = residual.varmeth()
-            R = self._W @ R_tot() @ self._W.T
+            R = R_tot()[self.w_grid][:, self.w_grid]
 
             if not random_blocks:
                 return None, R
@@ -142,7 +145,7 @@ class MixedModel:
             return G, R
 
         def varmeth_inv(self):
-            Rinv, logdet_R = residual.varmeth_inv()(self._W)
+            Rinv, logdet_R = residual.varmeth_inv()(self.w_grid)
 
             if not random_blocks_inv:
                 return None, Rinv, None, logdet_R
@@ -156,7 +159,7 @@ class MixedModel:
             y=y,
             X=X,
             Z=Z,
-            W=W,
+            w_grid=w_grid,
             varmeth = varmeth,
             varmeth_inv = varmeth_inv,
             varparams=varparams,
@@ -169,7 +172,7 @@ class MixedModel:
         mm.random = [rand for rand in random]
         mm.variance = variance
 
-        variance.embed_residual(mm._Z, mm._X, mm._W, residual)
+        variance.embed_residual(mm._Z, mm._X, mm.w_grid, residual)
 
         # SMW resolution, in three layers of increasing authority.
         #
@@ -211,7 +214,7 @@ class MixedModel:
         y: torch.Tensor,
         X: torch.Tensor,
         Z: None | torch.Tensor,
-        W: None | torch.Tensor,
+        w_grid: None | torch.Tensor,
         varparams: list[dict],
         varmeth: Callable | None = None,
         varmeth_inv: Callable | None = None,
@@ -225,7 +228,7 @@ class MixedModel:
         self.y = y
         self.X = X
         self.Z = Z
-        self.W = W
+        self.w_grid = w_grid
         self.n, self.p = X.shape
         self.q = Z.shape[1] if Z is not None else 0
 
@@ -278,7 +281,6 @@ class MixedModel:
             self._y = self.y.to(dtype)
             self._X = self.X.to(dtype)
             self._Z = self.Z.to(dtype) if self.Z is not None else None
-            self._W = self.W.to(dtype)
 
         for rand in getattr(self, "random", []):
             rand.migrate(dtype)
@@ -566,7 +568,7 @@ class MixedModel:
 
             beta = self.beta.to(self.dtype)
             residuals = (self._y - self._X @ beta).flatten()
-            self.residual.format_residuals(residuals, self._W)
+            self.residual.format_residuals(residuals, self.w_grid)
 
             self.compute_AIC(REML = False)
     
@@ -774,7 +776,7 @@ class MixedModel:
                 self.PEV = PEV
                 
             if residual is not None:
-                residual.format_residuals(residuals, self._W)
+                residual.format_residuals(residuals, self.w_grid)
             else:
                 self.residuals = residuals
 

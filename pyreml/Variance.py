@@ -211,7 +211,7 @@ class Variance:
 
         return cls(blocks=blocks)
 
-    def embed_residual(self, Z, X, W, residual) -> None:
+    def embed_residual(self, Z, X, grid, residual) -> None:
         """
         Attach the SMW residual embedding, when the Kronecker identities hold.
 
@@ -226,7 +226,6 @@ class Variance:
             return
 
         d, L = residual.d, residual.L
-        grid = W.argmax(1)
         Zg = Z.new_zeros(d * L, Z.shape[1])
         Zg[grid] = Z
         Xg = Z.new_zeros(d * L, X.shape[1])
