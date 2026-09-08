@@ -61,14 +61,15 @@ class Block:
 
     def K_obs(self, scratch: Optional[dict] = None) -> Optional[torch.Tensor]:
         """
-        K restricted to the observed stacking, detached, or None when K is the
-        identity.
+        K restricted to the observed stacking, or None when K is the identity.
 
         Built on first call, not at construction: only the direct path reads it,
         and an n x n gather must not be paid before the model has chosen between
         the direct and the SMW path. `scratch` is a per-solve dict letting
-        term() and grain() share one gather within a single evaluation; the
-        value is always used detached, so nothing of the graph is shared.
+        term() and grain() share one gather within a single evaluation.
+
+        Returned attached: term() builds V from it and needs the graph when the
+        analytic backward is off. grain() detaches at its own use site.
         """
         if self.k_is_identity:
             return None
@@ -80,10 +81,10 @@ class Block:
         if self.k_is_diagonal:
             # K = diag(d): K_obs[i,j] = d[lev_i] when the levels match, 0 otherwise.
             # The L x L matrix is never formed.
-            d = self.comp.build_K_diag().detach()
+            d = self.comp.build_K_diag()
             K_obs = (self.lev[:, None] == self.lev[None, :]) * d[self.lev][:, None]
         else:
-            K_obs = self.comp.build_K().detach()[self.lev][:, self.lev]
+            K_obs = self.comp.build_K()[self.lev][:, self.lev]
 
         if self.k_is_constant:
             self._k_obs = K_obs
@@ -124,10 +125,12 @@ class Block:
             pairs = [(S, ((self.F * a[:, None]).T @ self.F).detach())]
         else:
             K_obs = self.K_obs(scratch)
-            pairs = [(S, (self.F.T @ (A * K_obs) @ self.F).detach())]
+            pairs = [(S, (self.F.T @ (A * K_obs.detach()) @ self.F).detach())]
 
         if self.k_is_constant:
             return pairs
+
+        K_pair = self.comp.build_K_diag() if self.k_is_diagonal else self.comp.build_K()
 
         M = (A * (self.F @ S.detach() @ self.F.T)).detach()
         n_lev = self.comp.L
@@ -143,10 +146,10 @@ class Block:
             # collapses to one gather: grain[l] = Σ_{i,j ∈ l} M[i,j]
             vals = rows.T.gather(1, self.lev[:, None]).squeeze(1)
             grain_K = M.new_zeros(n_lev).index_add_(0, self.lev, vals)
-            pairs.append((self.comp.build_K_diag(), grain_K))
+            pairs.append((K_pair, grain_K))
         else:
             grain_K = M.new_zeros(n_lev, n_lev).index_add_(0, self.lev, rows.T).T
-            pairs.append((self.comp.build_K(), grain_K))
+            pairs.append((K_pair, grain_K))
 
         return pairs
 
