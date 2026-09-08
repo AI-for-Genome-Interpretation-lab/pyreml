@@ -46,29 +46,42 @@ class Block:
 
     - F: (n, d) response-block-diagonal component values
     - lev: (n,) level index of each observation, in the stacked ordering
-    - k_obs: K[lev][:, lev], frozen once for constant-K hands (iid, str), None
-      when K is trainable and must be gathered on every call
     - comp: the Random or Residual component owning the variance parameters
-    - is_residual: the residual is a block like any other for V, but the SMW
-      path treats it apart; the flag makes that explicit rather than relying on
-      its position in the list
+    - k_is_constant: K carries no trainable parameter, so K_obs can be cached
+    - k_is_identity: K == I, so K_obs is never materialized at all
     """
     F: torch.Tensor
     lev: torch.Tensor
-    k_obs: Optional[torch.Tensor]
     comp: object
     is_residual: bool = False
+    k_is_constant: bool = False
+    k_is_identity: bool = False
+    _k_obs: Optional[torch.Tensor] = None
 
-    def K_obs(self) -> torch.Tensor:
-        """K restricted to the observed stacking, frozen or gathered."""
-        if self.k_obs is not None:
-            return self.k_obs
-        K = self.comp.build_K()
-        return K[self.lev][:, self.lev]
+    def K_obs(self) -> Optional[torch.Tensor]:
+        """
+        K restricted to the observed stacking, or None when K is the identity.
+
+        Built on first call, not at construction: only the direct path reads it,
+        and an n x n gather must not be paid before the model has chosen between
+        the direct and the SMW path.
+        """
+        if self.k_is_identity:
+            return None
+        if self._k_obs is not None:
+            return self._k_obs
+        K_obs = self.comp.build_K()[self.lev][:, self.lev]
+        if self.k_is_constant:
+            self._k_obs = K_obs
+        return K_obs
 
     def term(self) -> torch.Tensor:
         """This block's contribution to V: (F S F') ⊙ K_obs."""
         S = self.comp.build_S_full()
+        if self.k_is_identity:
+            # K = I: only the diagonal of F S F' survives the Hadamard product,
+            # so the n x n product is skipped as well as the n x n kernel
+            return torch.diag_embed(((self.F @ S) * self.F).sum(1))
         return (self.F @ S @ self.F.T) * self.K_obs()
 
     def grain(self, A: torch.Tensor) -> list:
@@ -86,33 +99,32 @@ class Block:
         """
         S = self.comp.build_S_full()
 
-        if self.k_obs is not None:
-            K, K_obs = None, self.k_obs
+        if self.k_is_identity:
+            # A ⊙ I = diag(A), so grain_S = F' diag(A) F
+            a = torch.diagonal(A).detach()
+            pairs = [(S, ((self.F * a[:, None]).T @ self.F).detach())]
         else:
-            K = self.comp.build_K()
-            K_obs = K[self.lev][:, self.lev]
+            K_obs = self.K_obs()
+            pairs = [(S, (self.F.T @ (A * K_obs.detach()) @ self.F).detach())]
 
-        pairs = [(S, (self.F.T @ (A * K_obs.detach()) @ self.F).detach())]
+        if self.k_is_constant:
+            return pairs
 
-        if K is not None:
-            # scatter, not gather: dl/dK[l,m] sums the observation-level entries
-            # over every pair (i,j) landing on levels (l,m). A gather indexed by
-            # lev reads an n×n matrix at level positions, which only coincides
-            # when L == n and lev is the identity — true for the ungridded hands,
-            # out of bounds for the gridded AR structures where L > n.
-            M = (A * (self.F @ S.detach() @ self.F.T)).detach()
-            n_lev = self.comp.L
-            rows = M.new_zeros(n_lev, M.shape[1]).index_add_(0, self.lev, M)
-            grain_K = M.new_zeros(n_lev, n_lev).index_add_(0, self.lev, rows.T).T
-            pairs.append((K, grain_K))
-
+        # trainable K: scatter, not gather (see the original note on AR levels)
+        K = self.comp.build_K()
+        M = (A * (self.F @ S.detach() @ self.F.T)).detach()
+        n_lev = self.comp.L
+        rows = M.new_zeros(n_lev, M.shape[1]).index_add_(0, self.lev, M)
+        grain_K = M.new_zeros(n_lev, n_lev).index_add_(0, self.lev, rows.T).T
+        pairs.append((K, grain_K))
         return pairs
 
     def to(self, dtype: torch.dtype) -> None:
         """Cast the frozen tensors in place, following the model's working dtype."""
         self.F = self.F.to(dtype)
-        if self.k_obs is not None:
-            self.k_obs = self.k_obs.to(dtype)
+        # dropped rather than cast: rebuilt lazily at the new dtype, and only if
+        # the direct path actually asks for it
+        self._k_obs = None
 
 
 @dataclass
@@ -184,17 +196,17 @@ class Variance:
             lev = M3.abs().sum(1).argmax(1)
             lev_obs = torch.cat([lev[m] for m in masks_t])
 
-            k_obs = None
-            if comp.right_hand in ("iid", "str"):
-                K = comp.build_K()
-                k_obs = K[lev_obs][:, lev_obs]
+            # K_obs is not built here: only the direct path reads it, and the
+            # path is not chosen yet. The block records what it may cache and
+            # gathers on first use.
 
             blocks.append(Block(
-                F           = F,
-                lev         = lev_obs,
-                k_obs       = k_obs,
-                comp        = comp,
-                is_residual = (i == len(designs) - 1),
+                F             = F,
+                lev           = lev_obs,
+                comp          = comp,
+                is_residual   = (i == len(designs) - 1),
+                k_is_constant = comp.right_hand in ("iid", "str"),
+                k_is_identity = (comp.right_hand == "iid"),
             ))
 
         return cls(blocks=blocks)

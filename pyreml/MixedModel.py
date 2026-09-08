@@ -677,8 +677,35 @@ class MixedModel:
         """
 
         with torch.no_grad():
-            if callable(self.varmeth_inv):
+            embed = getattr(self.variance, "embed", None)
+
+            if embed is not None:
+                # structured path: Rinv acts by contraction on the lifted grid
+                # and is never formed. Operands are lifted, contracted, and the
+                # cross-products read back through the zero padding.
+                apply, _ = self.variance.Rinv_apply(self.residual)
+                yg = self.variance.lift(self._y)
+
+                RiX = apply(embed.Xg)
+                Riy = apply(yg)
+                XtRiX = embed.Xg.T @ RiX
+
+                if self._Z is None:
+                    Ginv = None
+                else:
+                    RiZ = apply(embed.Zg)
+                    XtRiZ = embed.Xg.T @ RiZ
+                    ZtRiZ = embed.Zg.T @ RiZ
+                    inv_logdets = [b.comp.varmeth_inv()()
+                                   for b in self.variance.random_blocks]
+                    Ginv = torch.block_diag(*[gi for gi, _ in inv_logdets])
+
+            elif callable(self.varmeth_inv):
                 Ginv, Rinv, _, _ = self.varmeth_inv()
+                XtRiX = self._X.T @ Rinv @ self._X
+                if self._Z is not None:
+                    XtRiZ = self._X.T @ Rinv @ self._Z
+                    ZtRiZ = self._Z.T @ Rinv @ self._Z
             else:
                 G, R = self.varmeth()
                 Ginv = torch.linalg.inv(G)

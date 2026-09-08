@@ -1694,12 +1694,15 @@ class Residual(GaussianComponent):
     
     def make_W(self) -> None:
         """
-        W is the identity over the original rows of the DataFrame.
+        W is the identity over the original rows of the DataFrame, stored as the
+        row selector it is: grid[i] is the (response, level) cell carrying
+        observation i. The dense matrix is never built.
         """
         self.colnames = ["Intercept"]
         self.c = 1
         self.L = len(self.index)
-        self.W = np.eye(self.L)
+        self.grid = np.arange(self.L)
+        self.W = None
 
     def format_residuals(
         self,
