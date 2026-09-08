@@ -1657,6 +1657,7 @@ class Residual(GaussianComponent):
                 else:
                     # not diagonal but Rtrick: W is the identity, so the mask is
                     # a no-op and the Kronecker block is read as is
+                    Kinv, logdet_K = self.build_Kinv()
                     Rinv = torch.kron(Sinv.contiguous(), Kinv.contiguous())
                     logdet_R = self.L * logdet_S + self.d * logdet_K
                 return Rinv, logdet_R
