@@ -1637,10 +1637,10 @@ class Residual(GaussianComponent):
     def varmeth_inv(self) -> Callable:
         def block(grid: torch.Tensor | None = None):
             Sinv, logdet_S = self.build_Sinv()
-            Kinv, logdet_K = self.build_Kinv()
-
+            
             if grid is None:
                 # no masking: R = R_tot = S⊗K, invert and logdet by Kronecker structure
+                Kinv, logdet_K = self.build_Kinv()
                 Rinv = torch.kron(Sinv.contiguous(), Kinv.contiguous())
                 logdet_R = self.L * logdet_S + self.d * logdet_K
                 return Rinv, logdet_R
@@ -1655,7 +1655,9 @@ class Residual(GaussianComponent):
                     Rinv = torch.diag(diag)
                     logdet_R = -torch.sum(torch.log(diag))
                 else:
-                    Rinv = Sinv[r_i][:, r_i] * Kinv[l_i][:, l_i]
+                    # not diagonal but Rtrick: W is the identity, so the mask is
+                    # a no-op and the Kronecker block is read as is
+                    Rinv = torch.kron(Sinv.contiguous(), Kinv.contiguous())
                     logdet_R = self.L * logdet_S + self.d * logdet_K
                 return Rinv, logdet_R
 
