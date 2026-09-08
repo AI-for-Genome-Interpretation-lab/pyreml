@@ -186,14 +186,25 @@ class Variance:
             # the frozen K_obs must be built at the reference dtype: an explicit
             # step here rather than a side effect buried in a constructor
             comp.migrate(torch.double)
+            k_iid = comp.right_hand == "iid"
+            k_is_identity = k_iid and int(lev_obs.unique().numel()) == int(lev_obs.numel())
 
-            M3 = torch.as_tensor(M, dtype=torch.double, device=device).reshape(len(M), c, L)
-            F = torch.block_diag(*[M3[m].sum(-1) for m in masks_t])
+            if k_is_identity:
+                # the residual design is a selector: every row carries a single
+                # unit value, so F is a response indicator and lev is the grid
+                lev = torch.as_tensor(M, dtype=torch.long, device=device)
+                F = torch.block_diag(*[
+                    torch.ones(int(m.sum()), 1, dtype=torch.double, device=device)
+                    for m in masks_t
+                ])
+            else:
+                M3 = torch.as_tensor(M, dtype=torch.double, device=device).reshape(len(M), c, L)
+                F = torch.block_diag(*[M3[m].sum(-1) for m in masks_t])
 
-            # the level carried by each row. An all-zero row has no level and
-            # argmax returns 0 arbitrarily, which is harmless: its F row is zero
-            # too, so the term it would contribute vanishes anyway.
-            lev = M3.abs().sum(1).argmax(1)
+                # the level carried by each row. An all-zero row has no level and
+                # argmax returns 0 arbitrarily, which is harmless: its F row is zero
+                # too, so the term it would contribute vanishes anyway.
+                lev = M3.abs().sum(1).argmax(1)
             lev_obs = torch.cat([lev[m] for m in masks_t])
 
             # K_obs is not built here: only the direct path reads it, and the

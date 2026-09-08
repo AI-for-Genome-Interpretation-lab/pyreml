@@ -223,8 +223,6 @@ class MixedModel:
     ):
         self.device = device
 
-        if W is None:
-            W = torch.eye(len(y))
         self.y = y
         self.X = X
         self.Z = Z
