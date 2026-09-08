@@ -1025,37 +1025,22 @@ class GaussianComponent:
                 raise ValueError(f"unsupported right hand type: {self.right_hand}")
         
     def varmeth_inv(self) -> Callable:
-        def block(grid: torch.Tensor | None = None):
+        """
+        Return the closure producing this effect's inverse block and logdet:
+            () -> (S^{-1} ⊗ K^{-1},  L·logdet S + d·logdet K)
+        at the working dtype (Sinv, Kinv and both logdets are already emitted in
+        self.dtype).
+        """
+        d = self.d
+
+        def block_inv() -> tuple[torch.Tensor, torch.Tensor]:
             Sinv, logdet_S = self.build_Sinv()
             Kinv, logdet_K = self.build_Kinv()
+            Ginv_e = torch.kron(Sinv.contiguous(), Kinv.contiguous())
+            logdet_Ge = self.L * logdet_S + d * logdet_K
+            return Ginv_e, logdet_Ge
 
-            if grid is None:
-                # no masking: R = R_tot = S⊗K, invert and logdet by Kronecker structure
-                Rinv = torch.kron(Sinv.contiguous(), Kinv.contiguous())
-                logdet_R = self.L * logdet_S + self.d * logdet_K
-                return Rinv, logdet_R
-
-            if self.Rtrick:
-                # masked but selection-commuting: the masked inverse is read at
-                # the selected cells, never through the (d·L)² Kronecker block
-                r_i, l_i = grid // self.L, grid % self.L
-                if self.R_is_diagonal:
-                    diag = Sinv.diagonal()[r_i] * Kinv.diagonal()[l_i]
-                    Rinv = torch.diag(diag)
-                    logdet_R = -torch.sum(torch.log(diag))
-                else:
-                    Rinv = Sinv[r_i][:, r_i] * Kinv[l_i][:, l_i]
-                    logdet_R = self.L * logdet_S + self.d * logdet_K
-                return Rinv, logdet_R
-
-            # masked and dense: form R then factor
-            R = self.varmeth()()[grid][:, grid]
-            L = torch.linalg.cholesky(R)
-            Rinv = torch.cholesky_inverse(L)
-            logdet_R = 2.0 * torch.sum(torch.log(torch.diagonal(L)))
-            return Rinv, logdet_R
-
-        return block
+        return block_inv
 
     def format_variance(self) -> None:
         """
@@ -1610,36 +1595,38 @@ class Residual(GaussianComponent):
         )
 
     def varmeth_inv(self) -> Callable:
-        def block(W: torch.Tensor | None = None):
+        def block(grid: torch.Tensor | None = None):
+            Sinv, logdet_S = self.build_Sinv()
+            Kinv, logdet_K = self.build_Kinv()
 
-            if W is None:
+            if grid is None:
                 # no masking: R = R_tot = S⊗K, invert and logdet by Kronecker structure
-                Sinv, logdet_S = self.build_Sinv()
-                Kinv, logdet_K = self.build_Kinv()
                 Rinv = torch.kron(Sinv.contiguous(), Kinv.contiguous())
-                logdet_R = self.L * logdet_S + (self.d) * logdet_K
+                logdet_R = self.L * logdet_S + self.d * logdet_K
                 return Rinv, logdet_R
 
             if self.Rtrick:
-                # masked but fully diagonal: selection commutes, logdet from the diagonal
-                Sinv, logdet_S = self.build_Sinv()
-                Kinv, logdet_K = self.build_Kinv()
-                Rinv = W @ torch.kron(Sinv.contiguous(), Kinv.contiguous()) @ W.T
-
+                # masked but selection-commuting: the masked inverse is read at
+                # the selected cells, never through the (d·L)² Kronecker block
+                r_i, l_i = grid // self.L, grid % self.L
                 if self.R_is_diagonal:
-                    logdet_R = -torch.sum(torch.log(torch.diagonal(Rinv)))
+                    diag = Sinv.diagonal()[r_i] * Kinv.diagonal()[l_i]
+                    Rinv = torch.diag(diag)
+                    logdet_R = -torch.sum(torch.log(diag))
                 else:
+                    Rinv = Sinv[r_i][:, r_i] * Kinv[l_i][:, l_i]
                     logdet_R = self.L * logdet_S + self.d * logdet_K
                 return Rinv, logdet_R
-            
+
             # masked and dense: form R then factor
-            R = W @ self.varmeth()() @ W.T
+            R = self.varmeth()()[grid][:, grid]
             L = torch.linalg.cholesky(R)
             Rinv = torch.cholesky_inverse(L)
             logdet_R = 2.0 * torch.sum(torch.log(torch.diagonal(L)))
             return Rinv, logdet_R
-        
+
         return block
+
     
     def design(
         self,
