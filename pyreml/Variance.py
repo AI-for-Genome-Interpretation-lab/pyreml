@@ -183,13 +183,12 @@ class Variance:
         blocks = []
 
         for i, (M, c, L, comp) in enumerate(designs):
-            # the frozen K_obs must be built at the reference dtype: an explicit
-            # step here rather than a side effect buried in a constructor
+            # the sanctuarized constants are derived once, in double, before any
+            # working dtype is applied
             comp.migrate(torch.double)
-            k_iid = comp.right_hand == "iid"
-            k_is_identity = k_iid and int(lev_obs.unique().numel()) == int(lev_obs.numel())
+            is_residual = (i == len(designs) - 1)
 
-            if k_is_identity:
+            if is_residual:
                 # the residual design is a selector: every row carries a single
                 # unit value, so F is a response indicator and lev is the grid
                 lev = torch.as_tensor(M, dtype=torch.long, device=device)
@@ -205,19 +204,25 @@ class Variance:
                 # argmax returns 0 arbitrarily, which is harmless: its F row is zero
                 # too, so the term it would contribute vanishes anyway.
                 lev = M3.abs().sum(1).argmax(1)
+
             lev_obs = torch.cat([lev[m] for m in masks_t])
+
+            # K = I gives K_obs[i,j] = δ(lev_i, lev_j), which is the identity
+            # only when no level is loaded twice. Several responses share the
+            # levels of an effect, so lev_obs decides, not right_hand.
+            k_iid = comp.right_hand == "iid"
+            k_is_identity = k_iid and int(lev_obs.unique().numel()) == int(lev_obs.numel())
 
             # K_obs is not built here: only the direct path reads it, and the
             # path is not chosen yet. The block records what it may cache and
             # gathers on first use.
-
             blocks.append(Block(
                 F             = F,
                 lev           = lev_obs,
                 comp          = comp,
-                is_residual   = (i == len(designs) - 1),
+                is_residual   = is_residual,
                 k_is_constant = comp.right_hand in ("iid", "str"),
-                k_is_identity = (comp.right_hand == "iid"),
+                k_is_identity = k_is_identity,
             ))
 
         return cls(blocks=blocks)

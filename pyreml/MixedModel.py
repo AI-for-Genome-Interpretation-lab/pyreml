@@ -273,7 +273,7 @@ class MixedModel:
         self.dtype = dtype
 
         if dtype == torch.double:
-            self._y, self._X, self._Z, self._W = self.y, self.X, self.Z, self.W
+            self._y, self._X, self._Z = self.y, self.X, self.Z
 
         else:
             self._y = self.y.to(dtype)
@@ -677,60 +677,55 @@ class MixedModel:
         """
 
         with torch.no_grad():
-            embed = getattr(self.variance, "embed", None)
+            embed = self.variance.embed
 
             if embed is not None:
                 # structured path: Rinv acts by contraction on the lifted grid
                 # and is never formed. Operands are lifted, contracted, and the
                 # cross-products read back through the zero padding.
                 apply, _ = self.variance.Rinv_apply(self.residual)
-                yg = self.variance.lift(self._y)
 
                 RiX = apply(embed.Xg)
-                Riy = apply(yg)
+                Riy = apply(self.variance.lift(self._y))
                 XtRiX = embed.Xg.T @ RiX
+                XtRiy = embed.Xg.T @ Riy
 
-                if self._Z is None:
-                    Ginv = None
-                else:
+                if self._Z is not None:
                     RiZ = apply(embed.Zg)
                     XtRiZ = embed.Xg.T @ RiZ
                     ZtRiZ = embed.Zg.T @ RiZ
+                    ZtRiy = embed.Zg.T @ Riy
                     inv_logdets = [b.comp.varmeth_inv()()
                                    for b in self.variance.random_blocks]
                     Ginv = torch.block_diag(*[gi for gi, _ in inv_logdets])
 
-            elif callable(self.varmeth_inv):
-                Ginv, Rinv, _, _ = self.varmeth_inv()
+            else:
+                if callable(self.varmeth_inv):
+                    Ginv, Rinv, _, _ = self.varmeth_inv()
+                else:
+                    G, R = self.varmeth()
+                    Ginv = None if G is None else torch.linalg.inv(G)
+                    Rinv = torch.linalg.inv(R)
+
                 XtRiX = self._X.T @ Rinv @ self._X
+                XtRiy = self._X.T @ Rinv @ self._y
+
                 if self._Z is not None:
                     XtRiZ = self._X.T @ Rinv @ self._Z
                     ZtRiZ = self._Z.T @ Rinv @ self._Z
-            else:
-                G, R = self.varmeth()
-                Ginv = torch.linalg.inv(G)
-                Rinv = torch.linalg.inv(R)
+                    ZtRiy = self._Z.T @ Rinv @ self._y
 
             if self._Z is None:
-                LH = self._X.T @ Rinv @ self._X
-                RH = self._X.T @ Rinv @ self._y
+                LH = XtRiX
+                RH = XtRiy
             else:
-                XtRiX = self._X.T @ Rinv @ self._X
-                XtRiZ = self._X.T @ Rinv @ self._Z
-                ZtRiZ = self._Z.T @ Rinv @ self._Z
-
                 LH = torch.cat([
                         torch.cat([XtRiX, XtRiZ], dim=1),
                         torch.cat([XtRiZ.T, ZtRiZ + Ginv], dim=1),
                     ],
                     dim=0,
                 )
-                RH = torch.cat([
-                        self._X.T @ Rinv @ self._y,
-                        self._Z.T @ Rinv @ self._y
-                    ],
-                    dim=0
-                )
+                RH = torch.cat([XtRiy, ZtRiy], dim=0)
             
             # Factor LH once (symmetric PD): reuse for the solve and the inverse.
             LH = 0.5 * (LH + LH.T)
