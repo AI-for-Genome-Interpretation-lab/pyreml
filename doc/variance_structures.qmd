@@ -285,13 +285,11 @@ $$
 \mathbf{R} = \mathbf{W}\,\mathbf{R}_{tot}\,\mathbf{W}^\top.
 $$
 
-Most structures can be declared on the residual, but not all are identifiable; the
-choice between a `full` and a `diag` residual across responses is discussed in
-[multivariate](multivariate.qmd).
+$\mathbf{W}$ is a row selector. It is never formed as a matrix, but stored as the vector of the cells its rows select, and every product with $\mathbf{W}$ is read as a gather on that vector.
 
-The residual takes no formula, therefore the block-diagonal (`bl_form`, `bl_resp`) and 
-proportional blocks (`kr_form`, `kr_resp`) left-hand specifications
-are not allowed for the residual variance structure.
+Most structures can be declared on the residual, but not all are identifiable; the choice between a `full` and a `diag` residual across responses is discussed in [multivariate](multivariate.qmd).
+
+The residual takes no formula, therefore the block-diagonal (`bl_form`, `bl_resp`) and  proportional blocks (`kr_form`, `kr_resp`) left-hand specifications are not allowed for the residual variance structure.
 
 To use a `eucl`, `ar_iso` or `ar_ani` right-hand specification, the residual
 requires a `coords` argument: the residual has no `unit` to carry the

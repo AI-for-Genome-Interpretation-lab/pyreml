@@ -44,11 +44,9 @@ and `residual` defines $\mathbf{R}$ (see [the model](index.qmd#the-model)).
 
 ## Data layout and missing values
 
-`data` is in wide format: one row per observation, one column per response
-variable. Missing values are handled per response: a row missing a given
-response is dropped for that response only, while rows missing a fixed covariate
-or a grouping variable are dropped throughout. Each response therefore keeps its
-own set of observed rows, and unbalanced designs are handled out of the box.
+`data` is in wide format: one row per observation, one column per response variable.
+Missing values are handled per response: a row missing a given response is dropped for that response only, while rows missing a fixed covariate or a grouping variable are dropped throughout.
+Each response therefore keeps its own set of observed rows, and unbalanced designs are handled out of the box.
 
 ## The fitted model
 
@@ -122,15 +120,11 @@ This approximation asymptotically improves with the sample size.
 
 ## Low-level constructor
 
-[pyreml]{.pyreml} provides a low-level constructor for application cases that are
-not implemented. The low-level constructor builds directly from the response
-vector `y`, the design matrices `X` and `Z`, and a "residual incidence" matrix
-`W` that masks useless elements of `R`. It must also be provided a list of
-PyTorch variance parameters `varparams` and at least one differentiable variance
-method: `varmeth`, `varmeth_inv`, or both.
+[pyreml]{.pyreml} provides a low-level constructor for application cases that are not implemented. The low-level constructor builds directly from the response vector `y`, the design matrices `X` and `Z`, and a residual row selector `w_grid` that maps each observation onto the cell of $\mathbf{\Sigma_R} \otimes \mathbf{K_R}$ (which is how missing data is handled).
+It must also be provided a list of PyTorch variance parameters `varparams` and at least one differentiable variance method: `varmeth`, `varmeth_inv`, or both.
 
-Like `from_dataframe`, it accepts `dtype` and `device`. Every tensor
-inside `varmeth` / `varmeth_inv` must match them.
+Like `from_dataframe`, it accepts `dtype` and `device`.
+Every tensor inside `varmeth` / `varmeth_inv` must match them.
 
 ```python
 import torch
@@ -161,24 +155,16 @@ model.fit()
 
 ### The `varmeth` contract
 
-`varmeth(self) -> (G, R)` is bound as a method on the
-model, so it can read `self.Z`, `self.W`, `self.n`, `self.dtype`, `self.device`, …
-and returns the pair
-$(\mathbf{G}, \mathbf{R})$ that forms $\mathbf{V} = \mathbf{Z}\mathbf{G}
-\mathbf{Z}^\top + \mathbf{R}$. It must be differentiable in the `varparams`
-tensors so autograd can propagate the REML gradient. `G` may be `None` when the
-model has no random effect.
+`varmeth(self) -> (G, R)` is bound as a method on the model, so it can read `self.Z`, `self.w_grid`, `self.n`, `self.dtype`, `self.device`, … and returns the pair $(\mathbf{G}, \mathbf{R})$ that forms $\mathbf{V} = \mathbf{Z}\mathbf{G} \mathbf{Z}^\top + \mathbf{R}$.
+It must be differentiable in the `varparams` tensors so autograd can propagate the REML gradient.
+`G` may be `None` when the model has no random effect.
 
 ### The `varmeth_inv` contract
 
-`varmeth_inv(self) -> (Ginv, Rinv, logdet_G, logdet_R)` is the inverse-side
-alternative. Rather than forming $\mathbf{V}$ and factoring it, it supplies the
-structured inverses $\mathbf{G}^{-1}$ and $\mathbf{R}^{-1}$ together with the
-log-determinants $\log|\mathbf{G}|$ and $\log|\mathbf{R}|$, from which the
-likelihood is evaluated without ever assembling $\mathbf{V}$ (see
-[SMW](training.qmd#smw)). Like `varmeth`, it is bound as a method and must be
-differentiable in the `varparams` tensors. `Ginv` and `logdet_G` may both be
-`None` when the model has no random effect.
+`varmeth_inv(self) -> (Ginv, Rinv, logdet_G, logdet_R)` is the inverse-side alternative. Rather than forming $\mathbf{V}$ and factoring it, it supplies the structured inverses $\mathbf{G}^{-1}$ and $\mathbf{R}^{-1}$ together with the log-determinants $\log|\mathbf{G}|$ and $\log|\mathbf{R}|$, from which the likelihood is evaluated without ever assembling $\mathbf{V}$ (see
+[SMW](training.qmd#smw)).
+Like `varmeth`, it is bound as a method and must be differentiable in the `varparams` tensors.
+`Ginv` and `logdet_G` may both be `None` when the model has no random effect.
 
 ```python
 def varmeth_inv(self):
@@ -198,8 +184,7 @@ model = MixedModel(
 model.fit()
 ```
 
-Either method alone is sufficient and fixes the solving path; supplying both
-lets the model choose (see [SMW](training.qmd#smw)).
+Either method alone is sufficient and fixes the solving path; supplying both lets the model choose (see [SMW](training.qmd#smw)).
 
 ### The `varparams` format
 
