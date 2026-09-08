@@ -171,14 +171,25 @@ class Embedding:
     Rinv (n×n) is never formed. Exists only when the Kronecker identities hold:
     a Rtrick residual (fully diagonal) or balanced data (no missing cell). Its
     absence is what turns SMW off for good, in from_dataframe.
+
+    Under an identity selector the lift is a no-op: Zg and Xg alias the model's
+    own Z and X instead of being scattered into fresh (d·L, ·) buffers, and the
+    read-back at the observed cells is skipped as well. `is_identity` records
+    that, so migrate() can re-establish the alias after a dtype change.
     """
     grid: torch.Tensor
     Zg: torch.Tensor
     Xg: torch.Tensor
     r_i: torch.Tensor
     l_i: torch.Tensor
+    is_identity: bool = False
 
     def to(self, dtype: torch.dtype) -> None:
+        # aliased operands are cast by the model, not here: casting them would
+        # break the alias and hold a second copy of Z at the working dtype.
+        # The model re-points them in migrate() right after casting Z and X.
+        if self.is_identity:
+            return
         self.Zg = self.Zg.to(dtype)
         self.Xg = self.Xg.to(dtype)
 
@@ -277,12 +288,23 @@ class Variance:
             return
 
         d, L = residual.d, residual.L
-        Zg = Z.new_zeros(d * L, Z.shape[1])
-        Zg[grid] = Z
-        Xg = Z.new_zeros(d * L, X.shape[1])
-        Xg[grid] = X
 
-        self.embed = Embedding(grid=grid, Zg=Zg, Xg=Xg, r_i=grid // L, l_i=grid % L)
+        if residual.W_is_identity:
+            # the lift is a no-op: alias rather than scatter. Grid is arange(n)
+            # with n == d·L, so Zg[grid] = Z is the identity mapping, and the
+            # two buffers would be exact copies of the model's Z and X.
+            Zg, Xg = Z, X
+        else:
+            Zg = Z.new_zeros(d * L, Z.shape[1])
+            Zg[grid] = Z
+            Xg = Z.new_zeros(d * L, X.shape[1])
+            Xg[grid] = X
+
+        self.embed = Embedding(
+            grid=grid, Zg=Zg, Xg=Xg,
+            r_i=grid // L, l_i=grid % L,
+            is_identity=residual.W_is_identity,
+        )
 
     def to(self, dtype: torch.dtype) -> None:
         """Follow the model's working dtype, for the frozen tensors only."""
@@ -495,12 +517,17 @@ class Capacitance(Solve):
             applyX = apply(embed.Xg)
 
             self.ZtRiZ = embed.Zg.T @ applyZ
-            self.Rir = applyR[embed.grid]
             self.ZtRir = embed.Zg.T @ applyR
-            self.RiX = applyX[embed.grid]
             self.ZtRiX = embed.Zg.T @ applyX
-            self.RinvZ = applyZ[embed.grid]
             self.P_full = applyZ
+
+            if embed.is_identity:
+                # the read-back is the identity too: alias instead of gathering
+                self.Rir, self.RiX, self.RinvZ = applyR, applyX, applyZ
+            else:
+                self.Rir = applyR[embed.grid]
+                self.RiX = applyX[embed.grid]
+                self.RinvZ = applyZ[embed.grid]
 
             # random effects only: the residual Rinv is already applied above
             inv_logdets = [b.comp.varmeth_inv()() for b in variance.random_blocks]

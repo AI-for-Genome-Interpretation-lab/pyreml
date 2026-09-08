@@ -1723,6 +1723,10 @@ class Residual(GaussianComponent):
     
     def check_Rtrick(self, grid) -> None:
         n = len(grid)
+        # NB: W_is_identity is read twice — here for the algebraic validity of
+        # W Rtot^-1 W', and by Variance.embed_residual to decide whether Zg and
+        # Xg may alias Z and X. Loosening it (a permutation is algebraically
+        # fine for Rtrick) would silently break that alias.
         self.W_is_identity = (
             n == self.d * self.L
             and bool(np.array_equal(np.asarray(grid), np.arange(n)))

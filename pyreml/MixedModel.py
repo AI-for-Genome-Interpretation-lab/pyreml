@@ -213,9 +213,11 @@ class MixedModel:
         self,
         y: torch.Tensor,
         X: torch.Tensor,
-        Z: None | torch.Tensor,
+        Z: None | torch.Tensor = None,
         W: None | torch.Tensor = None,
         w_grid: None | torch.Tensor = None,
+        F: None | torch.Tensor = None,
+        s: None | torch.Tensor = None,
         varparams: None | list[dict] = None,
         varmeth: Callable | None = None,
         varmeth_inv: Callable | None = None,
@@ -229,7 +231,30 @@ class MixedModel:
 
         self.y = y
         self.X = X
+
+        # random-effect design: either the dense n×q matrix Z, or the factored
+        # couple (F, s) of the structured forward, where F stores the values
+        # each observation carries (n, c) and s the level it loads them on
+        # (n,) as 0-based indices in [0, L). Z is built column-wise, element-
+        # outer / level-inner, exactly as Random.make_Z lays it out:
+        # Z[i, j·L + s[i]] = F[i, j]. G then runs over q = c·L such columns.
+        if Z is not None and (F is not None or s is not None):
+            raise ValueError("provide Z, or the factored couple (F, s), not both")
+        if (F is None) != (s is None):
+            raise ValueError("F and s must be provided together")
+        if F is not None:
+            F = F if isinstance(F, torch.Tensor) else torch.as_tensor(F, device=device)
+            s = s if isinstance(s, torch.Tensor) else torch.as_tensor(s, device=device)
+            F = F.to(dtype=torch.double, device=device)
+            s = s.to(device=device).reshape(-1).to(dtype=torch.long)
+            c, L = F.shape[1], int(s.max()) + 1
+            rows = torch.arange(len(y), device=device).unsqueeze(1).expand(len(y), c).reshape(-1)
+            cols = (torch.arange(c, device=device).unsqueeze(0) * L + s.unsqueeze(1)).reshape(-1)
+            Z = torch.zeros(len(y), c * L, dtype=torch.double, device=device)
+            Z[rows, cols] = F.reshape(-1)
         self.Z = Z
+        self.F = F
+        self.s = s
 
         # residual row selector: the vector of (response, level) cells R_tot is
         # read at. The low-level caller hands either the cell vector `w_grid`
@@ -308,6 +333,12 @@ class MixedModel:
             residual.migrate(dtype)
 
         self.variance.to(dtype)
+
+        # an identity embedding aliases Z and X: the model has just recast them,
+        # so the alias is re-pointed rather than the buffers copied
+        embed = self.variance.embed
+        if embed is not None and embed.is_identity:
+            embed.Zg, embed.Xg = self._Z, self._X
 
     def log(self):
         if not self._log:
