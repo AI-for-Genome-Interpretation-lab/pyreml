@@ -666,6 +666,62 @@ class GaussianComponent:
 
         return S
 
+    @property
+    def K_is_diagonal(self) -> bool:
+        """Right-hand factors whose K carries only a diagonal."""
+        return self.right_hand in ("iid", "het")
+
+    def build_K_diag(self) -> torch.Tensor:
+        """
+        The diagonal of K, as a vector of length L, for the diagonal hands.
+
+        The L x L matrix is never formed. Differentiable in log_h for 'het',
+        constant for 'iid'. Raises for the dense hands, which have no such
+        representation.
+        """
+        dt, dev = self.dtype, self.device
+
+        match self.right_hand:
+            case "iid":
+                return torch.ones(self.L, dtype=dt, device=dev)
+
+            case "het":
+                # K = diag(exp(V h)), h has a fixed 0 reference (first column)
+                if self._V is None:
+                    self._V = self.V.to(dt)
+                h = torch.cat([torch.zeros(1, dtype=dt, device=dev), self.log_h.to(dt)])
+                return torch.exp(self._V @ h)
+
+            case _:
+                raise ValueError(
+                    f"build_K_diag is only defined for diagonal right hands, "
+                    f"got {self.right_hand}"
+                )
+
+    def build_Kinv_diag(self) -> tuple[torch.Tensor, torch.Tensor]:
+        """The diagonal of K^{-1} and logdet K, for the diagonal hands."""
+        dt, dev = self.dtype, self.device
+
+        match self.right_hand:
+            case "iid":
+                return (
+                    torch.ones(self.L, dtype=dt, device=dev),
+                    torch.zeros((), dtype=dt, device=dev),
+                )
+
+            case "het":
+                if self._V is None:
+                    self._V = self.V.to(dt)
+                h = torch.cat([torch.zeros(1, dtype=dt, device=dev), self.log_h.to(dt)])
+                diag = self._V @ h                     # log-variances
+                return torch.exp(-diag), torch.sum(diag)
+
+            case _:
+                raise ValueError(
+                    f"build_Kinv_diag is only defined for diagonal right hands, "
+                    f"got {self.right_hand}"
+                )
+
     def build_K(
         self,
         distance: None | torch.Tensor = None,
@@ -689,8 +745,9 @@ class GaussianComponent:
 
         match self.right_hand:
 
-            case "iid":
-                return torch.eye(self.L, dtype=dt, device=dev)
+            case "iid" | "het":
+                # dense view of a diagonal factor; prefer build_K_diag
+                return torch.diag(self.build_K_diag())
             
             case "dist":
                 if distance is not None:
@@ -710,12 +767,6 @@ class GaussianComponent:
                 if self._covariance is None:
                     self._covariance = self.covariance.to(dt)
                 return self._covariance
-            
-            case "het":
-                if self._V is None:
-                    self._V = self.V.to(dt)
-                h = torch.cat([torch.zeros(1, dtype=dt, device=dev), self.log_h.to(dt)])
-                return torch.diag(torch.exp(self._V @ h))
             
             case "eucl":
                 if coords is not None:
@@ -937,11 +988,10 @@ class GaussianComponent:
 
         match self.right_hand:
 
-            case "iid":
-                return (
-                    torch.eye(self.L, dtype=dt, device=dev),
-                    torch.zeros((), dtype=dt, device=dev),
-                )
+            case "iid" | "het":
+                # dense view of a diagonal factor; prefer build_Kinv_diag
+                d, logdet = self.build_Kinv_diag()
+                return torch.diag(d), logdet
             
             case "dist" | "eucl":
                 # K depends on the trained rate: factor each step (dense), in self.dtype.
@@ -988,16 +1038,6 @@ class GaussianComponent:
                     logdet = logdet + (self.L // sizes[a]) * logdet_a
                     Kinv = Kinv_a if Kinv is None else torch.kron(Kinv.contiguous(), Kinv_a.contiguous())
                     
-                return Kinv, logdet
-            
-            case "het":
-                # K = diag(exp(V h)), h has a fixed 0 reference (first column)
-                if self._V is None:
-                    self._V = self.V.to(dt)
-                h = torch.cat([torch.zeros(1, dtype=dt, device=dev), self.log_h.to(dt)])
-                diag = self._V @ h                     # log-variances
-                Kinv = torch.diag(torch.exp(-diag))
-                logdet = torch.sum(diag)
                 return Kinv, logdet
 
             case "str":
@@ -1604,13 +1644,14 @@ class Residual(GaussianComponent):
                 Rinv = torch.kron(Sinv.contiguous(), Kinv.contiguous())
                 logdet_R = self.L * logdet_S + self.d * logdet_K
                 return Rinv, logdet_R
-
+            
             if self.Rtrick:
                 # masked but selection-commuting: the masked inverse is read at
                 # the selected cells, never through the (d·L)² Kronecker block
                 r_i, l_i = grid // self.L, grid % self.L
                 if self.R_is_diagonal:
-                    diag = Sinv.diagonal()[r_i] * Kinv.diagonal()[l_i]
+                    Kd, _ = self.build_Kinv_diag()
+                    diag = Sinv.diagonal()[r_i] * Kd[l_i]
                     Rinv = torch.diag(diag)
                     logdet_R = -torch.sum(torch.log(diag))
                 else:
@@ -1739,7 +1780,7 @@ class Residual(GaussianComponent):
         with torch.no_grad():
             gt = torch.as_tensor(g, device=self.device)
             Sd = self.build_S_full().diagonal()
-            Kd = self.build_K().diagonal()
+            Kd = self.build_K_diag() if self.K_is_diagonal else self.build_K().diagonal()
             sd = torch.sqrt(Sd[gt // self.L] * Kd[gt % self.L]).cpu().numpy()
 
         self.table["SD"] = sd

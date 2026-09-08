@@ -56,35 +56,51 @@ class Block:
     is_residual: bool = False
     k_is_constant: bool = False
     k_is_identity: bool = False
+    k_is_diagonal: bool = False
     _k_obs: Optional[torch.Tensor] = None
 
-    def K_obs(self) -> Optional[torch.Tensor]:
+    def K_obs(self, scratch: Optional[dict] = None) -> Optional[torch.Tensor]:
         """
-        K restricted to the observed stacking, or None when K is the identity.
+        K restricted to the observed stacking, detached, or None when K is the
+        identity.
 
         Built on first call, not at construction: only the direct path reads it,
         and an n x n gather must not be paid before the model has chosen between
-        the direct and the SMW path.
+        the direct and the SMW path. `scratch` is a per-solve dict letting
+        term() and grain() share one gather within a single evaluation; the
+        value is always used detached, so nothing of the graph is shared.
         """
         if self.k_is_identity:
             return None
         if self._k_obs is not None:
             return self._k_obs
-        K_obs = self.comp.build_K()[self.lev][:, self.lev]
+        if scratch is not None and id(self) in scratch:
+            return scratch[id(self)]
+
+        if self.k_is_diagonal:
+            # K = diag(d): K_obs[i,j] = d[lev_i] when the levels match, 0 otherwise.
+            # The L x L matrix is never formed.
+            d = self.comp.build_K_diag().detach()
+            K_obs = (self.lev[:, None] == self.lev[None, :]) * d[self.lev][:, None]
+        else:
+            K_obs = self.comp.build_K().detach()[self.lev][:, self.lev]
+
         if self.k_is_constant:
             self._k_obs = K_obs
+        elif scratch is not None:
+            scratch[id(self)] = K_obs
         return K_obs
 
-    def term(self) -> torch.Tensor:
+    def term(self, scratch: Optional[dict] = None) -> torch.Tensor:
         """This block's contribution to V: (F S F') ⊙ K_obs."""
         S = self.comp.build_S_full()
         if self.k_is_identity:
             # K = I: only the diagonal of F S F' survives the Hadamard product,
             # so the n x n product is skipped as well as the n x n kernel
             return torch.diag_embed(((self.F @ S) * self.F).sum(1))
-        return (self.F @ S @ self.F.T) * self.K_obs()
+        return (self.F @ S @ self.F.T) * self.K_obs(scratch)
 
-    def grain(self, A: torch.Tensor) -> list:
+    def grain(self, A: torch.Tensor, scratch: Optional[dict] = None) -> list:
         """
         Gradient constants wrt this block's variance parameters, at the current
         point, from the model-level gradient matrix A:
@@ -96,6 +112,9 @@ class Block:
         loss: the tensor carries the parameter graph, the grain is a constant.
         Pairing against build_S_full reproduces dl/dtheta exactly, jitter
         included, since the relative-jitter term lives in that same graph.
+
+        A diagonal K is paired on its diagonal: only grain_K[l,l] contributes,
+        so neither K nor grain_K is formed as an L x L matrix.
         """
         S = self.comp.build_S_full()
 
@@ -104,19 +123,31 @@ class Block:
             a = torch.diagonal(A).detach()
             pairs = [(S, ((self.F * a[:, None]).T @ self.F).detach())]
         else:
-            K_obs = self.K_obs()
-            pairs = [(S, (self.F.T @ (A * K_obs.detach()) @ self.F).detach())]
+            K_obs = self.K_obs(scratch)
+            pairs = [(S, (self.F.T @ (A * K_obs) @ self.F).detach())]
 
         if self.k_is_constant:
             return pairs
 
-        # trainable K: scatter, not gather (see the original note on AR levels)
-        K = self.comp.build_K()
         M = (A * (self.F @ S.detach() @ self.F.T)).detach()
         n_lev = self.comp.L
+        # scatter, not gather: dl/dK[l,m] sums the observation-level entries
+        # over every pair (i,j) landing on levels (l,m). A gather indexed by
+        # lev reads an n×n matrix at level positions, which only coincides
+        # when L == n and lev is the identity — true for the ungridded hands,
+        # out of bounds for the gridded AR structures where L > n.
         rows = M.new_zeros(n_lev, M.shape[1]).index_add_(0, self.lev, M)
-        grain_K = M.new_zeros(n_lev, n_lev).index_add_(0, self.lev, rows.T).T
-        pairs.append((K, grain_K))
+
+        if self.k_is_diagonal:
+            # only the diagonal of grain_K is paired, so the second scatter
+            # collapses to one gather: grain[l] = Σ_{i,j ∈ l} M[i,j]
+            vals = rows.T.gather(1, self.lev[:, None]).squeeze(1)
+            grain_K = M.new_zeros(n_lev).index_add_(0, self.lev, vals)
+            pairs.append((self.comp.build_K_diag(), grain_K))
+        else:
+            grain_K = M.new_zeros(n_lev, n_lev).index_add_(0, self.lev, rows.T).T
+            pairs.append((self.comp.build_K(), grain_K))
+
         return pairs
 
     def to(self, dtype: torch.dtype) -> None:
@@ -223,6 +254,7 @@ class Variance:
                 is_residual   = is_residual,
                 k_is_constant = comp.right_hand in ("iid", "str"),
                 k_is_identity = k_is_identity,
+                k_is_diagonal = comp.K_is_diagonal,
             ))
 
         return cls(blocks=blocks)
@@ -288,7 +320,7 @@ class Variance:
 
     # ---- structured forward pieces -----------------------------------
 
-    def V(self) -> Optional[torch.Tensor]:
+    def V(self, scratch: Optional[dict] = None) -> Optional[torch.Tensor]:
         """
         Assemble V as the sum of the structured block terms. Returns None when
         there is no decomposition to exploit, letting the caller fall back.
@@ -297,7 +329,7 @@ class Variance:
             return None
         V = None
         for blk in self.blocks:
-            term = blk.term()
+            term = blk.term(scratch)
             V = term if V is None else V + term
         return V
 
@@ -393,7 +425,12 @@ class DirectSolve(Solve):
     def __init__(self, variance, X, r, dense_V: Callable, structured: bool):
         super().__init__(variance, X, r)
 
-        V = variance.V() if structured else None
+        # per-evaluation scratch: term() and grain() gather the same K_obs for a
+        # trainable K, so the second call reads the first one's result. Dropped
+        # with the Solve, so it can never go stale across iterations.
+        self._scratch: dict = {}
+
+        V = variance.V(self._scratch) if structured else None
         if V is None:
             V = dense_V()
 
@@ -427,7 +464,7 @@ class DirectSolve(Solve):
     def grains(self) -> Iterator[tuple]:
         A = self.gradient_matrix()
         for blk in self.variance.blocks:
-            yield from blk.grain(A)
+            yield from blk.grain(A, self._scratch)
 
 
 class Capacitance(Solve):
