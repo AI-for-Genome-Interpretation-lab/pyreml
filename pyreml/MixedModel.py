@@ -214,8 +214,9 @@ class MixedModel:
         y: torch.Tensor,
         X: torch.Tensor,
         Z: None | torch.Tensor,
-        w_grid: None | torch.Tensor,
-        varparams: list[dict],
+        W: None | torch.Tensor = None,
+        w_grid: None | torch.Tensor = None,
+        varparams: None | list[dict] = None,
         varmeth: Callable | None = None,
         varmeth_inv: Callable | None = None,
         do_REML: bool = True,
@@ -223,10 +224,29 @@ class MixedModel:
     ):
         self.device = device
 
+        if varparams is None:
+            raise ValueError("varparams must be provided")
+
         self.y = y
         self.X = X
         self.Z = Z
-        self.w_grid = w_grid
+
+        # residual row selector: the vector of (response, level) cells R_tot is
+        # read at. The low-level caller hands either the cell vector `w_grid`
+        # (kept as-is) or the dense selector `W`, derived through argmax and
+        # dropped so the n×n matrix is never retained. `w_grid` wins when both
+        # are given; an absent selector means "no residual masking": R = R_tot.
+        if w_grid is None:
+            if W is not None:
+                W = W if isinstance(W, torch.Tensor) else torch.as_tensor(W, device=device)
+                W = W.to(device=device)
+                w_grid = torch.argmax(W, dim=1)
+            else:
+                w_grid = torch.arange(len(y), dtype=torch.long, device=device)
+        elif not isinstance(w_grid, torch.Tensor):
+            w_grid = torch.as_tensor(w_grid, device=device)
+        self.w_grid = w_grid.to(dtype=torch.long, device=device)
+
         self.n, self.p = X.shape
         self.q = Z.shape[1] if Z is not None else 0
 

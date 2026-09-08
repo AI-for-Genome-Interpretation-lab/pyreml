@@ -120,7 +120,7 @@ This approximation asymptotically improves with the sample size.
 
 ## Low-level constructor
 
-[pyreml]{.pyreml} provides a low-level constructor for application cases that are not implemented. The low-level constructor builds directly from the response vector `y`, the design matrices `X` and `Z`, and a residual row selector `w_grid` that maps each observation onto the cell of $\mathbf{\Sigma_R} \otimes \mathbf{K_R}$ (which is how missing data is handled).
+[pyreml]{.pyreml} provides a low-level constructor for application cases that are not implemented. The low-level constructor builds directly from the response vector `y`, the design matrices `X` and `Z`, and the residual row selector. Two spellings are accepted: the cell vector `w_grid` (each observation mapped onto its cell of $\mathbf{\Sigma_R} \otimes \mathbf{K_R}$, the memory-free form) or the dense selector `W` (used transiently to derive `w_grid`, then dropped).
 It must also be provided a list of PyTorch variance parameters `varparams` and at least one differentiable variance method: `varmeth`, `varmeth_inv`, or both.
 
 Like `from_dataframe`, it accepts `dtype` and `device`.
