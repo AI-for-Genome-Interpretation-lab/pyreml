@@ -229,7 +229,9 @@ class Variance:
         `designs` is a list of (M, c, L, comp), residual last. `masks` are the
         per-response boolean masks used to stack observations, so that F is the
         block diagonal of the per-response component values and lev follows the
-        same stacking.
+        same stacking. M is the raw dense design for components that build one
+        (e.g. the residual selector); random effects built by make_Z pass M=None
+        and the blocks read (F_base, lev_base) off the component instead.
         """
         masks_t = [torch.tensor(m, dtype=torch.bool, device=device) for m in masks]
         blocks = []
@@ -249,7 +251,7 @@ class Variance:
                     for m in masks_t
                 ])
             else:
-                if hasattr(comp, "lev_base"):
+                if M is None:
                     # canonical factored incidence (make_Z): (F_base, lev_base)
                     # already carries the per-column values and the level each
                     # row loads, so the n×c·L working matrix is never moved to
@@ -261,6 +263,8 @@ class Variance:
                     ])
                     lev = torch.as_tensor(comp.lev_base, dtype=torch.long, device=device)
                 else:
+                    # dense route: components that build their block design on
+                    # their own (not through make_Z) still come here
                     M3 = torch.as_tensor(M, dtype=torch.double, device=device).reshape(len(M), c, L)
                     F = torch.block_diag(*[M3[m].sum(-1) for m in masks_t])
 

@@ -579,13 +579,13 @@ class GaussianComponent:
             # the selector simply follows its levels onto the grid cells
             self.grid = self.level_cell[self.grid]
         else:
-            src = self.Z                                   # (n, c * L_obs)
-            L_obs = len(self.level_cell)
-            grid_incidence = np.zeros((src.shape[0], self.c * L_grid))
-            for j in range(self.c):
-                grid_incidence[:, j * L_grid + self.level_cell] = src[:, j * L_obs:(j + 1) * L_obs]
-            self.Z = grid_incidence
+            # the grid relayout is a level remap on the factored form: the
+            # values a row carries are untouched, only lev_base moves onto the
+            # grid cells (exactly as self.grid = level_cell[self.grid] for the
+            # residual), and a materialized Z would be stale from then on.
+            assert self._Z_dense is None                     # pre-relayout dense Z would be stale
             self.lev_base = self.level_cell[self.lev_base]   # observed level -> grid cell
+            self._Z_dense  = None
 
         self.index = grid_cells
         self.L = L_grid
@@ -1299,7 +1299,9 @@ class Random(GaussianComponent):
         """
         Confront the random effect to the actual data: read the dimensions,
         store the constant right-hand inputs, instantiate the parameters, and
-        return the (single response) incidence matrix Z.
+        lay out the incidence in factored form (F_base, lev_base). The dense
+        Z is never built here: it is materialized only if a caller reads
+        comp.Z afterwards (dense forward, dense-Z branch of from_dataframe).
 
         make_Z sets self.index: the sorted unique values of `unit` for ordinary
         kernels, or the distinct coordinate tuples (first-occurrence order) for
@@ -1332,7 +1334,7 @@ class Random(GaussianComponent):
                     "right_hand in {'ar_iso', 'ar_ani'} requires integer-valued coordinates "
                     "(a regular grid). Use 'eucl' for arbitrary real coordinates."
                 )
-            self.make_coords(data, checkerboard=True)   # rebuilds self.Z over the grid
+            self.make_coords(data, checkerboard=True)   # re-lays the incidence over the grid
 
         elif self.right_hand in ("str", "dist"):
             if self.matrix_index is None:
@@ -1350,17 +1352,17 @@ class Random(GaussianComponent):
             except KeyError as e:
                 raise ValueError(f"level {e} present in data is missing from matrix_index")
 
-            L_obs, L_full, c = len(self.index), len(self.matrix_index), self.c
-            grid_incidence = np.zeros((self.Z.shape[0], c * L_full))
-            for j in range(c):
-                grid_incidence[:, j * L_full + level_cell] = self.Z[:, j * L_obs:(j + 1) * L_obs]
-
-            self.Z = grid_incidence
+            L_full, c = len(self.matrix_index), self.c
+            # the relayout is a level remap: on the factored form only the
+            # level index moves onto the full column block, the values each
+            # row carries are untouched, and a materialized Z would be stale
+            assert self._Z_dense is None                     # pre-relayout dense Z would be stale
             self.lev_base = level_cell[self.lev_base]        # observed level -> full index
+            self._Z_dense = None
             self.index = np.asarray(self.matrix_index)
             self.L = L_full
 
-        self.n, self.q = self.Z.shape
+        self.n, self.q = len(self.lev_base), self.c * self.L
         self.d = self.k * self.c
 
         # constant right-hand inputs (the variable parts of K live in build_K).
@@ -1375,7 +1377,29 @@ class Random(GaussianComponent):
 
         self.init_varparams()         # -> self.varparams, self.log_S, (self.log_rho)
         self.uhat = torch.zeros(self.d * self.L, 1, dtype=torch.double, device=device)
-        return self.Z
+        return None
+
+    # dense incidence, materialized on demand. The factored path never reads
+    # it, so a large-n model pays neither the host allocation nor the scatter.
+    _Z_dense: np.ndarray | None = None
+
+    @property
+    def Z(self) -> np.ndarray:
+        """
+        The dense incidence, rebuilt from the factored form on first read.
+        Only the dense forward (ZGZ' + R) and the dense-Z branch of
+        from_dataframe still need it; everything else goes through
+        (F_base, lev_base), which make_Z fills and which the two relayouts of
+        design() keep aligned with the level indices.
+        """
+        if self._Z_dense is None:
+            n, c, L = len(self.lev_base), self.c, self.L
+            Zd = np.zeros((n, c * L))
+            rows = np.arange(n)
+            for j in range(c):
+                Zd[rows, j * L + self.lev_base] = self.F_base[:, j]
+            self._Z_dense = Zd
+        return self._Z_dense
 
     def make_Z(
         self,
@@ -1395,7 +1419,8 @@ class Random(GaussianComponent):
         coordinate tuple (coordinate kernels). For the coordinate kernels the
         levels are the distinct tuples in first-occurrence order; ordinary kernels
         keep the sorted-unique order. Sets self.colnames, self.c, self.index,
-        self.L, self.Z.
+        self.L, and the factored incidence (self.F_base, self.lev_base); the
+        dense self.Z is only materialized on demand by the Z property.
         """
         Z_df = patsy.dmatrix(self.formula, data=data, return_type="dataframe")
         self.colnames = list(Z_df.columns)   # patsy element names
@@ -1421,19 +1446,17 @@ class Random(GaussianComponent):
 
         self.L = L
 
-        # keep the factored form: the dense scatter below can only ever read a
-        # column back through (values, level), which is exactly (Z_base, codes).
-        # Variance.from_designs builds the per-effect blocks from it, and the
-        # n×c·L working matrix never has to be realized on the device. The two
-        # relayouts of design (str/dist and ar grid) recompute lev_base through
-        # their level_cell, keeping it aligned with the re-laid columns.
+        # the factored form is the authoritative incidence: (F_base, lev_base)
+        # carries exactly what a dense scatter would only read back through
+        # (values, level). Variance.from_designs builds the per-effect blocks
+        # from it, and the dense Z is materialized on demand via the Z
+        # property (dense forward, dense-Z branch of from_dataframe). The two
+        # relayouts of design (str/dist and ar grid) then recompute lev_base
+        # through their level_cell, keeping it aligned with the re-laid
+        # columns.
         self.F_base  = Z_base
         self.lev_base = np.asarray(codes, dtype=np.int64)
-
-        rows = np.arange(n)
-        self.Z = np.zeros((n, c * L))
-        for j in range(c):
-            self.Z[rows, j * L + codes] = Z_base[:, j]
+        self._Z_dense = None
 
         # per-column scale: dispersion of each formula column on its non-zero
         # rows. Dummy/intercept (all non-zero values equal) -> std 0 -> factor 1;

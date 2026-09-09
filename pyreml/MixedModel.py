@@ -97,11 +97,14 @@ class MixedModel:
 
         q_random = 0
         for r in random:
-            Z_base = r.design(data, response, scale=scale, device = device)
+            # design lays the incidence in factored form on the component; the
+            # dense Z is only materialized if the dense branch below reads it
+            r.design(data, response, scale=scale, device = device)
             random_blocks.append(r.varmeth())
             random_blocks_inv.append(r.varmeth_inv())
             varparams.extend(r.varparams)
-            designs.append((Z_base, r.c, r.L, r))
+            # M is None for a random effect: from_designs reads (F_base, lev_base)
+            designs.append((None, r.c, r.L, r))
             q_random += len(response) * r.c * r.L
 
         grid_base = residual.design(data, response, scale=scale, device = device)
@@ -140,9 +143,11 @@ class MixedModel:
         if skip_Z:
             Z = None
         elif designs[:-1]:
+            # reading comp.Z is what materializes the dense incidence, and only
+            # this (dense-Z) route does
             Z = np.hstack([
-                block_diag(*[Z_base[m] for m in masks])
-                for Z_base, _, _, _ in designs[:-1]
+                block_diag(*[comp.Z[m] for m in masks])
+                for _, _, _, comp in designs[:-1]
             ])
         else:
             Z = None
