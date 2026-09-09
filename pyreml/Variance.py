@@ -289,6 +289,13 @@ class Variance:
         `embed is None` as the operability rule that turns SMW off.
         """
         self.embed = None
+        # no random effect: the embedding has nothing to serve, and its absence
+        # is exactly what keeps SMW off (see the resolution in from_dataframe).
+        # Random blocks require it even when the incidence is factored (Z is
+        # None): the diagonal path reads r_i/l_i off it, with Zg left None in
+        # that regime.
+        if Z is None and not self.random_blocks:
+            return
         if not (residual.Rtrick or grid.numel() == residual.d * residual.L):
             return
 

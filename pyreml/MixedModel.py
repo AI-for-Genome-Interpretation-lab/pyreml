@@ -123,6 +123,12 @@ class MixedModel:
         # (n×q at the 300k×15k scale) is never formed. Anything else — a
         # non-diagonal residual, a force-off of the SMW / structured layers, or
         # a capacitance matrix not worth solving — keeps the legacy behavior.
+        # analytic_backward stays in the gate on purpose: keeping it lets the
+        # plain-autograd variants keep a dense-Z reference to cross-validate
+        # the factored path against. The facing (ZtM/Zv/ZtWZ/_diag_ZCinvZ) is
+        # autograd-safe (index_add_/gathers on graph-carrying weights), so this
+        # is a coverage choice, not a hard requirement — drop it once the
+        # trade-off is settled on a benchmark.
         skip_Z = (
             bool(random)
             and residual.R_is_diagonal
@@ -181,6 +187,7 @@ class MixedModel:
             varmeth = varmeth,
             varmeth_inv = varmeth_inv,
             varparams=varparams,
+            q=q_random,
             do_REML=do_REML,
             device = device,
         )
@@ -192,13 +199,9 @@ class MixedModel:
 
         variance.embed_residual(mm._Z, mm._X, mm.w_grid, residual)
 
-        # the incidence may be factored (Z not materialized): record its true
-        # width and give BLUP its buffer, which the constructor skips on Z=None
-        mm.q = q_random
-        if getattr(mm, "uhat", None) is None and q_random > 0:
-            mm.uhat = nn.Parameter(
-                torch.zeros(q_random, 1, dtype=torch.double, device=device)
-            )
+        # q and uhat are handed to the low-level constructor: on the factored
+        # path the width lives in Variance, which this constructor cannot know
+        # on its own, so from_dataframe carries it in.
 
         # SMW resolution, in three layers of increasing authority.
         #
@@ -248,6 +251,7 @@ class MixedModel:
         w_grid: None | torch.Tensor = None,
         F: None | torch.Tensor = None,
         s: None | torch.Tensor = None,
+        q: None | int = None,
         varparams: None | list[dict] = None,
         varmeth: Callable | None = None,
         varmeth_inv: Callable | None = None,
@@ -303,7 +307,10 @@ class MixedModel:
         self.w_grid = w_grid.to(dtype=torch.long, device=device)
 
         self.n, self.p = X.shape
-        self.q = Z.shape[1] if Z is not None else 0
+        # the width of the random incidence. from_dataframe hands it in even
+        # when the incidence is factored and Z stays None, rather than letting
+        # this constructor repair self.q from the outside after the fact.
+        self.q = q if q is not None else (Z.shape[1] if Z is not None else 0)
 
         if varmeth is None and varmeth_inv is None:
             raise ValueError("At least one of varmeth or varmeth_inv must be provided")
@@ -338,8 +345,8 @@ class MixedModel:
             params = [self.beta, *(p["tensor"] for p in self.varparams)],
             compute_loss = self.REML_loss,
         )
-        if Z is not None:
-            self.uhat = nn.Parameter(torch.zeros(self.Z.shape[1], 1, dtype=torch.double, device = device))
+        if self.q > 0:
+            self.uhat = nn.Parameter(torch.zeros(self.q, 1, dtype=torch.double, device = device))
 
         self.migrate()
 
@@ -709,6 +716,13 @@ class MixedModel:
         # forward is off or unavailable (low-level constructor)
         def dense_V():
             G, R = self.varmeth()
+            if self._Z is None and self.variance.random_blocks:
+                raise RuntimeError(
+                    "the dense forward needs the incidence, which the factored "
+                    "path did not materialize. Rebuild the model with "
+                    "structured_forward=False (or SMW=False) at construction "
+                    "rather than toggling it after the model was built."
+                )
             return R if self._Z is None else self._Z @ G @ self._Z.T + R
 
         def factor():
@@ -782,6 +796,7 @@ class MixedModel:
                     XtRiy = self._X.T @ Riy
 
                     if has_z:
+                        # Rinv = diag(w) is symmetric, so X'Rinv Z = (Z'Rinv X)'
                         XtRiZ = self.variance.ZtM(RiX).T
                         ZtRiZ = self.variance.ZtWZ(w.reshape(-1))
                         ZtRiy = self.variance.ZtM(Riy)
