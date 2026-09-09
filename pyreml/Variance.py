@@ -46,32 +46,62 @@ class Block:
 
     - F: (n, d) response-block-diagonal component values
     - lev: (n,) level index of each observation, in the stacked ordering
-    - k_obs: K[lev][:, lev], frozen once for constant-K hands (iid, str), None
-      when K is trainable and must be gathered on every call
     - comp: the Random or Residual component owning the variance parameters
-    - is_residual: the residual is a block like any other for V, but the SMW
-      path treats it apart; the flag makes that explicit rather than relying on
-      its position in the list
+    - k_is_constant: K carries no trainable parameter, so K_obs can be cached
+    - k_is_identity: K == I, so K_obs is never materialized at all
     """
     F: torch.Tensor
     lev: torch.Tensor
-    k_obs: Optional[torch.Tensor]
     comp: object
     is_residual: bool = False
+    k_is_constant: bool = False
+    k_is_identity: bool = False
+    k_is_diagonal: bool = False
+    _k_obs: Optional[torch.Tensor] = None
 
-    def K_obs(self) -> torch.Tensor:
-        """K restricted to the observed stacking, frozen or gathered."""
-        if self.k_obs is not None:
-            return self.k_obs
-        K = self.comp.build_K()
-        return K[self.lev][:, self.lev]
+    def K_obs(self, scratch: Optional[dict] = None) -> Optional[torch.Tensor]:
+        """
+        K restricted to the observed stacking, or None when K is the identity.
 
-    def term(self) -> torch.Tensor:
+        Built on first call, not at construction: only the direct path reads it,
+        and an n x n gather must not be paid before the model has chosen between
+        the direct and the SMW path. `scratch` is a per-solve dict letting
+        term() and grain() share one gather within a single evaluation.
+
+        Returned attached: term() builds V from it and needs the graph when the
+        analytic backward is off. grain() detaches at its own use site.
+        """
+        if self.k_is_identity:
+            return None
+        if self._k_obs is not None:
+            return self._k_obs
+        if scratch is not None and id(self) in scratch:
+            return scratch[id(self)]
+
+        if self.k_is_diagonal:
+            # K = diag(d): K_obs[i,j] = d[lev_i] when the levels match, 0 otherwise.
+            # The L x L matrix is never formed.
+            d = self.comp.build_K_diag()
+            K_obs = (self.lev[:, None] == self.lev[None, :]) * d[self.lev][:, None]
+        else:
+            K_obs = self.comp.build_K()[self.lev][:, self.lev]
+
+        if self.k_is_constant:
+            self._k_obs = K_obs
+        elif scratch is not None:
+            scratch[id(self)] = K_obs
+        return K_obs
+
+    def term(self, scratch: Optional[dict] = None) -> torch.Tensor:
         """This block's contribution to V: (F S F') ⊙ K_obs."""
         S = self.comp.build_S_full()
-        return (self.F @ S @ self.F.T) * self.K_obs()
+        if self.k_is_identity:
+            # K = I: only the diagonal of F S F' survives the Hadamard product,
+            # so the n x n product is skipped as well as the n x n kernel
+            return torch.diag_embed(((self.F @ S) * self.F).sum(1))
+        return (self.F @ S @ self.F.T) * self.K_obs(scratch)
 
-    def grain(self, A: torch.Tensor) -> list:
+    def grain(self, A: torch.Tensor, scratch: Optional[dict] = None) -> list:
         """
         Gradient constants wrt this block's variance parameters, at the current
         point, from the model-level gradient matrix A:
@@ -83,36 +113,52 @@ class Block:
         loss: the tensor carries the parameter graph, the grain is a constant.
         Pairing against build_S_full reproduces dl/dtheta exactly, jitter
         included, since the relative-jitter term lives in that same graph.
+
+        A diagonal K is paired on its diagonal: only grain_K[l,l] contributes,
+        so neither K nor grain_K is formed as an L x L matrix.
         """
         S = self.comp.build_S_full()
 
-        if self.k_obs is not None:
-            K, K_obs = None, self.k_obs
+        if self.k_is_identity:
+            # A ⊙ I = diag(A), so grain_S = F' diag(A) F
+            a = torch.diagonal(A).detach()
+            pairs = [(S, ((self.F * a[:, None]).T @ self.F).detach())]
         else:
-            K = self.comp.build_K()
-            K_obs = K[self.lev][:, self.lev]
+            K_obs = self.K_obs(scratch)
+            pairs = [(S, (self.F.T @ (A * K_obs.detach()) @ self.F).detach())]
 
-        pairs = [(S, (self.F.T @ (A * K_obs.detach()) @ self.F).detach())]
+        if self.k_is_constant:
+            return pairs
 
-        if K is not None:
-            # scatter, not gather: dl/dK[l,m] sums the observation-level entries
-            # over every pair (i,j) landing on levels (l,m). A gather indexed by
-            # lev reads an n×n matrix at level positions, which only coincides
-            # when L == n and lev is the identity — true for the ungridded hands,
-            # out of bounds for the gridded AR structures where L > n.
-            M = (A * (self.F @ S.detach() @ self.F.T)).detach()
-            n_lev = self.comp.L
-            rows = M.new_zeros(n_lev, M.shape[1]).index_add_(0, self.lev, M)
+        K_pair = self.comp.build_K_diag() if self.k_is_diagonal else self.comp.build_K()
+
+        M = (A * (self.F @ S.detach() @ self.F.T)).detach()
+        n_lev = self.comp.L
+        # scatter, not gather: dl/dK[l,m] sums the observation-level entries
+        # over every pair (i,j) landing on levels (l,m). A gather indexed by
+        # lev reads an n×n matrix at level positions, which only coincides
+        # when L == n and lev is the identity — true for the ungridded hands,
+        # out of bounds for the gridded AR structures where L > n.
+        rows = M.new_zeros(n_lev, M.shape[1]).index_add_(0, self.lev, M)
+
+        if self.k_is_diagonal:
+            # only the diagonal of grain_K is paired, so the second scatter
+            # collapses to one gather: grain[l] = Σ_{i,j ∈ l} M[i,j]
+            vals = rows.T.gather(1, self.lev[:, None]).squeeze(1)
+            grain_K = M.new_zeros(n_lev).index_add_(0, self.lev, vals)
+            pairs.append((K_pair, grain_K))
+        else:
             grain_K = M.new_zeros(n_lev, n_lev).index_add_(0, self.lev, rows.T).T
-            pairs.append((K, grain_K))
+            pairs.append((K_pair, grain_K))
 
         return pairs
 
     def to(self, dtype: torch.dtype) -> None:
         """Cast the frozen tensors in place, following the model's working dtype."""
         self.F = self.F.to(dtype)
-        if self.k_obs is not None:
-            self.k_obs = self.k_obs.to(dtype)
+        # dropped rather than cast: rebuilt lazily at the new dtype, and only if
+        # the direct path actually asks for it
+        self._k_obs = None
 
 
 @dataclass
@@ -125,15 +171,33 @@ class Embedding:
     Rinv (n×n) is never formed. Exists only when the Kronecker identities hold:
     a Rtrick residual (fully diagonal) or balanced data (no missing cell). Its
     absence is what turns SMW off for good, in from_dataframe.
+
+    The Kronecker multiply is itself skipped on a fully diagonal residual: Rinv
+    is a per-observation scale then, `r_i`/`l_i` are its only operands and the
+    whole incidence product runs through Variance.ZtM/Zv/ZtWZ. Zg is None in
+    that regime (the from_dataframe constructor does not materialize Z), while
+    the non-diagonal structured path still needs it.
+
+    Under an identity selector the lift is a no-op: Zg and Xg alias the model's
+    own Z and X instead of being scattered into fresh (d·L, ·) buffers, and the
+    read-back at the observed cells is skipped as well. `is_identity` records
+    that, so migrate() can re-establish the alias after a dtype change.
     """
     grid: torch.Tensor
     Zg: torch.Tensor
     Xg: torch.Tensor
     r_i: torch.Tensor
     l_i: torch.Tensor
+    is_identity: bool = False
 
     def to(self, dtype: torch.dtype) -> None:
-        self.Zg = self.Zg.to(dtype)
+        # aliased operands are cast by the model, not here: casting them would
+        # break the alias and hold a second copy of Z at the working dtype.
+        # The model re-points them in migrate() right after casting Z and X.
+        if self.is_identity:
+            return
+        if self.Zg is not None:
+            self.Zg = self.Zg.to(dtype)
         self.Xg = self.Xg.to(dtype)
 
 
@@ -165,41 +229,74 @@ class Variance:
         `designs` is a list of (M, c, L, comp), residual last. `masks` are the
         per-response boolean masks used to stack observations, so that F is the
         block diagonal of the per-response component values and lev follows the
-        same stacking.
+        same stacking. M is the raw dense design for components that build one
+        (e.g. the residual selector); random effects built by make_Z pass M=None
+        and the blocks read (F_base, lev_base) off the component instead.
         """
         masks_t = [torch.tensor(m, dtype=torch.bool, device=device) for m in masks]
         blocks = []
 
         for i, (M, c, L, comp) in enumerate(designs):
-            # the frozen K_obs must be built at the reference dtype: an explicit
-            # step here rather than a side effect buried in a constructor
+            # the sanctuarized constants are derived once, in double, before any
+            # working dtype is applied
             comp.migrate(torch.double)
+            is_residual = (i == len(designs) - 1)
 
-            M3 = torch.as_tensor(M, dtype=torch.double, device=device).reshape(len(M), c, L)
-            F = torch.block_diag(*[M3[m].sum(-1) for m in masks_t])
+            if is_residual:
+                # the residual design is a selector: every row carries a single
+                # unit value, so F is a response indicator and lev is the grid
+                lev = torch.as_tensor(M, dtype=torch.long, device=device)
+                F = torch.block_diag(*[
+                    torch.ones(int(m.sum()), 1, dtype=torch.double, device=device)
+                    for m in masks_t
+                ])
+            else:
+                if M is None:
+                    # canonical factored incidence (make_Z): (F_base, lev_base)
+                    # already carries the per-column values and the level each
+                    # row loads, so the n×c·L working matrix is never moved to
+                    # the device. lev_base follows Z through the str/dist and
+                    # ar relayouts, so it lines up with the re-laid columns.
+                    F = torch.block_diag(*[
+                        torch.as_tensor(comp.F_base[m], dtype=torch.double, device=device)
+                        for m in masks
+                    ])
+                    lev = torch.as_tensor(comp.lev_base, dtype=torch.long, device=device)
+                else:
+                    # dense route: components that build their block design on
+                    # their own (not through make_Z) still come here
+                    M3 = torch.as_tensor(M, dtype=torch.double, device=device).reshape(len(M), c, L)
+                    F = torch.block_diag(*[M3[m].sum(-1) for m in masks_t])
 
-            # the level carried by each row. An all-zero row has no level and
-            # argmax returns 0 arbitrarily, which is harmless: its F row is zero
-            # too, so the term it would contribute vanishes anyway.
-            lev = M3.abs().sum(1).argmax(1)
+                    # the level carried by each row. An all-zero row has no level and
+                    # argmax returns 0 arbitrarily, which is harmless: its F row is zero
+                    # too, so the term it would contribute vanishes anyway.
+                    lev = M3.abs().sum(1).argmax(1)
+
             lev_obs = torch.cat([lev[m] for m in masks_t])
 
-            k_obs = None
-            if comp.right_hand in ("iid", "str"):
-                K = comp.build_K()
-                k_obs = K[lev_obs][:, lev_obs]
+            # K = I gives K_obs[i,j] = δ(lev_i, lev_j), which is the identity
+            # only when no level is loaded twice. Several responses share the
+            # levels of an effect, so lev_obs decides, not right_hand.
+            k_iid = comp.right_hand == "iid"
+            k_is_identity = k_iid and int(lev_obs.unique().numel()) == int(lev_obs.numel())
 
+            # K_obs is not built here: only the direct path reads it, and the
+            # path is not chosen yet. The block records what it may cache and
+            # gathers on first use.
             blocks.append(Block(
-                F           = F,
-                lev         = lev_obs,
-                k_obs       = k_obs,
-                comp        = comp,
-                is_residual = (i == len(designs) - 1),
+                F             = F,
+                lev           = lev_obs,
+                comp          = comp,
+                is_residual   = is_residual,
+                k_is_constant = comp.right_hand in ("iid", "str"),
+                k_is_identity = k_is_identity,
+                k_is_diagonal = comp.K_is_diagonal,
             ))
 
         return cls(blocks=blocks)
 
-    def embed_residual(self, Z, X, W, residual) -> None:
+    def embed_residual(self, Z, X, grid, residual) -> None:
         """
         Attach the SMW residual embedding, when the Kronecker identities hold.
 
@@ -208,19 +305,38 @@ class Variance:
         `embed is None` as the operability rule that turns SMW off.
         """
         self.embed = None
-        if Z is None:
+        # no random effect: the embedding has nothing to serve, and its absence
+        # is exactly what keeps SMW off (see the resolution in from_dataframe).
+        # Random blocks require it even when the incidence is factored (Z is
+        # None): the diagonal path reads r_i/l_i off it, with Zg left None in
+        # that regime.
+        if Z is None and not self.random_blocks:
             return
-        if not (residual.Rtrick or Z.shape[0] == residual.d * residual.L):
+        if not (residual.Rtrick or grid.numel() == residual.d * residual.L):
             return
 
         d, L = residual.d, residual.L
-        grid = W.argmax(1)
-        Zg = Z.new_zeros(d * L, Z.shape[1])
-        Zg[grid] = Z
-        Xg = Z.new_zeros(d * L, X.shape[1])
-        Xg[grid] = X
 
-        self.embed = Embedding(grid=grid, Zg=Zg, Xg=Xg, r_i=grid // L, l_i=grid % L)
+        if residual.W_is_identity:
+            # the lift is a no-op: alias rather than scatter. Grid is arange(n)
+            # with n == d·L, so Zg[grid] = Z is the identity mapping, and the
+            # two buffers would be exact copies of the model's Z and X. With a
+            # factored incidence (Z is None) the diagonal Rinv needs neither
+            # Zg nor Xg: every product runs through Variance.ZtM/Zv/ZtWZ on the
+            # observed rows, so they are never materialized.
+            Zg, Xg = Z, X
+        else:
+            Zg = Z.new_zeros(d * L, Z.shape[1]) if Z is not None else None
+            if Zg is not None:
+                Zg[grid] = Z
+            Xg = X.new_zeros(d * L, X.shape[1])
+            Xg[grid] = X
+
+        self.embed = Embedding(
+            grid=grid, Zg=Zg, Xg=Xg,
+            r_i=grid // L, l_i=grid % L,
+            is_identity=residual.W_is_identity,
+        )
 
     def to(self, dtype: torch.dtype) -> None:
         """Follow the model's working dtype, for the frozen tensors only."""
@@ -240,6 +356,84 @@ class Variance:
             if blk.is_residual:
                 return blk
         return None
+
+    # ---- factored incidence facing -----------------------------------
+
+    def _z_layout(self) -> tuple[list[int], int]:
+        """
+        Column offsets of the per-effect blocks and the total column count q.
+
+        The same element-outer / level-inner convention as Random.make_Z: the
+        e-th block spans columns [off_e, off_e + d_e·L_e) and observation i
+        loads its values on columns off_e + j·L_e + lev_e[i].
+        """
+        offsets, q = [], 0
+        for blk in self.random_blocks:
+            offsets.append(q)
+            q += blk.comp.d * blk.comp.L
+        return offsets, q
+
+    def ZtM(self, M: torch.Tensor) -> torch.Tensor:
+        """Z' M without forming Z, M of shape (n, ·)."""
+        offsets, q = self._z_layout()
+        out = torch.zeros(q, M.shape[1], dtype=M.dtype, device=M.device)
+        for blk, off in zip(self.random_blocks, offsets):
+            F, lev, L, d = blk.F, blk.lev, blk.comp.L, blk.comp.d
+            for j in range(d):
+                out.index_add_(0, off + j * L + lev, F[:, j, None] * M)
+        return out
+
+    def Zv(self, v: torch.Tensor) -> torch.Tensor:
+        """Z v without forming Z, v of shape (q, ·)."""
+        offsets, _ = self._z_layout()
+        n = self.random_blocks[0].lev.numel()
+        out = torch.zeros(n, v.shape[1], dtype=v.dtype, device=v.device)
+        for blk, off in zip(self.random_blocks, offsets):
+            F, lev, L, d = blk.F, blk.lev, blk.comp.L, blk.comp.d
+            for j in range(d):
+                out += F[:, j, None] * v[off + j * L + lev]
+        return out
+
+    def ZtWZ(self, w: torch.Tensor) -> torch.Tensor:
+        """
+        Z' diag(w) Z without forming Z, w a (n,) weight per observation.
+
+        Every observation contributes w_i z_i z_i' with z_i the incidence row,
+        so its weight lands on the (q, q) entry indexed by its level cells in
+        the two blocks involved. When w is the diagonal of Rinv this is Z'Rinv Z
+        on the structured diagonal path.
+        """
+        offsets, q = self._z_layout()
+        out = torch.zeros(q * q, dtype=w.dtype, device=w.device)
+        for a, off_a in zip(self.random_blocks, offsets):
+            for b, off_b in zip(self.random_blocks, offsets):
+                for ja in range(a.comp.d):
+                    ra = off_a + ja * a.comp.L + a.lev
+                    for jb in range(b.comp.d):
+                        rb = off_b + jb * b.comp.L + b.lev
+                        out.index_add_(
+                            0, ra * q + rb, w * a.F[:, ja] * b.F[:, jb]
+                        )
+        return out.reshape(q, q)
+
+    def _diag_ZCinvZ(self, Cinv: torch.Tensor) -> torch.Tensor:
+        """diag(Z Cinv Z'), taken per observation on the factored incidence.
+
+        The diagonal element of observation i reads Cinv at the column pairs
+        its row supports, off_e + j·L_e + lev_e[i], so it is gathered from the
+        capacitance inverse rather than formed through an n×q ZLii product.
+        """
+        offsets, _ = self._z_layout()
+        n = self.random_blocks[0].lev.numel()
+        acc = torch.zeros(n, dtype=Cinv.dtype, device=Cinv.device)
+        for a, off_a in zip(self.random_blocks, offsets):
+            for b, off_b in zip(self.random_blocks, offsets):
+                for ja in range(a.comp.d):
+                    ra = off_a + ja * a.comp.L + a.lev
+                    for jb in range(b.comp.d):
+                        rb = off_b + jb * b.comp.L + b.lev
+                        acc += a.F[:, ja] * b.F[:, jb] * Cinv[ra, rb]
+        return acc
 
     # ---- solve entry points ------------------------------------------
 
@@ -261,7 +455,7 @@ class Variance:
 
     # ---- structured forward pieces -----------------------------------
 
-    def V(self) -> Optional[torch.Tensor]:
+    def V(self, scratch: Optional[dict] = None) -> Optional[torch.Tensor]:
         """
         Assemble V as the sum of the structured block terms. Returns None when
         there is no decomposition to exploit, letting the caller fall back.
@@ -270,7 +464,7 @@ class Variance:
             return None
         V = None
         for blk in self.blocks:
-            term = blk.term()
+            term = blk.term(scratch)
             V = term if V is None else V + term
         return V
 
@@ -286,18 +480,32 @@ class Variance:
         """
         d, n_lev = residual.d, residual.L
         Sinv, logdet_S = residual.build_Sinv()
-        Kinv, logdet_K = residual.build_Kinv()
+
+        if residual.K_is_diagonal:
+            # K inverse is diagonal: keep only its diagonal, never form the
+            # L×L Kinv. Reachable either with a diagonal R (scale on the
+            # levels) or, when K is diagonal but S is not, with a single
+            # contraction over the response dimension.
+            kd, logdet_K = residual.build_Kinv_diag()
+        else:
+            Kinv, logdet_K = residual.build_Kinv()
 
         if residual.R_is_diagonal:
             sd = Sinv.diag()[:, None, None]
-            kd = Kinv.diag()[None, :, None]
+            kd = kd[None, :, None]
 
             def apply(Mg):
                 return (Mg.reshape(d, n_lev, -1) * sd * kd).reshape(d * n_lev, -1)
 
             logdet_R = -torch.sum(
-                torch.log(Sinv.diag()[self.embed.r_i] * Kinv.diag()[self.embed.l_i])
+                torch.log(Sinv.diag()[self.embed.r_i] * kd.flatten()[self.embed.l_i])
             )
+        elif residual.K_is_diagonal:
+            def apply(Mg):
+                U = Mg.reshape(d, n_lev, -1)
+                return torch.einsum('ij,jlm->ilm', Sinv, U * kd[None, :, None]).reshape(d * n_lev, -1)
+
+            logdet_R = n_lev * logdet_S + d * logdet_K
         else:
             def apply(Mg):
                 U = Mg.reshape(d, n_lev, -1)
@@ -366,7 +574,12 @@ class DirectSolve(Solve):
     def __init__(self, variance, X, r, dense_V: Callable, structured: bool):
         super().__init__(variance, X, r)
 
-        V = variance.V() if structured else None
+        # per-evaluation scratch: term() and grain() gather the same K_obs for a
+        # trainable K, so the second call reads the first one's result. Dropped
+        # with the Solve, so it can never go stale across iterations.
+        self._scratch: dict = {}
+
+        V = variance.V(self._scratch) if structured else None
         if V is None:
             V = dense_V()
 
@@ -400,16 +613,18 @@ class DirectSolve(Solve):
     def grains(self) -> Iterator[tuple]:
         A = self.gradient_matrix()
         for blk in self.variance.blocks:
-            yield from blk.grain(A)
+            yield from blk.grain(A, self._scratch)
 
 
 class Capacitance(Solve):
     """
     SMW path: one Cholesky of C = Ginv + Z'R⁻¹Z, V never formed.
 
-    The structured forward only changes how Rinv is applied — as a Kronecker
-    multiply on the lifted space rather than as a dense n×n inverse — so both
-    routes assemble the same terms in the same order.
+    The structured forward only changes how Rinv is applied — a Kronecker
+    multiply on the lifted space for a full R, a per-observation scale on a
+    fully diagonal R — so every route assembles the same terms in the same
+    order. On the diagonal route the products run through the factored
+    incidence facing and the dense Z never exists.
     """
 
     def __init__(self, variance, X, Z, r, residual, dense_inv: Callable,
@@ -417,23 +632,49 @@ class Capacitance(Solve):
         super().__init__(variance, X, r)
         self.Z = Z
         self.residual = residual
+        self._w: Optional[torch.Tensor] = None
+        self.RinvZ: Optional[torch.Tensor] = None
 
         if structured:
             embed = variance.embed
-            apply, logdet_R = variance.Rinv_apply(residual)
 
-            rg = variance.lift(r)
-            applyZ = apply(embed.Zg)
-            applyR = apply(rg)
-            applyX = apply(embed.Xg)
+            if residual.R_is_diagonal:
+                # fully diagonal R: Rinv is an elementwise scale on the observed
+                # cells, and every Z product runs through the per-block
+                # incidence facing. Z itself may never be materialized.
+                Sinv, _ = residual.build_Sinv()
+                kd, _ = residual.build_Kinv_diag()
+                w = (Sinv[embed.r_i, embed.r_i] * kd[embed.l_i]).reshape(-1, 1)
 
-            self.ZtRiZ = embed.Zg.T @ applyZ
-            self.Rir = applyR[embed.grid]
-            self.ZtRir = embed.Zg.T @ applyR
-            self.RiX = applyX[embed.grid]
-            self.ZtRiX = embed.Zg.T @ applyX
-            self.RinvZ = applyZ[embed.grid]
-            self.P_full = applyZ
+                self.ZtRiZ = variance.ZtWZ(w.reshape(-1))
+                self.ZtRir = variance.ZtM(w * r)
+                self.ZtRiX = variance.ZtM(w * X)
+                self.Rir = w * r
+                self.RiX = w * X
+                self.P_full = None
+                self._w = w
+
+                logdet_R = -torch.sum(torch.log(w.reshape(-1)))
+            else:
+                apply, logdet_R = variance.Rinv_apply(residual)
+
+                rg = variance.lift(r)
+                applyZ = apply(embed.Zg)
+                applyR = apply(rg)
+                applyX = apply(embed.Xg)
+
+                self.ZtRiZ = embed.Zg.T @ applyZ
+                self.ZtRir = embed.Zg.T @ applyR
+                self.ZtRiX = embed.Zg.T @ applyX
+                self.P_full = applyZ
+
+                if embed.is_identity:
+                    # the read-back is the identity too: alias instead of gathering
+                    self.Rir, self.RiX, self.RinvZ = applyR, applyX, applyZ
+                else:
+                    self.Rir = applyR[embed.grid]
+                    self.RiX = applyX[embed.grid]
+                    self.RinvZ = applyZ[embed.grid]
 
             # random effects only: the residual Rinv is already applied above
             inv_logdets = [b.comp.varmeth_inv()() for b in variance.random_blocks]
@@ -478,8 +719,17 @@ class Capacitance(Solve):
         capacitance space. V is never formed; u and ViX are cached for the
         residual grain and for beta_grain().
         """
-        self._u = self.Rir - self.RinvZ @ torch.cholesky_solve(self.ZtRir, self.L)
-        self._ViX = self.RiX - self.RinvZ @ torch.cholesky_solve(self.ZtRiX, self.L)
+        if self._w is not None:
+            # diagonal R: Rinv Z x = w ⊙ (Z x), applied on the factored incidence
+            self._u = self.Rir - self._w * self.variance.Zv(
+                torch.cholesky_solve(self.ZtRir, self.L)
+            )
+            self._ViX = self.RiX - self._w * self.variance.Zv(
+                torch.cholesky_solve(self.ZtRiX, self.L)
+            )
+        else:
+            self._u = self.Rir - self.RinvZ @ torch.cholesky_solve(self.ZtRir, self.L)
+            self._ViX = self.RiX - self.RinvZ @ torch.cholesky_solve(self.ZtRiX, self.L)
 
         ZVir = self._project(self.ZtRir)
         ZViX = self._project(self.ZtRiX)
@@ -538,16 +788,21 @@ class Capacitance(Solve):
         d, n_lev = resid.d, resid.L
 
         Sinv, _ = resid.build_Sinv()
-        Kinv, _ = resid.build_Kinv()
         S_full = resid.build_S_full()
 
         if resid.R_is_diagonal:
+            # K is diagonal in this regime (right_hand iid/het): only its
+            # inverse diagonal is ever read, so the L×L Kinv is never formed.
+            kd, _ = resid.build_Kinv_diag()
             ri, li = embed.r_i, embed.l_i
-            w = Sinv[ri, ri] * Kinv[li, li]
+            w = Sinv[ri, ri] * kd[li]
 
-            Iq = torch.eye(self.Z.shape[1], dtype=self.L.dtype, device=self.L.device)
-            ZLi = self.Z @ torch.linalg.solve_triangular(self.L.T, Iq, upper=True)
-            diag_Vi = w - w * w * (ZLi * ZLi).sum(1)
+            # diag(Z C-inverse Z') without the n×q Z L^-T product: the row of
+            # observation i supports columns off_e + j·L_e + lev_e[i], so its
+            # diagonal element gathers Cinv at those column pairs — L L' = C is
+            # the capacitance factor this solve was built on.
+            Cinv = torch.cholesky_inverse(self.L)
+            diag_Vi = w - w * w * self.variance._diag_ZCinvZ(Cinv)
 
             Ip = torch.eye(self.X.shape[1], dtype=self.L.dtype, device=self.L.device)
             Tx = self._ViX @ torch.linalg.solve_triangular(self.Lx.T, Ip, upper=True)
@@ -555,13 +810,21 @@ class Capacitance(Solve):
             A_ii = (diag_Vi - (self._u * self._u).flatten() - (Tx * Tx).sum(1)).detach()
 
             grain_S = torch.zeros(d, d, dtype=A_ii.dtype, device=A_ii.device)
-            grain_S.index_put_((ri, ri), A_ii / Kinv.detach()[li, li], accumulate=True)
+            grain_S.index_put_((ri, ri), A_ii / kd.detach()[li], accumulate=True)
             yield S_full, grain_S
 
             if resid.right_hand == "het":
-                grain_K = torch.zeros(n_lev, n_lev, dtype=A_ii.dtype, device=A_ii.device)
-                grain_K.index_put_((li, li), A_ii * S_full.detach()[ri, ri], accumulate=True)
-                yield resid.build_K(), grain_K
+                # K = diag(exp(V h)) has no off-diagonal gradient path, so only
+                # grain_K[l, l] ever contributes to the ghost loss. Pairing that
+                # diagonal against build_K_diag() yields the same inner product
+                # as the (L, L) pairing while keeping both operands as vectors.
+                # This matters here: at the residual granularity L is the number
+                # of observations, so the dense form is an n x n allocation.
+                # index_add_ on li is index_put_((li, li), accumulate=True)
+                # restricted to the diagonal, which is all that is read.
+                grain_K = torch.zeros(n_lev, dtype=A_ii.dtype, device=A_ii.device)
+                grain_K.index_add_(0, li, A_ii * S_full.detach()[ri, ri])
+                yield resid.build_K_diag(), grain_K
 
             return
 
