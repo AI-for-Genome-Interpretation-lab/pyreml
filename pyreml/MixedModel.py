@@ -215,8 +215,9 @@ class MixedModel:
         if not residual.Rtrick:
             mm.SMW = False
         if SMW is None and residual.Rtrick and variance.embed is not None and q_random > 0:
-            # optimization rule; the constructor could not apply it (it saw
-            # Z=None, i.e. no incidence at all on the factored path)
+            # optimization rule: the constructor only sees the width and has
+            # already applied q < n; this layer additionally requires a diagonal
+            # residual and an existing embedding before trusting the dimension
             mm.SMW = q_random < y.shape[0]
         if SMW is not None:
             mm.SMW = SMW
@@ -318,7 +319,7 @@ class MixedModel:
             self.SMW = False
         elif varmeth is None:                # only the Woodbury path is available
             self.SMW = True
-        elif Z is None:                      # nothing to correct: V = R
+        elif self.q == 0:                    # nothing to correct: V = R
             self.SMW = False
         else:                                # both paths are available: choose by dimension
             self.SMW = (self.q < self.n)
@@ -727,6 +728,14 @@ class MixedModel:
 
         def factor():
             if self.SMW:
+                if not self.structured_forward and self._Z is None and self.variance.random_blocks:
+                    raise RuntimeError(
+                        "the dense SMW forward needs the incidence, which the "
+                        "factored path did not materialize. Rebuild the model "
+                        "with structured_forward=False (or SMW=False) at "
+                        "construction rather than toggling it after the model "
+                        "was built."
+                    )
                 return self.variance.capacitance(
                     self._X, self._Z, r, self.residual, self.varmeth_inv,
                     self.structured_forward,

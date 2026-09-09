@@ -585,6 +585,7 @@ class GaussianComponent:
             for j in range(self.c):
                 grid_incidence[:, j * L_grid + self.level_cell] = src[:, j * L_obs:(j + 1) * L_obs]
             self.Z = grid_incidence
+            self.lev_base = self.level_cell[self.lev_base]   # observed level -> grid cell
 
         self.index = grid_cells
         self.L = L_grid
@@ -1355,6 +1356,7 @@ class Random(GaussianComponent):
                 grid_incidence[:, j * L_full + level_cell] = self.Z[:, j * L_obs:(j + 1) * L_obs]
 
             self.Z = grid_incidence
+            self.lev_base = level_cell[self.lev_base]        # observed level -> full index
             self.index = np.asarray(self.matrix_index)
             self.L = L_full
 
@@ -1418,6 +1420,16 @@ class Random(GaussianComponent):
             )
 
         self.L = L
+
+        # keep the factored form: the dense scatter below can only ever read a
+        # column back through (values, level), which is exactly (Z_base, codes).
+        # Variance.from_designs builds the per-effect blocks from it, and the
+        # n×c·L working matrix never has to be realized on the device. The two
+        # relayouts of design (str/dist and ar grid) recompute lev_base through
+        # their level_cell, keeping it aligned with the re-laid columns.
+        self.F_base  = Z_base
+        self.lev_base = np.asarray(codes, dtype=np.int64)
+
         rows = np.arange(n)
         self.Z = np.zeros((n, c * L))
         for j in range(c):
@@ -1670,7 +1682,6 @@ class Residual(GaussianComponent):
             return Rinv, logdet_R
 
         return block
-
     
     def design(
         self,

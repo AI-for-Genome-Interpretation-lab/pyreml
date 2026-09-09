@@ -249,13 +249,25 @@ class Variance:
                     for m in masks_t
                 ])
             else:
-                M3 = torch.as_tensor(M, dtype=torch.double, device=device).reshape(len(M), c, L)
-                F = torch.block_diag(*[M3[m].sum(-1) for m in masks_t])
+                if hasattr(comp, "lev_base"):
+                    # canonical factored incidence (make_Z): (F_base, lev_base)
+                    # already carries the per-column values and the level each
+                    # row loads, so the n×c·L working matrix is never moved to
+                    # the device. lev_base follows Z through the str/dist and
+                    # ar relayouts, so it lines up with the re-laid columns.
+                    F = torch.block_diag(*[
+                        torch.as_tensor(comp.F_base[m], dtype=torch.double, device=device)
+                        for m in masks
+                    ])
+                    lev = torch.as_tensor(comp.lev_base, dtype=torch.long, device=device)
+                else:
+                    M3 = torch.as_tensor(M, dtype=torch.double, device=device).reshape(len(M), c, L)
+                    F = torch.block_diag(*[M3[m].sum(-1) for m in masks_t])
 
-                # the level carried by each row. An all-zero row has no level and
-                # argmax returns 0 arbitrarily, which is harmless: its F row is zero
-                # too, so the term it would contribute vanishes anyway.
-                lev = M3.abs().sum(1).argmax(1)
+                    # the level carried by each row. An all-zero row has no level and
+                    # argmax returns 0 arbitrarily, which is harmless: its F row is zero
+                    # too, so the term it would contribute vanishes anyway.
+                    lev = M3.abs().sum(1).argmax(1)
 
             lev_obs = torch.cat([lev[m] for m in masks_t])
 
