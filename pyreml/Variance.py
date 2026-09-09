@@ -172,6 +172,12 @@ class Embedding:
     a Rtrick residual (fully diagonal) or balanced data (no missing cell). Its
     absence is what turns SMW off for good, in from_dataframe.
 
+    The Kronecker multiply is itself skipped on a fully diagonal residual: Rinv
+    is a per-observation scale then, `r_i`/`l_i` are its only operands and the
+    whole incidence product runs through Variance.ZtM/Zv/ZtWZ. Zg is None in
+    that regime (the from_dataframe constructor does not materialize Z), while
+    the non-diagonal structured path still needs it.
+
     Under an identity selector the lift is a no-op: Zg and Xg alias the model's
     own Z and X instead of being scattered into fresh (d·L, ·) buffers, and the
     read-back at the observed cells is skipped as well. `is_identity` records
@@ -190,7 +196,8 @@ class Embedding:
         # The model re-points them in migrate() right after casting Z and X.
         if self.is_identity:
             return
-        self.Zg = self.Zg.to(dtype)
+        if self.Zg is not None:
+            self.Zg = self.Zg.to(dtype)
         self.Xg = self.Xg.to(dtype)
 
 
@@ -282,9 +289,7 @@ class Variance:
         `embed is None` as the operability rule that turns SMW off.
         """
         self.embed = None
-        if Z is None:
-            return
-        if not (residual.Rtrick or Z.shape[0] == residual.d * residual.L):
+        if not (residual.Rtrick or grid.numel() == residual.d * residual.L):
             return
 
         d, L = residual.d, residual.L
@@ -292,12 +297,16 @@ class Variance:
         if residual.W_is_identity:
             # the lift is a no-op: alias rather than scatter. Grid is arange(n)
             # with n == d·L, so Zg[grid] = Z is the identity mapping, and the
-            # two buffers would be exact copies of the model's Z and X.
+            # two buffers would be exact copies of the model's Z and X. With a
+            # factored incidence (Z is None) the diagonal Rinv needs neither
+            # Zg nor Xg: every product runs through Variance.ZtM/Zv/ZtWZ on the
+            # observed rows, so they are never materialized.
             Zg, Xg = Z, X
         else:
-            Zg = Z.new_zeros(d * L, Z.shape[1])
-            Zg[grid] = Z
-            Xg = Z.new_zeros(d * L, X.shape[1])
+            Zg = Z.new_zeros(d * L, Z.shape[1]) if Z is not None else None
+            if Zg is not None:
+                Zg[grid] = Z
+            Xg = X.new_zeros(d * L, X.shape[1])
             Xg[grid] = X
 
         self.embed = Embedding(
@@ -324,6 +333,84 @@ class Variance:
             if blk.is_residual:
                 return blk
         return None
+
+    # ---- factored incidence facing -----------------------------------
+
+    def _z_layout(self) -> tuple[list[int], int]:
+        """
+        Column offsets of the per-effect blocks and the total column count q.
+
+        The same element-outer / level-inner convention as Random.make_Z: the
+        e-th block spans columns [off_e, off_e + d_e·L_e) and observation i
+        loads its values on columns off_e + j·L_e + lev_e[i].
+        """
+        offsets, q = [], 0
+        for blk in self.random_blocks:
+            offsets.append(q)
+            q += blk.comp.d * blk.comp.L
+        return offsets, q
+
+    def ZtM(self, M: torch.Tensor) -> torch.Tensor:
+        """Z' M without forming Z, M of shape (n, ·)."""
+        offsets, q = self._z_layout()
+        out = torch.zeros(q, M.shape[1], dtype=M.dtype, device=M.device)
+        for blk, off in zip(self.random_blocks, offsets):
+            F, lev, L, d = blk.F, blk.lev, blk.comp.L, blk.comp.d
+            for j in range(d):
+                out.index_add_(0, off + j * L + lev, F[:, j, None] * M)
+        return out
+
+    def Zv(self, v: torch.Tensor) -> torch.Tensor:
+        """Z v without forming Z, v of shape (q, ·)."""
+        offsets, _ = self._z_layout()
+        n = self.random_blocks[0].lev.numel()
+        out = torch.zeros(n, v.shape[1], dtype=v.dtype, device=v.device)
+        for blk, off in zip(self.random_blocks, offsets):
+            F, lev, L, d = blk.F, blk.lev, blk.comp.L, blk.comp.d
+            for j in range(d):
+                out += F[:, j, None] * v[off + j * L + lev]
+        return out
+
+    def ZtWZ(self, w: torch.Tensor) -> torch.Tensor:
+        """
+        Z' diag(w) Z without forming Z, w a (n,) weight per observation.
+
+        Every observation contributes w_i z_i z_i' with z_i the incidence row,
+        so its weight lands on the (q, q) entry indexed by its level cells in
+        the two blocks involved. When w is the diagonal of Rinv this is Z'Rinv Z
+        on the structured diagonal path.
+        """
+        offsets, q = self._z_layout()
+        out = torch.zeros(q * q, dtype=w.dtype, device=w.device)
+        for a, off_a in zip(self.random_blocks, offsets):
+            for b, off_b in zip(self.random_blocks, offsets):
+                for ja in range(a.comp.d):
+                    ra = off_a + ja * a.comp.L + a.lev
+                    for jb in range(b.comp.d):
+                        rb = off_b + jb * b.comp.L + b.lev
+                        out.index_add_(
+                            0, ra * q + rb, w * a.F[:, ja] * b.F[:, jb]
+                        )
+        return out.reshape(q, q)
+
+    def _diag_ZCinvZ(self, Cinv: torch.Tensor) -> torch.Tensor:
+        """diag(Z Cinv Z'), taken per observation on the factored incidence.
+
+        The diagonal element of observation i reads Cinv at the column pairs
+        its row supports, off_e + j·L_e + lev_e[i], so it is gathered from the
+        capacitance inverse rather than formed through an n×q ZLii product.
+        """
+        offsets, _ = self._z_layout()
+        n = self.random_blocks[0].lev.numel()
+        acc = torch.zeros(n, dtype=Cinv.dtype, device=Cinv.device)
+        for a, off_a in zip(self.random_blocks, offsets):
+            for b, off_b in zip(self.random_blocks, offsets):
+                for ja in range(a.comp.d):
+                    ra = off_a + ja * a.comp.L + a.lev
+                    for jb in range(b.comp.d):
+                        rb = off_b + jb * b.comp.L + b.lev
+                        acc += a.F[:, ja] * b.F[:, jb] * Cinv[ra, rb]
+        return acc
 
     # ---- solve entry points ------------------------------------------
 
@@ -510,9 +597,11 @@ class Capacitance(Solve):
     """
     SMW path: one Cholesky of C = Ginv + Z'R⁻¹Z, V never formed.
 
-    The structured forward only changes how Rinv is applied — as a Kronecker
-    multiply on the lifted space rather than as a dense n×n inverse — so both
-    routes assemble the same terms in the same order.
+    The structured forward only changes how Rinv is applied — a Kronecker
+    multiply on the lifted space for a full R, a per-observation scale on a
+    fully diagonal R — so every route assembles the same terms in the same
+    order. On the diagonal route the products run through the factored
+    incidence facing and the dense Z never exists.
     """
 
     def __init__(self, variance, X, Z, r, residual, dense_inv: Callable,
@@ -520,28 +609,49 @@ class Capacitance(Solve):
         super().__init__(variance, X, r)
         self.Z = Z
         self.residual = residual
+        self._w: Optional[torch.Tensor] = None
+        self.RinvZ: Optional[torch.Tensor] = None
 
         if structured:
             embed = variance.embed
-            apply, logdet_R = variance.Rinv_apply(residual)
 
-            rg = variance.lift(r)
-            applyZ = apply(embed.Zg)
-            applyR = apply(rg)
-            applyX = apply(embed.Xg)
+            if residual.R_is_diagonal:
+                # fully diagonal R: Rinv is an elementwise scale on the observed
+                # cells, and every Z product runs through the per-block
+                # incidence facing. Z itself may never be materialized.
+                Sinv, _ = residual.build_Sinv()
+                kd, _ = residual.build_Kinv_diag()
+                w = (Sinv[embed.r_i, embed.r_i] * kd[embed.l_i]).reshape(-1, 1)
 
-            self.ZtRiZ = embed.Zg.T @ applyZ
-            self.ZtRir = embed.Zg.T @ applyR
-            self.ZtRiX = embed.Zg.T @ applyX
-            self.P_full = applyZ
+                self.ZtRiZ = variance.ZtWZ(w.reshape(-1))
+                self.ZtRir = variance.ZtM(w * r)
+                self.ZtRiX = variance.ZtM(w * X)
+                self.Rir = w * r
+                self.RiX = w * X
+                self.P_full = None
+                self._w = w
 
-            if embed.is_identity:
-                # the read-back is the identity too: alias instead of gathering
-                self.Rir, self.RiX, self.RinvZ = applyR, applyX, applyZ
+                logdet_R = -torch.sum(torch.log(w.reshape(-1)))
             else:
-                self.Rir = applyR[embed.grid]
-                self.RiX = applyX[embed.grid]
-                self.RinvZ = applyZ[embed.grid]
+                apply, logdet_R = variance.Rinv_apply(residual)
+
+                rg = variance.lift(r)
+                applyZ = apply(embed.Zg)
+                applyR = apply(rg)
+                applyX = apply(embed.Xg)
+
+                self.ZtRiZ = embed.Zg.T @ applyZ
+                self.ZtRir = embed.Zg.T @ applyR
+                self.ZtRiX = embed.Zg.T @ applyX
+                self.P_full = applyZ
+
+                if embed.is_identity:
+                    # the read-back is the identity too: alias instead of gathering
+                    self.Rir, self.RiX, self.RinvZ = applyR, applyX, applyZ
+                else:
+                    self.Rir = applyR[embed.grid]
+                    self.RiX = applyX[embed.grid]
+                    self.RinvZ = applyZ[embed.grid]
 
             # random effects only: the residual Rinv is already applied above
             inv_logdets = [b.comp.varmeth_inv()() for b in variance.random_blocks]
@@ -586,8 +696,17 @@ class Capacitance(Solve):
         capacitance space. V is never formed; u and ViX are cached for the
         residual grain and for beta_grain().
         """
-        self._u = self.Rir - self.RinvZ @ torch.cholesky_solve(self.ZtRir, self.L)
-        self._ViX = self.RiX - self.RinvZ @ torch.cholesky_solve(self.ZtRiX, self.L)
+        if self._w is not None:
+            # diagonal R: Rinv Z x = w ⊙ (Z x), applied on the factored incidence
+            self._u = self.Rir - self._w * self.variance.Zv(
+                torch.cholesky_solve(self.ZtRir, self.L)
+            )
+            self._ViX = self.RiX - self._w * self.variance.Zv(
+                torch.cholesky_solve(self.ZtRiX, self.L)
+            )
+        else:
+            self._u = self.Rir - self.RinvZ @ torch.cholesky_solve(self.ZtRir, self.L)
+            self._ViX = self.RiX - self.RinvZ @ torch.cholesky_solve(self.ZtRiX, self.L)
 
         ZVir = self._project(self.ZtRir)
         ZViX = self._project(self.ZtRiX)
@@ -655,9 +774,12 @@ class Capacitance(Solve):
             ri, li = embed.r_i, embed.l_i
             w = Sinv[ri, ri] * kd[li]
 
-            Iq = torch.eye(self.Z.shape[1], dtype=self.L.dtype, device=self.L.device)
-            ZLi = self.Z @ torch.linalg.solve_triangular(self.L.T, Iq, upper=True)
-            diag_Vi = w - w * w * (ZLi * ZLi).sum(1)
+            # diag(Z C-inverse Z') without the n×q Z L^-T product: the row of
+            # observation i supports columns off_e + j·L_e + lev_e[i], so its
+            # diagonal element gathers Cinv at those column pairs — L L' = C is
+            # the capacitance factor this solve was built on.
+            Cinv = torch.cholesky_inverse(self.L)
+            diag_Vi = w - w * w * self.variance._diag_ZCinvZ(Cinv)
 
             Ip = torch.eye(self.X.shape[1], dtype=self.L.dtype, device=self.L.device)
             Tx = self._ViX @ torch.linalg.solve_triangular(self.Lx.T, Ip, upper=True)

@@ -87,7 +87,6 @@ class MixedModel:
         X = block_diag(*[X_base[m] for m in masks])
 
         ## build Z and everything random related
-        Z_blocks = []
         random_blocks = []
         random_blocks_inv = []
         varparams = []
@@ -96,20 +95,14 @@ class MixedModel:
         # appended last so that Variance can flag it
         designs = []
 
+        q_random = 0
         for r in random:
             Z_base = r.design(data, response, scale=scale, device = device)
-            Z_e = block_diag(*[Z_base[m] for m in masks])
-
-            Z_blocks.append(Z_e)
             random_blocks.append(r.varmeth())
             random_blocks_inv.append(r.varmeth_inv())
             varparams.extend(r.varparams)
             designs.append((Z_base, r.c, r.L, r))
-
-        if Z_blocks:
-            Z = np.hstack(Z_blocks)
-        else:
-            Z = None
+            q_random += len(response) * r.c * r.L
 
         grid_base = residual.design(data, response, scale=scale, device = device)
         # response-outer stacking: response r occupies cells [r·L, (r+1)·L)
@@ -123,13 +116,38 @@ class MixedModel:
 
         varparams.extend(residual.varparams)
 
+        # The dense incidence is materialized only when some route still reads
+        # it. On the fully diagonal structured path Rinv is a per-cell scale,
+        # so every Z product — Z'Rinv Z, Z'Rinv r, Z'Rinv X, and diag(Z C⁻¹ Z')
+        # — runs through the per-block facing of Variance instead, and Z itself
+        # (n×q at the 300k×15k scale) is never formed. Anything else — a
+        # non-diagonal residual, a force-off of the SMW / structured layers, or
+        # a capacitance matrix not worth solving — keeps the legacy behavior.
+        skip_Z = (
+            bool(random)
+            and residual.R_is_diagonal
+            and SMW is not False
+            and structured_forward is not False
+            and analytic_backward is not False
+            and q_random < y.shape[0]
+        )
+        if skip_Z:
+            Z = None
+        elif designs[:-1]:
+            Z = np.hstack([
+                block_diag(*[Z_base[m] for m in masks])
+                for Z_base, _, _, _ in designs[:-1]
+            ])
+        else:
+            Z = None
+
         X = torch.as_tensor(X, dtype=torch.double, device=device)
         Z = torch.as_tensor(Z, dtype=torch.double, device=device) if Z is not None else None
         w_grid = torch.as_tensor(grid_res, dtype=torch.long, device=device)
         y = torch.as_tensor(y, dtype=torch.double, device=device).reshape(-1, 1)
 
         do_REML = (
-            Z is not None
+            bool(random)
             or len(response) > 1
             or residual.right_hand != "iid"
         )
@@ -174,6 +192,14 @@ class MixedModel:
 
         variance.embed_residual(mm._Z, mm._X, mm.w_grid, residual)
 
+        # the incidence may be factored (Z not materialized): record its true
+        # width and give BLUP its buffer, which the constructor skips on Z=None
+        mm.q = q_random
+        if getattr(mm, "uhat", None) is None and q_random > 0:
+            mm.uhat = nn.Parameter(
+                torch.zeros(q_random, 1, dtype=torch.double, device=device)
+            )
+
         # SMW resolution, in three layers of increasing authority.
         #
         # 1. optimization rule: what is worth doing given the dimensions and
@@ -185,6 +211,10 @@ class MixedModel:
 
         if not residual.Rtrick:
             mm.SMW = False
+        if SMW is None and residual.Rtrick and variance.embed is not None and q_random > 0:
+            # optimization rule; the constructor could not apply it (it saw
+            # Z=None, i.e. no incidence at all on the factored path)
+            mm.SMW = q_random < y.shape[0]
         if SMW is not None:
             mm.SMW = SMW
         if variance.embed is None:
@@ -729,26 +759,52 @@ class MixedModel:
 
         with torch.no_grad():
             embed = self.variance.embed
+            rblk = self.variance.random_blocks
+            has_z = self._Z is not None or bool(rblk)
 
             if embed is not None:
                 # structured path: Rinv acts by contraction on the lifted grid
                 # and is never formed. Operands are lifted, contracted, and the
                 # cross-products read back through the zero padding.
-                apply, _ = self.variance.Rinv_apply(self.residual)
+                resid = self.residual
 
-                RiX = apply(embed.Xg)
-                Riy = apply(self.variance.lift(self._y))
-                XtRiX = embed.Xg.T @ RiX
-                XtRiy = embed.Xg.T @ Riy
+                if resid.R_is_diagonal:
+                    # fully diagonal residual: Rinv is a per-cell scale, so all
+                    # products run through the factored incidence facing and the
+                    # dense Z is never needed.
+                    Sinv, _ = resid.build_Sinv()
+                    kd, _ = resid.build_Kinv_diag()
+                    w = (Sinv[embed.r_i, embed.r_i] * kd[embed.l_i])[:, None]
 
-                if self._Z is not None:
-                    RiZ = apply(embed.Zg)
-                    XtRiZ = embed.Xg.T @ RiZ
-                    ZtRiZ = embed.Zg.T @ RiZ
-                    ZtRiy = embed.Zg.T @ Riy
-                    inv_logdets = [b.comp.varmeth_inv()()
-                                   for b in self.variance.random_blocks]
-                    Ginv = torch.block_diag(*[gi for gi, _ in inv_logdets])
+                    RiX = w * self._X
+                    Riy = w * self._y
+                    XtRiX = self._X.T @ RiX
+                    XtRiy = self._X.T @ Riy
+
+                    if has_z:
+                        XtRiZ = self.variance.ZtM(RiX).T
+                        ZtRiZ = self.variance.ZtWZ(w.reshape(-1))
+                        ZtRiy = self.variance.ZtM(Riy)
+                        inv_logdets = [b.comp.varmeth_inv()()
+                                       for b in rblk]
+                        Ginv = torch.block_diag(*[gi for gi, _ in inv_logdets])
+
+                else:
+                    apply, _ = self.variance.Rinv_apply(resid)
+
+                    RiX = apply(embed.Xg)
+                    Riy = apply(self.variance.lift(self._y))
+                    XtRiX = embed.Xg.T @ RiX
+                    XtRiy = embed.Xg.T @ Riy
+
+                    if self._Z is not None:
+                        RiZ = apply(embed.Zg)
+                        XtRiZ = embed.Xg.T @ RiZ
+                        ZtRiZ = embed.Zg.T @ RiZ
+                        ZtRiy = embed.Zg.T @ Riy
+                        inv_logdets = [b.comp.varmeth_inv()()
+                                       for b in rblk]
+                        Ginv = torch.block_diag(*[gi for gi, _ in inv_logdets])
 
             else:
                 if callable(self.varmeth_inv):
@@ -766,10 +822,7 @@ class MixedModel:
                     ZtRiZ = self._Z.T @ Rinv @ self._Z
                     ZtRiy = self._Z.T @ Rinv @ self._y
 
-            if self._Z is None:
-                LH = XtRiX
-                RH = XtRiy
-            else:
+            if has_z:
                 LH = torch.cat([
                         torch.cat([XtRiX, XtRiZ], dim=1),
                         torch.cat([XtRiZ.T, ZtRiZ + Ginv], dim=1),
@@ -777,6 +830,9 @@ class MixedModel:
                     dim=0,
                 )
                 RH = torch.cat([XtRiy, ZtRiy], dim=0)
+            else:
+                LH = XtRiX
+                RH = XtRiy
             
             # Factor LH once (symmetric PD): reuse for the solve and the inverse.
             LH = 0.5 * (LH + LH.T)
@@ -789,7 +845,7 @@ class MixedModel:
             self.beta.data.copy_(sol[:p])
             self.EEV = C[:p, :p]
 
-            if self._Z is not None:
+            if has_z:
                 self.uhat.data.copy_(sol[p:])
                 PEV = C[p:, p:]
 
@@ -798,11 +854,14 @@ class MixedModel:
 
             beta = self.beta.to(self.dtype)
 
-            if self._Z is None:
+            if not has_z:
                 y_hat = self._X @ beta
-            else:
+            elif self._Z is not None:
                 uhat = self.uhat.to(self.dtype)
                 y_hat = self._X @ beta + self._Z @ uhat
+            else:
+                uhat = self.uhat.to(self.dtype)
+                y_hat = self._X @ beta + self.variance.Zv(uhat)
 
             residuals = (self._y - y_hat).flatten()
 
