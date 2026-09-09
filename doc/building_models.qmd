@@ -55,46 +55,46 @@ Check for convergence of the last REML step before interpreting the model output
 All times are expressed in seconds.
 
 ```txt
-2026-08-17T11:38:44Z
+2026-09-09T14:06:41Z
 ------------------------------------------------------------
   platform
     device                  cuda
     gpu                     NVIDIA A100 80GB PCIe
-    pyreml                  0.4.0
+    pyreml                  0.5.0
     torch                   2.8.0+cu128
     cuda                    12.8
 ------------------------------------------------------------
   model
-    n obs                   20000
-    n fixed effects         1
-    n random effects        20000
-    n variance parameters   2
+    n obs                   1000000
+    n fixed effects         40
+    n random effects        25000
+    n variance parameters   41
 ------------------------------------------------------------
   solving
-    SMW                     False
+    SMW                     True
     structured forward      True
     analytical backward     True
 ------------------------------------------------------------
   OLS - double
-    time                    0.00
+    time                    0.16
 ------------------------------------------------------------
   REML - double
-    time                    27.22
+    time                    261.65
     convergence             True
-    REML -2logLik           107376.9638550121
-    absolute tolerance           0.0000107377
+    REML -2logLik           7307039.6753342869
+    absolute tolerance            0.0007307040
     degenerate              False
     digits tolerance total  10.00
     digits machine          15.65
     digits cancellation     0.00
-    digits roundoff         2.15
-    digits conditionning    0.48
-    n steps total           3
+    digits roundoff         2.20
+    digits conditionning    0.87
+    n steps total           4
     n steps adam            0
 ------------------------------------------------------------
   HMME - double
-    time                    15.96
-    REML loss               107376.9638550121
+    time                    9.10
+    REML loss               7307039.6753342859
 ------------------------------------------------------------
 ```
 
