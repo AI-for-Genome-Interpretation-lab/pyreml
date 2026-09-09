@@ -814,9 +814,17 @@ class Capacitance(Solve):
             yield S_full, grain_S
 
             if resid.right_hand == "het":
-                grain_K = torch.zeros(n_lev, n_lev, dtype=A_ii.dtype, device=A_ii.device)
-                grain_K.index_put_((li, li), A_ii * S_full.detach()[ri, ri], accumulate=True)
-                yield resid.build_K(), grain_K
+                # K = diag(exp(V h)) has no off-diagonal gradient path, so only
+                # grain_K[l, l] ever contributes to the ghost loss. Pairing that
+                # diagonal against build_K_diag() yields the same inner product
+                # as the (L, L) pairing while keeping both operands as vectors.
+                # This matters here: at the residual granularity L is the number
+                # of observations, so the dense form is an n x n allocation.
+                # index_add_ on li is index_put_((li, li), accumulate=True)
+                # restricted to the diagonal, which is all that is read.
+                grain_K = torch.zeros(n_lev, dtype=A_ii.dtype, device=A_ii.device)
+                grain_K.index_add_(0, li, A_ii * S_full.detach()[ri, ri])
+                yield resid.build_K_diag(), grain_K
 
             return
 
