@@ -2,10 +2,8 @@
 title: "Prediction"
 ---
 
-After fitting, [pyreml]{.pyreml} can predict random effects at levels of `unit`
-that were not observed in the training data, for instance spatial interpolation
-or genomic prediction. This is available for effects whose right-hand factor
-relates the levels to one another:
+After fitting, [pyreml]{.pyreml} can predict random effects at levels of `unit` that were not observed in the training data, for instance spatial interpolation or genomic prediction.
+This is available for effects whose right-hand factor relates the levels to one another:
 
 | `right_hand`            | Prediction input over all levels (train + new)        |
 |-------------------------|-------------------------------------------------------|
@@ -13,27 +11,21 @@ relates the levels to one another:
 | `dist`                  | A known distance, through `distance`.                 |
 | `eucl` / `ar_iso` / `ar_ani` | The coordinate tuples, through `matrix_index`.   |
 
-For the coordinate kernels the coordinates are the level labels, so they are
-carried by `matrix_index` itself; for `str` and `dist` the matrix is supplied
-separately and `matrix_index` only orders its rows and columns.
+For the coordinate kernels the coordinates are the level labels, so they are carried by `matrix_index` itself; for `str` and `dist` the matrix is supplied separately and `matrix_index` only orders its rows and columns.
 
-Residuals can never be predicted, even when using a covariance structure 
-or kernel. Consider including such structure with an extra random effect instead.
+Residuals can never be predicted, even when using a covariance structure or kernel.
+Consider including such structure with an extra random effect instead.
 
 ## Prediction on-the-fly
 
-The random effects can be directly obtained from
-[Henderson's equations](training.qmd#hmme) with the new levels included as
-*dummy* individuals: carrying no observation, they are tied to the observed
-levels solely through their correlation to the observed ones expressed in $\mathbf{K_a}$.
+The random effects can be directly obtained from [Henderson's equations](training.qmd#hmme) with the new levels included as *dummy* individuals: carrying no observation, they are tied to the observed levels solely through their correlation to the observed ones expressed in $\mathbf{K_a}$.
 
 For the `ar_iso` and `ar_ani`, the whole grid is always predicted on-the-fly.
 
 ## Prediction error variance
 
-All the random effects $\hat{\mathbf{u}}$ included in the HMME
-come with a Prediction Error Variance (PEV). The PEV and their
-covariance $\mathbf{P}$ are computed all together as:
+All the random effects $\hat{\mathbf{u}}$ included in the HMME come with a Prediction Error Variance (PEV).
+The PEV and their covariance $\mathbf{P}$ are computed all together as:
 
 $$
 \mathbf{P} =
@@ -48,14 +40,9 @@ The PEV matrix for each random effect $\mathbf{P_a}$ is then exposed as `model.r
 
 ## Kriging
 
-Solving the HMME requires the inversion of $\mathbf{G}$, hence implicitely
-$\mathbf{K_a}$, which can bottleneck when the number of levels to
-predict upscales.
+Solving the HMME requires the inversion of $\mathbf{G}$, hence implicitely $\mathbf{K_a}$, which can bottleneck when the number of levels to predict upscales.
 
-For this reason, [pyreml]{.pyreml} provides a kriging approach that consists
-in the sole inversion of the $\mathbf{K}_{\text{train}}$, the submatrix of $\mathbf{K_a}$
-that only encompasses the levels included in the training set (*i.e.* the
-observed levels):
+For this reason, [pyreml]{.pyreml} provides a kriging approach that consists in the sole inversion of the $\mathbf{K}_{\text{train}}$, the submatrix of $\mathbf{K_a}$ that only encompasses the levels included in the training set (*i.e.* the observed levels):
 
 $$
 \hat{\mathbf{a}}_{\text{pred}} =
@@ -63,10 +50,7 @@ $$
 \hat{\mathbf{a}}_{\text{train}},
 $$
 
-with $\hat{\mathbf{a}}_{\text{pred}}$ the pure prediction of unobserved levels, 
-$\hat{\mathbf{a}}_{\text{train}}$ the prediction of the observed levels (usually
-predicted at the HMME step), and $\mathbf{K}_{\text{pred}}$ the covariance
-between the observed and non-observed levels.
+with $\hat{\mathbf{a}}_{\text{pred}}$ the pure prediction of unobserved levels, $\hat{\mathbf{a}}_{\text{train}}$ the prediction of the observed levels (usually predicted at the HMME step), and $\mathbf{K}_{\text{pred}}$ the covariance between the observed and non-observed levels.
 
 - with `str`, $\mathbf{K_a}$ is directly read from the supplied covariance structure;
 
@@ -77,9 +61,7 @@ preds = model.random[0].predict(
 )
 ```
 
-- with `dist` it is
-rebuilt from the supplied distance $\mathbf{D}$ with the estimated decay $\hat{\rho}$:
-$(\mathbf{K_a})_{ij} = \exp(-\hat{\rho}\, (\mathbf{D})_{ij})$;
+- with `dist` it is rebuilt from the supplied distance $\mathbf{D}$ with the estimated decay $\hat{\rho}$: $(\mathbf{K_a})_{ij} = \exp(-\hat{\rho}\, (\mathbf{D})_{ij})$;
 
 ```py
 preds = model.random[0].predict(
@@ -88,9 +70,7 @@ preds = model.random[0].predict(
 )
 ```
 
-- with the coordinate kernels `eucl`, `ar_iso` and `ar_ani`, it
-is rebuilt from the coordinate tuples with the estimated rate(s), reusing the
-same Euclidean or autoregressive decay as in the fit.
+- with the coordinate kernels `eucl`, `ar_iso` and `ar_ani`, it is rebuilt from the coordinate tuples with the estimated rate(s), reusing the same Euclidean or autoregressive decay as in the fit.
 
 ```py
 preds = model.random[0].predict(
@@ -98,15 +78,12 @@ preds = model.random[0].predict(
 )
 ```
 
-`matrix_index` lists all levels, training and new; `predict` returns a
-long-format DataFrame with one row per (unit, response, component). When `unit`
-is a list of coordinate columns, those columns label the rows in place of a
-single `unit`.
+`matrix_index` lists all levels, training and new; `predict` returns a long-format DataFrame with one row per (unit, response, component).
+When `unit` is a list of coordinate columns, those columns label the rows in place of a single `unit`.
 
 ## Illustration
 
-Let's realize the spatial analysis of the `larix` illustrative dataset using the
-kriging prediction module.
+Let's realize the spatial analysis of the `larix` illustrative dataset using the kriging prediction module.
 
 ::: {.scroll-cell}
 ```py

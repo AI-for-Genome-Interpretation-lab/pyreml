@@ -3,8 +3,7 @@ title: "Building models"
 ---
 
 [pyreml]{.pyreml} relies on the `MixedModel.from_dataframe()` method to build a model from a [pandas](https://pandas.pydata.org/) DataFrame.
-This high-level constructor reads the design from [patsy](https://pypi.org/project/patsy/) formulas, assembles the incidence and covariance
-matrices, and returns a model ready to fit.
+This high-level constructor reads the design from [patsy](https://pypi.org/project/patsy/) formulas, assembles the incidence and covariance matrices, and returns a model ready to fit.
 
 ## The `from_dataframe` constructor
 
@@ -38,15 +37,14 @@ model.fit()
 | `residual` | A `Residual` object; defaults to `iid`. See [variance structures](variance_structures.qmd). |
 | `device`   | The device the model lives and trains on. Defaults to `"cpu"`, use `"cuda"` for [GPU acceleration](http://www.nvidia.com/cuda). |
 
-Each argument maps onto a term of the model: `fixed` builds $\mathbf{X}$, each
-`random` effect contributes columns to $\mathbf{Z}$ and a block of $\mathbf{G}$,
-and `residual` defines $\mathbf{R}$ (see [the model](index.qmd#the-model)).
+Each argument maps onto a term of the model: `fixed` builds $\mathbf{X}$, each `random` effect contributes columns to $\mathbf{Z}$ and a block of $\mathbf{G}$, and `residual` defines $\mathbf{R}$ (see [the model](index.qmd#the-model)).
 
 ## Data layout and missing values
 
 `data` is in wide format: one row per observation, one column per response variable.
 Missing values are handled per response: a row missing a given response is dropped for that response only, while rows missing a fixed covariate or a grouping variable are dropped throughout.
 Each response therefore keeps its own set of observed rows, and unbalanced designs are handled out of the box.
+
 
 ## The fitted model
 
@@ -120,7 +118,11 @@ This approximation asymptotically improves with the sample size.
 
 ## Low-level constructor
 
-[pyreml]{.pyreml} provides a low-level constructor for application cases that are not implemented. The low-level constructor builds directly from the response vector `y`, the design matrix `X`, the random-effect design and the residual row selector. The random-effect design is either the dense matrix `Z` (n×q), or the factored couple `(F, s)` of the [structured forward](#structured-forward): `F` stores the values each observation carries (n, c), `s` the level it loads them on (n,), and pyreml builds `Z` at construction, column-wise, as `Z[i, j·L + s[i]] = F[i, j]` (pass `F=F, s=s` instead of `Z=Z`). The residual row selector likewise has two spellings: the cell vector `w_grid` (each observation mapped onto its cell of $\mathbf{\Sigma_R} \otimes \mathbf{K_R}$, the memory-free form) or the dense selector `W` (used transiently to derive `w_grid`, then dropped). `w_grid` wins when both are given; with neither `W` nor `w_grid`, the residual covariance is used un-masked.
+[pyreml]{.pyreml} provides a low-level constructor for application cases that are not implemented.
+The low-level constructor builds directly from the response vector `y`, the design matrix `X`, the random-effect design and the residual row selector.
+The random-effect design is either the dense matrix `Z` (n×q), or the factored couple `(F, s)` of the [structured forward](#structured-forward): `F` stores the values each observation carries (n, c), `s` the level it loads them on (n,), and pyreml builds `Z` at construction, column-wise, as `Z[i, j·L + s[i]] = F[i, j]` (pass `F=F, s=s` instead of `Z=Z`).
+The residual row selector likewise has two spellings: the cell vector `w_grid` (each observation mapped onto its cell of $\mathbf{\Sigma_R} \otimes \mathbf{K_R}$, the memory-free form) or the dense selector `W` (used transiently to derive `w_grid`, then dropped).
+`w_grid` wins when both are given; with neither `W` nor `w_grid`, the residual covariance is used un-masked.
 It must also be provided a list of PyTorch variance parameters `varparams` and at least one differentiable variance method: `varmeth`, `varmeth_inv`, or both.
 
 Like `from_dataframe`, it accepts `device`.
@@ -160,8 +162,8 @@ It must be differentiable in the `varparams` tensors so autograd can propagate t
 
 ### The `varmeth_inv` contract
 
-`varmeth_inv(self) -> (Ginv, Rinv, logdet_G, logdet_R)` is the inverse-side alternative. Rather than forming $\mathbf{V}$ and factoring it, it supplies the structured inverses $\mathbf{G}^{-1}$ and $\mathbf{R}^{-1}$ together with the log-determinants $\log|\mathbf{G}|$ and $\log|\mathbf{R}|$, from which the likelihood is evaluated without ever assembling $\mathbf{V}$ (see
-[SMW](training.qmd#smw)).
+`varmeth_inv(self) -> (Ginv, Rinv, logdet_G, logdet_R)` is the inverse-side alternative.
+Rather than forming $\mathbf{V}$ and factoring it, it supplies the structured inverses $\mathbf{G}^{-1}$ and $\mathbf{R}^{-1}$ together with the log-determinants $\log|\mathbf{G}|$ and $\log|\mathbf{R}|$, from which the likelihood is evaluated without ever assembling $\mathbf{V}$ (see [SMW](training.qmd#smw)).
 Like `varmeth`, it is bound as a method and must be differentiable in the `varparams` tensors.
 `Ginv` and `logdet_G` may both be `None` when the model has no random effect.
 
@@ -187,9 +189,6 @@ Either method alone is sufficient and fixes the solving path; supplying both let
 
 ### The `varparams` format
 
-A list of dicts, one per trainable variance
-parameter, each carrying at least a `tensor` key — a leaf PyTorch tensor with
-`requires_grad`, created on the model's `dtype` and `device`. These must be the
-very tensors read inside `varmeth` (or
-`varmeth_inv`). The optimizer trains $\boldsymbol{\beta}$ jointly with them;
-$\boldsymbol{\beta}$ is initialized from $\mathbf{X}$ and is not part of `varparams`.
+A list of dicts, one per trainable variance parameter, each carrying at least a `tensor` key — a leaf PyTorch tensor with `requires_grad`, created on the model's `dtype` and `device`.
+These must be the very tensors read inside `varmeth` (or `varmeth_inv`).
+The optimizer trains $\boldsymbol{\beta}$ jointly with them; $\boldsymbol{\beta}$ is initialized from $\mathbf{X}$ and is not part of `varparams`.

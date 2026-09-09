@@ -2,9 +2,8 @@
 title: "Variance structures"
 ---
 
-Every random effect and the residual of a [pyreml]{.pyreml} model is structured
-with a covariance that factors into 2 independent parts. Choosing the architecture for these two factors is how a model's variance structure is
-declared.
+Every random effect and the residual of a [pyreml]{.pyreml} model is structured with a covariance that factors into 2 independent parts.
+Choosing the architecture for these two factors is how a model's variance structure is declared.
 
 This factorization formalizes as a Kronecker product such as for the random effect $\mathbf{a}$:
 
@@ -16,8 +15,7 @@ $$
 
 where:
 
-- $\mathbf{\Sigma_a}$ is the left-hand factor, *i.e.* the covariance across
-the components of the effect
+- $\mathbf{\Sigma_a}$ is the left-hand factor, *i.e.* the covariance across the components of the effect
 
 - $\mathbf{K_a}$ is the right-hand factor, *i.e.* the covariance across its levels.
 
@@ -25,22 +23,15 @@ The two factors are set independently, through `left_hand` and `right_hand`.
 
 ## Left-hand factor: $\mathbf{\Sigma_a}$
 
-`left_hand` sets the covariance across components. A component is a 
-(response, formula element) pair: with $k$ responses and
-$c$ columns produced by the effect's [patsy](https://pypi.org/project/patsy/)
-`formula`, $\mathbf{\Sigma_a}$ is $(k\,c) \times (k\,c)$.
+`left_hand` sets the covariance across components.
+A component is a (response, formula element) pair: with $k$ responses and $c$ columns produced by the effect's [patsy](https://pypi.org/project/patsy/) `formula`, $\mathbf{\Sigma_a}$ is $(k\,c) \times (k\,c)$.
 How multiple responses are handled is covered in [multivariate](multivariate.qmd).
-How the `formula` carries a regression or random factors is
-covered in [random regression and factors](random_regression.qmd).
+How the `formula` carries a regression or random factors is covered in [random regression and factors](random_regression.qmd).
 
-The index of $\mathbf{\Sigma_a}$ therefore has two sub-axes: the $k$
-responses and the $c$ formula columns; ordered response-outer, formula-inner.
+The index of $\mathbf{\Sigma_a}$ therefore has two sub-axes: the $k$ responses and the $c$ formula columns; ordered response-outer, formula-inner.
 
-The initial value of $\mathbf{\Sigma_a}$ can
-be set with `init` (a scalar for `iid`, a $(k\,c)\times(k\,c)$ matrix otherwise);
-it defaults to the identity. For the block structures `init` is still given as a
-full $(k\,c)\times(k\,c)$ matrix, and the entries that fall outside the retained
-structure are simply ignored.
+The initial value of $\mathbf{\Sigma_a}$ can be set with `init` (a scalar for `iid`, a $(k\,c)\times(k\,c)$ matrix otherwise); it defaults to the identity.
+For the block structures `init` is still given as a full $(k\,c)\times(k\,c)$ matrix, and the entries that fall outside the retained structure are simply ignored.
 
 | `left_hand` | Structure                                                         |
 |-------------|-------------------------------------------------------------------|
@@ -60,81 +51,55 @@ All variances are equal and no covariance is estimated across components.
 
 ### Diagonal and full
 
-`diag` estimates one variance per component, with no covariance between them;
-`full` estimates the entire symmetric covariance, capturing every pairwise
-covariance across components. Both are estimated through an unconstrained
-internal parameterization that keeps $\mathbf{\Sigma_a}$ positive-definite
-throughout the fit.
+`diag` estimates one variance per component, with no covariance between them; `full` estimates the entire symmetric covariance, capturing every pairwise covariance across components.
+Both are estimated through an unconstrained internal parameterization that keeps $\mathbf{\Sigma_a}$ positive-definite throughout the fit.
 
 ### Factor-analytic
 
-When the number of components is large, a `full` covariance becomes expensive
-(it holds $kc(kc+1)/2$ free parameters). The factor-analytic structure
-approximates it with a low-rank-plus-diagonal form [@smith_analyzing_2001; @kirkpatrick_direct_2004]:
+When the number of components is large, a `full` covariance becomes expensive (it holds $kc(kc+1)/2$ free parameters).
+The factor-analytic structure approximates it with a low-rank-plus-diagonal form [@smith_analyzing_2001; @kirkpatrick_direct_2004]:
 
 $$
 \mathbf{\Sigma_a} = \mathbf{Q_a}\mathbf{\Lambda_a}\mathbf{Q_a}^\top
 + \mathbf{\Psi_a},
 $$
 
-with `n_axes` $\ll kc$ orthonormal axes gathered in $\mathbf{Q_a}$ (scaled by the
-eigenvalue-like elements of $\mathbf{\Lambda_a}$) and a diagonal specificity $\mathbf{\Psi_a}$
-that restores variance consistency after the low-rank approximation. The number
-of axes is set with the `n_axes` argument, a practical default being `n_axes = 2`. The $\mathbf{Q_a}
-\mathbf{\Lambda_a}\mathbf{Q_a}^\top$ form is reminiscent of a principal-component
-decomposition (PCA). This analogy with the PCA can be useful for *post hoc*
-interpretation of the FA model.
+with `n_axes` $\ll kc$ orthonormal axes gathered in $\mathbf{Q_a}$ (scaled by the eigenvalue-like elements of $\mathbf{\Lambda_a}$) and a diagonal specificity $\mathbf{\Psi_a}$ that restores variance consistency after the low-rank approximation.
+The number of axes is set with the `n_axes` argument, a practical default being `n_axes = 2`.
+The $\mathbf{Q_a} \mathbf{\Lambda_a}\mathbf{Q_a}^\top$ form is reminiscent of a principal-component decomposition (PCA).
+This analogy with the PCA can be useful for *post hoc* interpretation of the FA model.
 
 ### Block-diagonal
 
-A block-diagonal structure makes $\mathbf{\Sigma_a}$ block-diagonal along one of
-its two sub-axes, setting the cross-block covariances to zero. Each block is
-estimated as a full positive-definite covariance (same unconstrained
-parameterization as `full`).
+A block-diagonal structure makes $\mathbf{\Sigma_a}$ block-diagonal along one of its two sub-axes, setting the cross-block covariances to zero.
+Each block is estimated as a full positive-definite covariance (same unconstrained parameterization as `full`).
 
-- `bl_resp` blocks by response: $k$ free $c\times c$ covariances, one per
-  response, with no covariance across responses,
+- `bl_resp` blocks by response: $k$ free $c\times c$ covariances, one per response, with no covariance across responses,
 
 $$
 \mathbf{\Sigma_a} = \bigoplus_{r} \mathbf{\Omega}_r,
 \qquad \mathbf{\Omega}_r \in \mathbb{R}^{c\times c}.
 $$
 
-- `bl_form` blocks by formula column: the same construction transposed to the
-  other sub-axis, giving $c$ free $k\times k$ covariances $\mathbf{A}_e$, one per
-  formula column, with no covariance across columns. Because the blocking is over
-  the **patsy** columns, a categorical `formula` produces one block per contrast
-  column, not per written term.
+- `bl_form` blocks by formula column: the same construction transposed to the other sub-axis, giving $c$ free $k\times k$ covariances $\mathbf{A}_e$, one per formula column, with no covariance across columns.
+Because the blocking is over the **patsy** columns, a categorical `formula` produces one block per contrast column, not per written term.
 
 ### Proportional blocks
 
-`kr_resp` and `kr_form` are the separable counterparts of
-`bl_resp`/`bl_form`: the same block-diagonal support, but with all blocks
-constrained to be proportional to a single shared covariance. Each is a Kronecker
-product of a full covariance with a diagonal of scaling factors, the two
-structures differing only by which factor — the outer (response) or the inner
-(formula) — carries the full covariance:
+`kr_resp` and `kr_form` are the separable counterparts of `bl_resp`/`bl_form`: the same block-diagonal support, but with all blocks constrained to be proportional to a single shared covariance.
+Each is a Kronecker product of a full covariance with a diagonal of scaling factors, the two structures differing only by which factor — the outer (response) or the inner (formula) — carries the full covariance:
 
-- `kr_resp`: $\mathbf{\Sigma_a} = \operatorname{diag}(\boldsymbol{\alpha}) \otimes \mathbf{\Omega}$,
-  with $\mathbf{\Omega}\in\mathbb{R}^{c\times c}$ a single covariance shared by all
-  $k$ responses, each scaled by its own $\alpha_r$;
+- `kr_resp`: $\mathbf{\Sigma_a} = \operatorname{diag}(\boldsymbol{\alpha}) \otimes \mathbf{\Omega}$, with $\mathbf{\Omega}\in\mathbb{R}^{c\times c}$ a single covariance shared by all $k$ responses, each scaled by its own $\alpha_r$;
 
-- `kr_form`: $\mathbf{\Sigma_a} = \mathbf{A} \otimes \operatorname{diag}(\boldsymbol{\omega})$,
-  with $\mathbf{A}\in\mathbb{R}^{k\times k}$ a single across-response covariance
-  shared by all $c$ formula columns, each scaled by its own $\omega_e$.
+- `kr_form`: $\mathbf{\Sigma_a} = \mathbf{A} \otimes \operatorname{diag}(\boldsymbol{\omega})$, with $\mathbf{A}\in\mathbb{R}^{k\times k}$ a single across-response covariance shared by all $c$ formula columns, each scaled by its own $\omega_e$.
 
-Because the full covariance and the scaling factors are jointly defined only up to
-a common scalar (scaling the covariance up and the factors down leaves
-$\mathbf{\Sigma_a}$ unchanged), the scale is anchored by fixing the first scaling
-factor ($\alpha_1$ or $\omega_1$) to $1$,
-exactly as the `Intercept` of `het` (see [heteroscedastic](#heteroscedastic)).
+Because the full covariance and the scaling factors are jointly defined only up to a common scalar (scaling the covariance up and the factors down leaves $\mathbf{\Sigma_a}$ unchanged), the scale is anchored by fixing the first scaling factor ($\alpha_1$ or $\omega_1$) to $1$, exactly as the `Intercept` of `het` (see [heteroscedastic](#heteroscedastic)).
 
 ## Right-hand factor: $\mathbf{K_a}$
 
-`right_hand` sets the covariance across levels. A level is a distinct value of
-the grouping variable `unit`; with $l$ levels, $\mathbf{K_a}$ is $l \times l$.
-For the coordinate-based kernels (`eucl`, `ar_iso`, `ar_ani`), `unit` is given
-as a list of coordinate columns and a level is a distinct coordinate tuple.
+`right_hand` sets the covariance across levels.
+A level is a distinct value of the grouping variable `unit`; with $l$ levels, $\mathbf{K_a}$ is $l \times l$.
+For the coordinate-based kernels (`eucl`, `ar_iso`, `ar_ani`), `unit` is given as a list of coordinate columns and a level is a distinct coordinate tuple.
 
 
 | `right_hand` | Structure                                                                  |
@@ -149,34 +114,25 @@ as a list of coordinate columns and a level is a distinct coordinate tuple.
 
 ### Structured
 
-`str` plugs in a known covariance over the levels supplied as a [numpy](https://numpy.org/) array
-through `covariance`. Because the matrix is indexed by the user's own labels,
-`matrix_index` lists its levels in the order of its rows and columns,
-so [pyreml]{.pyreml} can align it to the data. 
+`str` plugs in a known covariance over the levels supplied as a [numpy](https://numpy.org/) array through `covariance`.
+Because the matrix is indexed by the user's own labels, `matrix_index` lists its levels in the order of its rows and columns, so [pyreml]{.pyreml} can align it to the data. 
 
-Common structured covariances used in genetics applications are provided with
-the [kinship helpers](kinships.qmd).
+Common structured covariances used in genetics applications are provided with the [kinship helpers](kinships.qmd).
 
 ### Decay kernels
 
-`dist`, `eucl`, `ar_iso` and `ar_ani` form a family of correlation kernels whose
-entries decay with a notion of distance between levels,
+`dist`, `eucl`, `ar_iso` and `ar_ani` form a family of correlation kernels whose entries decay with a notion of distance between levels,
 
 $$
 (\mathbf{K_a})_{ij} = \exp(-\text{decay}_{ij}),
 $$
 
-estimated with strictly positive rate(s) $\rho > 0$, so all correlations are
-positive (no oscillation). The four members differ only in where the distance
-comes from and in which metric drives the decay. In all cases the
-estimated rate(s) are reused to predict new levels (see
-[prediction](prediction.qmd)).
+estimated with strictly positive rate(s) $\rho > 0$, so all correlations are positive (no oscillation).
+The four members differ only in where the distance comes from and in which metric drives the decay.
+In all cases the estimated rate(s) are reused to predict new levels (see [prediction](prediction.qmd)).
 
-When the distance is not supplied, the coordinates are read directly from
-`unit`: instead of a single grouping column, `unit` is passed as the list of
-coordinate columns, and each distinct coordinate tuple is a level. The residual
-has no `unit`; it receives these columns through `coords` instead (see
-[the residual](#the-residual)).
+When the distance is not supplied, the coordinates are read directly from `unit`: instead of a single grouping column, `unit` is passed as the list of coordinate columns, and each distinct coordinate tuple is a level.
+The residual has no `unit`; it receives these columns through `coords` instead (see [the residual](#the-residual)).
 
 #### Supplied distance
 
@@ -187,15 +143,12 @@ $$
 \qquad \rho > 0.
 $$
 
-with a single decay $\rho$ estimated during the fit. The matrix is supplied as a
-numpy array through `distance`, and `matrix_index` orders its rows and columns,
-exactly as for `str`.
+with a single decay $\rho$ estimated during the fit.
+The matrix is supplied as a numpy array through `distance`, and `matrix_index` orders its rows and columns, exactly as for `str`.
 
 #### Euclidean distance
 
-`eucl` internalises the distance computation: instead of a precomputed matrix,
-it reads a set of coordinate columns $\mathbf{x}$ listed in `unit` and forms the Euclidean distance
-between levels:
+`eucl` internalises the distance computation: instead of a precomputed matrix, it reads a set of coordinate columns $\mathbf{x}$ listed in `unit` and forms the Euclidean distance between levels:
 
 $$
 (\mathbf{D})_{ij} = \lVert \mathbf{x}_i - \mathbf{x}_j \rVert.
@@ -205,9 +158,7 @@ Any float coordinates are allowed for the computation of euclidean distances.
 
 #### Separable autoregressive
 
-`ar_iso` and `ar_ani` also read coordinates listed in `unit`, but build a
-separable kernel — a product of one-dimensional autoregressive decays, one
-per coordinate axis:
+`ar_iso` and `ar_ani` also read coordinates listed in `unit`, but build a separable kernel — a product of one-dimensional autoregressive decays, one per coordinate axis:
 
 $$
 \mathbf{K_a} = \bigotimes_d \mathbf{K}_d,
@@ -217,22 +168,19 @@ $$
 \varphi_d = e^{-\rho_d} \in (0, 1),
 $$
 
-where $x_{id}$ is the $d$-th coordinate of level $i$. Levels are completed to the
-full coordinate grid, so that $\mathbf{K_a}$ is indexed by every coordinate tuple.
+where $x_{id}$ is the $d$-th coordinate of level $i$.
+Levels are completed to the full coordinate grid, so that $\mathbf{K_a}$ is indexed by every coordinate tuple.
 
 - `ar_iso` (isotropic) shares a single rate across all axes ($\rho_d \equiv \rho$).
-- `ar_ani` (anisotropic) estimates one rate $\rho_d$ per axis: each direction
-  has its own decay.
+- `ar_ani` (anisotropic) estimates one rate $\rho_d$ per axis: each direction has its own decay.
 
 Only integer coordinates are allowed for the computation of autoregressive kernels.
-One of the main interests of the autoregressive kernels is to stabilize and
-speed-up the computation of $\mathbf{G}^{-1}$ using [SMW](training.qmd#smw), when the number of observations exceeds the number of nodes on the grid. For consistency with the other decay methods, the fitted
-$\rho_d$ are returned instead of $\varphi_d$.
+One of the main interests of the autoregressive kernels is to stabilize and speed-up the computation of $\mathbf{G}^{-1}$ using [SMW](training.qmd#smw), when the number of observations exceeds the number of nodes on the grid.
+For consistency with the other decay methods, the fitted $\rho_d$ are returned instead of $\varphi_d$.
 
 ### Heteroscedastic
 
-`het` is a diagonal right-hand factor whose entries are a log-linear function of
-an incidence matrix $\mathcal{V}$ built by **patsy** from `het_formula`:
+`het` is a diagonal right-hand factor whose entries are a log-linear function of an incidence matrix $\mathcal{V}$ built by **patsy** from `het_formula`:
 
 $$
 \mathbf{K_a} = \operatorname{diag}\!\big(\exp(\mathcal{V}\,\mathbf{h})\big),
@@ -240,72 +188,51 @@ $$
 
 where:
 
-- $\mathbf{h}$ holds the coefficients of the model on the log
-scale,
+- $\mathbf{h}$ holds the coefficients of the model on the log scale,
 
-- $\mathcal{V}$ is an incidence-like matrix attributing and dosing
-the elements of $\mathbf{h}$ to the corresponding level of the random effect (or
-to the corresponding individual for a residual).
+- $\mathcal{V}$ is an incidence-like matrix attributing and dosing the elements of $\mathbf{h}$ to the corresponding level of the random effect (or to the corresponding individual for a residual).
 
-The `Intercept` column anchors the scale: its coefficient is fixed to $0$, so its
-multiplier is $\exp(0)=1$ and the overall variance level is carried by the
-left-hand factor $\mathbf{\Sigma_a}$. The remaining $m-1$ columns carry the
-trainable coefficients. The `Intercept` must therefore be kept as removing it
-(`het_formula = "0 + ..."` or `het_formula = "-1 + ..."`) un-anchors the scale, which becomes confounded with
-$\mathbf{\Sigma_a}$.
+The `Intercept` column anchors the scale: its coefficient is fixed to $0$, so its multiplier is $\exp(0)=1$ and the overall variance level is carried by the left-hand factor $\mathbf{\Sigma_a}$.
+The remaining $m-1$ columns carry the trainable coefficients.
+The `Intercept` must therefore be kept as removing it (`het_formula = "0 + ..."` or `het_formula = "-1 + ..."`) un-anchors the scale, which becomes confounded with $\mathbf{\Sigma_a}$.
 
-For a purely categorical formula (`het_formula = "C(group)"`), $\mathcal{V}$
-reduces to treatment contrasts and the model collapses to one variance
-multiplier per modality: the reference modality is fixed to $1$ and the other
-$m-1$ modalities are estimated as ratios $\exp(h_j)$ to it. For continuous terms
-(e.g. `"1 + age"`), the variance becomes a smooth function
-$\exp(\mathcal{V}\,\mathbf{h})$ of the covariate.
+For a purely categorical formula (`het_formula = "C(group)"`), $\mathcal{V}$ reduces to treatment contrasts and the model collapses to one variance multiplier per modality: the reference modality is fixed to $1$ and the other $m-1$ modalities are estimated as ratios $\exp(h_j)$ to it.
+For continuous terms (e.g. `"1 + age"`), the variance becomes a smooth function $\exp(\mathcal{V}\,\mathbf{h})$ of the covariate.
 
-It is primarily designed to be paired with `left_hand="iid"`. With a non-`iid`
-left-hand factor, `het` should be understood as scaling the whole
-$\mathbf{\Sigma_a}$ by a per-row factor (through the Kronecker product) rather
-than estimating distinct $\mathbf{\Sigma_a}$'s.
+It is primarily designed to be paired with `left_hand="iid"`.
+With a non-`iid` left-hand factor, `het` should be understood as scaling the whole $\mathbf{\Sigma_a}$ by a per-row factor (through the Kronecker product) rather than estimating distinct $\mathbf{\Sigma_a}$'s.
 
 ## The residual
 
-The `Residual` reuses the very same $\mathbf{\Sigma_R}$ and $\mathbf{K_R}$
-factors, with one difference: it has no `unit` and no `formula`. Its levels are
-the observations themselves, so $\mathbf{K_R}$ runs over observations (`iid`
-by default) and $\mathbf{\Sigma_R}$ over the responses:
+The `Residual` reuses the very same $\mathbf{\Sigma_R}$ and $\mathbf{K_R}$ factors, with one difference: it has no `unit` and no `formula`.
+Its levels are the observations themselves, so $\mathbf{K_R}$ runs over observations (`iid` by default) and $\mathbf{\Sigma_R}$ over the responses:
 
 $$
 \mathbf{R}_{tot} = \mathbf{\Sigma_R} \otimes \mathbf{K_R}.
 $$
 
-Because observations may be missing in unbalanced designs,
-$\mathbf{R}_{tot}$ is assembled over all original rows and then restricted
-to the observed entries through a residual "incidence" $\mathbf{W}$:
+Because observations may be missing in unbalanced designs, $\mathbf{R}_{tot}$ is assembled over all original rows and then restricted to the observed entries through a residual "incidence" $\mathbf{W}$:
 
 $$
 \mathbf{R} = \mathbf{W}\,\mathbf{R}_{tot}\,\mathbf{W}^\top.
 $$
 
-$\mathbf{W}$ is a row selector. It is never formed as a matrix, but stored as the vector of the cells its rows select, and every product with $\mathbf{W}$ is read as a gather on that vector.
+$\mathbf{W}$ is a row selector.
+It is never formed as a matrix, but stored as the vector of the cells its rows select, and every product with $\mathbf{W}$ is read as a gather on that vector.
 
 Most structures can be declared on the residual, but not all are identifiable; the choice between a `full` and a `diag` residual across responses is discussed in [multivariate](multivariate.qmd).
 
-The residual takes no formula, therefore the block-diagonal (`bl_form`, `bl_resp`) and  proportional blocks (`kr_form`, `kr_resp`) left-hand specifications are not allowed for the residual variance structure.
+The residual takes no formula, therefore the block-diagonal (`bl_form`, `bl_resp`) and proportional blocks (`kr_form`, `kr_resp`) left-hand specifications are not allowed for the residual variance structure.
 
-To use a `eucl`, `ar_iso` or `ar_ani` right-hand specification, the residual
-requires a `coords` argument: the residual has no `unit` to carry the
-coordinate columns, so it receives them directly through `coords`. The
-autoregressive kernels (`ar_iso`, `ar_ani`) are allowed but discouraged on the
-residual, where they can be costly; consider carrying such structure with an
-extra random effect rather than burdening the residual.
+To use a `eucl`, `ar_iso` or `ar_ani` right-hand specification, the residual requires a `coords` argument: the residual has no `unit` to carry the coordinate columns, so it receives them directly through `coords`.
+The autoregressive kernels (`ar_iso`, `ar_ani`) are allowed but discouraged on the residual, where they can be costly; consider carrying such structure with an extra random effect rather than burdening the residual.
 
 ## Jitter
 
-In some cases, $\mathbf{\Sigma_a}$ (or $\mathbf{\Sigma_R}$) may exhibit a perfect correlation of $1$ or $-1$
-which is expected and meaningful. However, such situation makes $\mathbf{G}$ (respectively $\mathbf{R}$) singular.
-For this reason, a `jitter` argument ($\varepsilon$) (0 by default, and *e.g* `jitter = 1e-6` for an actual effect)
-is available for `Random` and `Residual`. It improves the conditioning of $\mathbf{\Sigma_a}$
-(respectively $\mathbf{\Sigma_R}$) with a relative and an absolute
-increase of the diagonal:
+In some cases, $\mathbf{\Sigma_a}$ (or $\mathbf{\Sigma_R}$) may exhibit a perfect correlation of $1$ or $-1$ which is expected and meaningful.
+However, such situation makes $\mathbf{G}$ (respectively $\mathbf{R}$) singular.
+For this reason, a `jitter` argument ($\varepsilon$) (0 by default, and *e.g* `jitter = 1e-6` for an actual effect) is available for `Random` and `Residual`.
+It improves the conditioning of $\mathbf{\Sigma_a}$ (respectively $\mathbf{\Sigma_R}$) with a relative and an absolute increase of the diagonal:
 
 $$
 \mathbf{\Sigma_a^{\text{jitter}}} =
@@ -319,9 +246,8 @@ $$
 
 ## Caution specifying covariance structures
 
-[pyreml]{.pyreml} philosophy is to provide a simple, flexible and unified framework for
-a large variety of applications. Therefore, no *a priori* constraint is applied on the user
-specification of `left_hand` and `right_hand`, for the `Random` effects as well as for the `Residual`.
+[pyreml]{.pyreml} philosophy is to provide a simple, flexible and unified framework for a large variety of applications.
+Therefore, no *a priori* constraint is applied on the user specification of `left_hand` and `right_hand`, for the `Random` effects as well as for the `Residual`.
 
-However, the fact these model specifications are allowed by [pyreml]{.pyreml} does not mean
-all of them are suitable. Many potential specifications may be statistically problematic.
+However, the fact these model specifications are allowed by [pyreml]{.pyreml} does not mean all of them are suitable.
+Many potential specifications may be statistically problematic.
