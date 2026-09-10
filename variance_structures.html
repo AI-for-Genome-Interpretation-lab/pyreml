@@ -320,8 +320,7 @@ window.Quarto = {
 \mathbf{\Sigma_a} = \mathbf{Q_a}\mathbf{\Lambda_a}\mathbf{Q_a}^\top
 + \mathbf{\Psi_a},
 \]</span></p>
-<p>with <code>n_axes</code> <span class="math inline">\(\ll kc\)</span> orthonormal axes gathered in <span class="math inline">\(\mathbf{Q_a}\)</span> (scaled by the eigenvalue-like elements of <span class="math inline">\(\mathbf{\Lambda_a}\)</span>) and a diagonal specificity <span class="math inline">\(\mathbf{\Psi_a}\)</span> that restores variance consistency after the low-rank approximation. The number of axes is set with the <code>n_axes</code> argument, a practical default being <code>n_axes = 2</code>. The <span class="math inline">\(\mathbf{Q_a}
-\mathbf{\Lambda_a}\mathbf{Q_a}^\top\)</span> form is reminiscent of a principal-component decomposition (PCA). This analogy with the PCA can be useful for <em>post hoc</em> interpretation of the FA model.</p>
+<p>with <code>n_axes</code> <span class="math inline">\(\ll kc\)</span> orthonormal axes gathered in <span class="math inline">\(\mathbf{Q_a}\)</span> (scaled by the eigenvalue-like elements of <span class="math inline">\(\mathbf{\Lambda_a}\)</span>) and a diagonal specificity <span class="math inline">\(\mathbf{\Psi_a}\)</span> that restores variance consistency after the low-rank approximation. The number of axes is set with the <code>n_axes</code> argument, a practical default being <code>n_axes = 2</code>. The <span class="math inline">\(\mathbf{Q_a} \mathbf{\Lambda_a}\mathbf{Q_a}^\top\)</span> form is reminiscent of a principal-component decomposition (PCA). This analogy with the PCA can be useful for <em>post hoc</em> interpretation of the FA model.</p>
 </section>
 <section id="block-diagonal" class="level3">
 <h3 class="anchored" data-anchor-id="block-diagonal">Block-diagonal</h3>
@@ -462,6 +461,7 @@ window.Quarto = {
 <p><span class="math display">\[
 \mathbf{R} = \mathbf{W}\,\mathbf{R}_{tot}\,\mathbf{W}^\top.
 \]</span></p>
+<p><span class="math inline">\(\mathbf{W}\)</span> is a row selector. It is never formed as a matrix, but stored as the vector of the cells its rows select, and every product with <span class="math inline">\(\mathbf{W}\)</span> is read as a gather on that vector.</p>
 <p>Most structures can be declared on the residual, but not all are identifiable; the choice between a <code>full</code> and a <code>diag</code> residual across responses is discussed in <a href="./multivariate.html">multivariate</a>.</p>
 <p>The residual takes no formula, therefore the block-diagonal (<code>bl_form</code>, <code>bl_resp</code>) and proportional blocks (<code>kr_form</code>, <code>kr_resp</code>) left-hand specifications are not allowed for the residual variance structure.</p>
 <p>To use a <code>eucl</code>, <code>ar_iso</code> or <code>ar_ani</code> right-hand specification, the residual requires a <code>coords</code> argument: the residual has no <code>unit</code> to carry the coordinate columns, so it receives them directly through <code>coords</code>. The autoregressive kernels (<code>ar_iso</code>, <code>ar_ani</code>) are allowed but discouraged on the residual, where they can be costly; consider carrying such structure with an extra random effect rather than burdening the residual.</p>

@@ -391,12 +391,12 @@ window.Quarto = {
 </figure>
 </div>
 <ul>
-<li><p>The left panel shows the raw BLUPs against the matching BLUEs:</p>
+<li>The left panel shows the raw BLUPs against the matching BLUEs:
 <ul>
-<li><p>the amplitude of BLUPs is always lower than the amplitude of BLUEs, preventing them from capturing as much variance in the training set.</p></li>
-<li><p>the distance from the BLUPs to the BLUEs is idiosyncratic, and dependent on the individual level of reliability around each BLUP.</p></li>
+<li>the amplitude of BLUPs is always lower than the amplitude of BLUEs, preventing them from capturing as much variance in the training set.</li>
+<li>the distance from the BLUPs to the BLUEs is idiosyncratic, and dependent on the individual level of reliability around each BLUP.</li>
 </ul></li>
-<li><p>The right panel shows the deregressed BLUPs against the same BLUEs: once the shrinkage is removed, the points fall back onto an exact identity line. The whole difference between a BLUP and a BLUE is this reliability-driven shrinkage.</p></li>
+<li>The right panel shows the deregressed BLUPs against the same BLUEs: once the shrinkage is removed, the points fall back onto an exact identity line. The whole difference between a BLUP and a BLUE is this reliability-driven shrinkage.</li>
 </ul>
 <p>In this example, the correlation between BLUEs and the true simulated values is <code>0.687</code> and the correlation between BLUPs and the true simulated values is <code>0.743</code>. Shrinkage can be seen as the regularization commonly used in machine learning, that consists in trading fit to the training set for generalizability; this is illustrated by the higher accuracy of the BLUPs in this example.</p>
 </section>
@@ -404,8 +404,7 @@ window.Quarto = {
 <h2 class="anchored" data-anchor-id="arguments-in-favor-of-a-fixed-effect">Arguments in favor of a fixed effect</h2>
 <section id="can-the-effect-be-seen-as-drawn-from-a-population-of-effects" class="level3">
 <h3 class="anchored" data-anchor-id="can-the-effect-be-seen-as-drawn-from-a-population-of-effects">Can the effect be seen as drawn from a population of effects?</h3>
-<p>This is the first question to ask, because if the levels at hand are not exchangeable members of some larger population, the distributional assumption <span class="math inline">\(\mathbf{a} \sim \mathcal{N}(\mathbf{0},
-\mathbf{G_a})\)</span> is simply not meaningful. When there is no population to speak of, there is not really a choice: the effect has to be fixed.</p>
+<p>This is the first question to ask, because if the levels at hand are not exchangeable members of some larger population, the distributional assumption <span class="math inline">\(\mathbf{a} \sim \mathcal{N}(\mathbf{0}, \mathbf{G_a})\)</span> is simply not meaningful. When there is no population to speak of, there is not really a choice: the effect has to be fixed.</p>
 </section>
 <section id="are-there-enough-levels-to-estimate-a-variance" class="level3">
 <h3 class="anchored" data-anchor-id="are-there-enough-levels-to-estimate-a-variance">Are there enough levels to estimate a variance?</h3>

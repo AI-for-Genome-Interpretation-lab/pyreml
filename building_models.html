@@ -322,46 +322,46 @@ window.Quarto = {
 <section id="logs" class="level3">
 <h3 class="anchored" data-anchor-id="logs">Logs</h3>
 <p><span class="pyreml">pyreml</span> provides the logs after fitting a model. Check for convergence of the last REML step before interpreting the model outputs. All times are expressed in seconds.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode txt code-with-copy"><code class="sourceCode default"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>2026-08-17T11:38:44Z</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode txt code-with-copy"><code class="sourceCode default"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>2026-09-09T14:06:41Z</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>------------------------------------------------------------</span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  platform</span>
 <span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    device                  cuda</span>
 <span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    gpu                     NVIDIA A100 80GB PCIe</span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    pyreml                  0.4.0</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    pyreml                  0.5.0</span>
 <span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    torch                   2.8.0+cu128</span>
 <span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    cuda                    12.8</span>
 <span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>------------------------------------------------------------</span>
 <span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  model</span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    n obs                   20000</span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    n fixed effects         1</span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    n random effects        20000</span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    n variance parameters   2</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    n obs                   1000000</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    n fixed effects         40</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    n random effects        25000</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    n variance parameters   41</span>
 <span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>------------------------------------------------------------</span>
 <span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  solving</span>
-<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    SMW                     False</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    SMW                     True</span>
 <span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    structured forward      True</span>
 <span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    analytical backward     True</span>
 <span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>------------------------------------------------------------</span>
 <span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>  OLS - double</span>
-<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    time                    0.00</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    time                    0.16</span>
 <span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>------------------------------------------------------------</span>
 <span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>  REML - double</span>
-<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>    time                    27.22</span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>    time                    261.65</span>
 <span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>    convergence             True</span>
-<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>    REML -2logLik           107376.9638550121</span>
-<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>    absolute tolerance           0.0000107377</span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>    REML -2logLik           7307039.6753342869</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>    absolute tolerance            0.0007307040</span>
 <span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>    degenerate              False</span>
 <span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>    digits tolerance total  10.00</span>
 <span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>    digits machine          15.65</span>
 <span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>    digits cancellation     0.00</span>
-<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>    digits roundoff         2.15</span>
-<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>    digits conditionning    0.48</span>
-<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>    n steps total           3</span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>    digits roundoff         2.20</span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>    digits conditionning    0.87</span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>    n steps total           4</span>
 <span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>    n steps adam            0</span>
 <span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>------------------------------------------------------------</span>
 <span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>  HMME - double</span>
-<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>    time                    15.96</span>
-<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>    REML loss               107376.9638550121</span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>    time                    9.10</span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>    REML loss               7307039.6753342859</span>
 <span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>------------------------------------------------------------</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 <section id="model-outputs" class="level3">
@@ -410,36 +410,33 @@ window.Quarto = {
 </section>
 <section id="low-level-constructor" class="level2">
 <h2 class="anchored" data-anchor-id="low-level-constructor">Low-level constructor</h2>
-<p><span class="pyreml">pyreml</span> provides a low-level constructor for application cases that are not implemented. The low-level constructor builds directly from the response vector <code>y</code>, the design matrices <code>X</code> and <code>Z</code>, and a “residual incidence” matrix <code>W</code> that masks useless elements of <code>R</code>. It must also be provided a list of PyTorch variance parameters <code>varparams</code> and at least one differentiable variance method: <code>varmeth</code>, <code>varmeth_inv</code>, or both.</p>
-<p>Like <code>from_dataframe</code>, it accepts <code>dtype</code> and <code>device</code>. Every tensor inside <code>varmeth</code> / <code>varmeth_inv</code> must match them.</p>
+<p><span class="pyreml">pyreml</span> provides a low-level constructor for application cases that are not implemented. The low-level constructor builds directly from the response vector <code>y</code>, the design matrix <code>X</code>, the random-effect design and the residual row selector. The random-effect design is either the dense matrix <code>Z</code> (n×q), or the factored couple <code>(F, s)</code> of the <a href="#structured-forward">structured forward</a>: <code>F</code> stores the values each observation carries (n, c), <code>s</code> the level it loads them on (n,), and pyreml builds <code>Z</code> at construction, column-wise, as <code>Z[i, j·L + s[i]] = F[i, j]</code> (pass <code>F=F, s=s</code> instead of <code>Z=Z</code>). The residual row selector likewise has two spellings: the cell vector <code>w_grid</code> (each observation mapped onto its cell of <span class="math inline">\(\mathbf{\Sigma_R} \otimes \mathbf{K_R}\)</span>, the memory-free form) or the dense selector <code>W</code> (used transiently to derive <code>w_grid</code>, then dropped). <code>w_grid</code> wins when both are given; with neither <code>W</code> nor <code>w_grid</code>, the residual covariance is used un-masked. It must also be provided a list of PyTorch variance parameters <code>varparams</code> and at least one differentiable variance method: <code>varmeth</code>, <code>varmeth_inv</code>, or both.</p>
+<p>Like <code>from_dataframe</code>, it accepts <code>device</code>. The computation dtype is <code>torch.double</code> by default. Every tensor inside <code>varmeth</code> / <code>varmeth_inv</code> must match the model’s dtype and device.</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pyreml <span class="im">import</span> MixedModel</span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>dtype  <span class="op">=</span> torch.double</span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>device <span class="op">=</span> <span class="st">"cuda"</span></span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>log_su <span class="op">=</span> torch.zeros((), dtype<span class="op">=</span>dtype, device<span class="op">=</span>device, requires_grad<span class="op">=</span><span class="va">True</span>)</span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>log_se <span class="op">=</span> torch.zeros((), dtype<span class="op">=</span>dtype, device<span class="op">=</span>device, requires_grad<span class="op">=</span><span class="va">True</span>)</span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>varparams <span class="op">=</span> [{<span class="st">"tensor"</span>: log_su}, {<span class="st">"tensor"</span>: log_se}]</span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> varmeth(<span class="va">self</span>):</span>
-<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    G <span class="op">=</span> torch.exp(log_su) <span class="op">*</span> torch.eye(<span class="va">self</span>.Z.shape[<span class="dv">1</span>], dtype<span class="op">=</span><span class="va">self</span>.dtype, device<span class="op">=</span><span class="va">self</span>.device)</span>
-<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    R <span class="op">=</span> torch.exp(log_se) <span class="op">*</span> torch.eye(<span class="va">self</span>.n, dtype<span class="op">=</span><span class="va">self</span>.dtype, device<span class="op">=</span><span class="va">self</span>.device)</span>
-<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> G, R</span>
-<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>model <span class="op">=</span> MixedModel(</span>
-<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    y, X, Z, W<span class="op">=</span><span class="va">None</span>,</span>
-<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    varmeth<span class="op">=</span>varmeth,</span>
-<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    varparams<span class="op">=</span>varparams,</span>
-<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    dtype<span class="op">=</span>dtype,</span>
-<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>    device<span class="op">=</span>device,</span>
-<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>model.fit()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>device <span class="op">=</span> <span class="st">"cuda"</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>log_su <span class="op">=</span> torch.zeros((), dtype<span class="op">=</span>torch.double, device<span class="op">=</span>device, requires_grad<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>log_se <span class="op">=</span> torch.zeros((), dtype<span class="op">=</span>torch.double, device<span class="op">=</span>device, requires_grad<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>varparams <span class="op">=</span> [{<span class="st">"tensor"</span>: log_su}, {<span class="st">"tensor"</span>: log_se}]</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> varmeth(<span class="va">self</span>):</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    G <span class="op">=</span> torch.exp(log_su) <span class="op">*</span> torch.eye(<span class="va">self</span>.Z.shape[<span class="dv">1</span>], dtype<span class="op">=</span><span class="va">self</span>.dtype, device<span class="op">=</span><span class="va">self</span>.device)</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    R <span class="op">=</span> torch.exp(log_se) <span class="op">*</span> torch.eye(<span class="va">self</span>.n, dtype<span class="op">=</span><span class="va">self</span>.dtype, device<span class="op">=</span><span class="va">self</span>.device)</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> G, R</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>model <span class="op">=</span> MixedModel(</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    y, X, Z, W<span class="op">=</span><span class="va">None</span>,</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    varmeth<span class="op">=</span>varmeth,</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    varparams<span class="op">=</span>varparams,</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    device<span class="op">=</span>device,</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>model.fit()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <section id="the-varmeth-contract" class="level3">
 <h3 class="anchored" data-anchor-id="the-varmeth-contract">The <code>varmeth</code> contract</h3>
-<p><code>varmeth(self) -&gt; (G, R)</code> is bound as a method on the model, so it can read <code>self.Z</code>, <code>self.W</code>, <code>self.n</code>, <code>self.dtype</code>, <code>self.device</code>, … and returns the pair <span class="math inline">\((\mathbf{G}, \mathbf{R})\)</span> that forms <span class="math inline">\(\mathbf{V} = \mathbf{Z}\mathbf{G}
-\mathbf{Z}^\top + \mathbf{R}\)</span>. It must be differentiable in the <code>varparams</code> tensors so autograd can propagate the REML gradient. <code>G</code> may be <code>None</code> when the model has no random effect.</p>
+<p><code>varmeth(self) -&gt; (G, R)</code> is bound as a method on the model, so it can read <code>self.Z</code>, <code>self.w_grid</code>, <code>self.n</code>, <code>self.dtype</code>, <code>self.device</code>, … and returns the pair <span class="math inline">\((\mathbf{G}, \mathbf{R})\)</span> that forms <span class="math inline">\(\mathbf{V} = \mathbf{Z}\mathbf{G} \mathbf{Z}^\top + \mathbf{R}\)</span>. It must be differentiable in the <code>varparams</code> tensors so autograd can propagate the REML gradient. <code>G</code> may be <code>None</code> when the model has no random effect.</p>
 </section>
 <section id="the-varmeth_inv-contract" class="level3">
 <h3 class="anchored" data-anchor-id="the-varmeth_inv-contract">The <code>varmeth_inv</code> contract</h3>
