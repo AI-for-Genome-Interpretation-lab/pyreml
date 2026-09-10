@@ -6,3 +6,5 @@ doc/.quarto/
 **/*.quarto_ipynb
 **/*.whl
 **/*.tar.gz
+wombat
+**/wombat_*/*

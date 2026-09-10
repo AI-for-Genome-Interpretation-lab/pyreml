@@ -573,18 +573,19 @@ class GaussianComponent:
         strides = np.array([int(np.prod(sizes[a + 1:])) for a in range(axes)])
         self.level_cell = ((Pint - starts) * strides).sum(axis=1)  # (L_obs,)
 
-        # embed the level incidence (Z grouped, W residual) into the grid columns;
-        # uniqueness guarantees at most one level per cell, the rest stay empty.
-        src = self.W if self.is_residual else self.Z          # (n, c * L_obs)
-        L_obs = len(self.level_cell)
-        grid_incidence = np.zeros((src.shape[0], self.c * L_grid))
-        for j in range(self.c):
-            grid_incidence[:, j * L_grid + self.level_cell] = src[:, j * L_obs:(j + 1) * L_obs]
-
+        # embed the level incidence into the grid columns; uniqueness guarantees
+        # at most one level per cell, the rest stay empty.
         if self.is_residual:
-            self.W = grid_incidence
+            # the selector simply follows its levels onto the grid cells
+            self.grid = self.level_cell[self.grid]
         else:
-            self.Z = grid_incidence
+            # the grid relayout is a level remap on the factored form: the
+            # values a row carries are untouched, only lev_base moves onto the
+            # grid cells (exactly as self.grid = level_cell[self.grid] for the
+            # residual), and a materialized Z would be stale from then on.
+            assert self._Z_dense is None                     # pre-relayout dense Z would be stale
+            self.lev_base = self.level_cell[self.lev_base]   # observed level -> grid cell
+            self._Z_dense  = None
 
         self.index = grid_cells
         self.L = L_grid
@@ -666,6 +667,62 @@ class GaussianComponent:
 
         return S
 
+    @property
+    def K_is_diagonal(self) -> bool:
+        """Right-hand factors whose K carries only a diagonal."""
+        return self.right_hand in ("iid", "het")
+
+    def build_K_diag(self) -> torch.Tensor:
+        """
+        The diagonal of K, as a vector of length L, for the diagonal hands.
+
+        The L x L matrix is never formed. Differentiable in log_h for 'het',
+        constant for 'iid'. Raises for the dense hands, which have no such
+        representation.
+        """
+        dt, dev = self.dtype, self.device
+
+        match self.right_hand:
+            case "iid":
+                return torch.ones(self.L, dtype=dt, device=dev)
+
+            case "het":
+                # K = diag(exp(V h)), h has a fixed 0 reference (first column)
+                if self._V is None:
+                    self._V = self.V.to(dt)
+                h = torch.cat([torch.zeros(1, dtype=dt, device=dev), self.log_h.to(dt)])
+                return torch.exp(self._V @ h)
+
+            case _:
+                raise ValueError(
+                    f"build_K_diag is only defined for diagonal right hands, "
+                    f"got {self.right_hand}"
+                )
+
+    def build_Kinv_diag(self) -> tuple[torch.Tensor, torch.Tensor]:
+        """The diagonal of K^{-1} and logdet K, for the diagonal hands."""
+        dt, dev = self.dtype, self.device
+
+        match self.right_hand:
+            case "iid":
+                return (
+                    torch.ones(self.L, dtype=dt, device=dev),
+                    torch.zeros((), dtype=dt, device=dev),
+                )
+
+            case "het":
+                if self._V is None:
+                    self._V = self.V.to(dt)
+                h = torch.cat([torch.zeros(1, dtype=dt, device=dev), self.log_h.to(dt)])
+                diag = self._V @ h                     # log-variances
+                return torch.exp(-diag), torch.sum(diag)
+
+            case _:
+                raise ValueError(
+                    f"build_Kinv_diag is only defined for diagonal right hands, "
+                    f"got {self.right_hand}"
+                )
+
     def build_K(
         self,
         distance: None | torch.Tensor = None,
@@ -689,8 +746,9 @@ class GaussianComponent:
 
         match self.right_hand:
 
-            case "iid":
-                return torch.eye(self.L, dtype=dt, device=dev)
+            case "iid" | "het":
+                # dense view of a diagonal factor; prefer build_K_diag
+                return torch.diag(self.build_K_diag())
             
             case "dist":
                 if distance is not None:
@@ -710,12 +768,6 @@ class GaussianComponent:
                 if self._covariance is None:
                     self._covariance = self.covariance.to(dt)
                 return self._covariance
-            
-            case "het":
-                if self._V is None:
-                    self._V = self.V.to(dt)
-                h = torch.cat([torch.zeros(1, dtype=dt, device=dev), self.log_h.to(dt)])
-                return torch.diag(torch.exp(self._V @ h))
             
             case "eucl":
                 if coords is not None:
@@ -937,11 +989,10 @@ class GaussianComponent:
 
         match self.right_hand:
 
-            case "iid":
-                return (
-                    torch.eye(self.L, dtype=dt, device=dev),
-                    torch.zeros((), dtype=dt, device=dev),
-                )
+            case "iid" | "het":
+                # dense view of a diagonal factor; prefer build_Kinv_diag
+                d, logdet = self.build_Kinv_diag()
+                return torch.diag(d), logdet
             
             case "dist" | "eucl":
                 # K depends on the trained rate: factor each step (dense), in self.dtype.
@@ -988,16 +1039,6 @@ class GaussianComponent:
                     logdet = logdet + (self.L // sizes[a]) * logdet_a
                     Kinv = Kinv_a if Kinv is None else torch.kron(Kinv.contiguous(), Kinv_a.contiguous())
                     
-                return Kinv, logdet
-            
-            case "het":
-                # K = diag(exp(V h)), h has a fixed 0 reference (first column)
-                if self._V is None:
-                    self._V = self.V.to(dt)
-                h = torch.cat([torch.zeros(1, dtype=dt, device=dev), self.log_h.to(dt)])
-                diag = self._V @ h                     # log-variances
-                Kinv = torch.diag(torch.exp(-diag))
-                logdet = torch.sum(diag)
                 return Kinv, logdet
 
             case "str":
@@ -1258,7 +1299,9 @@ class Random(GaussianComponent):
         """
         Confront the random effect to the actual data: read the dimensions,
         store the constant right-hand inputs, instantiate the parameters, and
-        return the (single response) incidence matrix Z.
+        lay out the incidence in factored form (F_base, lev_base). The dense
+        Z is never built here: it is materialized only if a caller reads
+        comp.Z afterwards (dense forward, dense-Z branch of from_dataframe).
 
         make_Z sets self.index: the sorted unique values of `unit` for ordinary
         kernels, or the distinct coordinate tuples (first-occurrence order) for
@@ -1291,7 +1334,7 @@ class Random(GaussianComponent):
                     "right_hand in {'ar_iso', 'ar_ani'} requires integer-valued coordinates "
                     "(a regular grid). Use 'eucl' for arbitrary real coordinates."
                 )
-            self.make_coords(data, checkerboard=True)   # rebuilds self.Z over the grid
+            self.make_coords(data, checkerboard=True)   # re-lays the incidence over the grid
 
         elif self.right_hand in ("str", "dist"):
             if self.matrix_index is None:
@@ -1309,16 +1352,17 @@ class Random(GaussianComponent):
             except KeyError as e:
                 raise ValueError(f"level {e} present in data is missing from matrix_index")
 
-            L_obs, L_full, c = len(self.index), len(self.matrix_index), self.c
-            grid_incidence = np.zeros((self.Z.shape[0], c * L_full))
-            for j in range(c):
-                grid_incidence[:, j * L_full + level_cell] = self.Z[:, j * L_obs:(j + 1) * L_obs]
-
-            self.Z = grid_incidence
+            L_full, c = len(self.matrix_index), self.c
+            # the relayout is a level remap: on the factored form only the
+            # level index moves onto the full column block, the values each
+            # row carries are untouched, and a materialized Z would be stale
+            assert self._Z_dense is None                     # pre-relayout dense Z would be stale
+            self.lev_base = level_cell[self.lev_base]        # observed level -> full index
+            self._Z_dense = None
             self.index = np.asarray(self.matrix_index)
             self.L = L_full
 
-        self.n, self.q = self.Z.shape
+        self.n, self.q = len(self.lev_base), self.c * self.L
         self.d = self.k * self.c
 
         # constant right-hand inputs (the variable parts of K live in build_K).
@@ -1333,7 +1377,29 @@ class Random(GaussianComponent):
 
         self.init_varparams()         # -> self.varparams, self.log_S, (self.log_rho)
         self.uhat = torch.zeros(self.d * self.L, 1, dtype=torch.double, device=device)
-        return self.Z
+        return None
+
+    # dense incidence, materialized on demand. The factored path never reads
+    # it, so a large-n model pays neither the host allocation nor the scatter.
+    _Z_dense: np.ndarray | None = None
+
+    @property
+    def Z(self) -> np.ndarray:
+        """
+        The dense incidence, rebuilt from the factored form on first read.
+        Only the dense forward (ZGZ' + R) and the dense-Z branch of
+        from_dataframe still need it; everything else goes through
+        (F_base, lev_base), which make_Z fills and which the two relayouts of
+        design() keep aligned with the level indices.
+        """
+        if self._Z_dense is None:
+            n, c, L = len(self.lev_base), self.c, self.L
+            Zd = np.zeros((n, c * L))
+            rows = np.arange(n)
+            for j in range(c):
+                Zd[rows, j * L + self.lev_base] = self.F_base[:, j]
+            self._Z_dense = Zd
+        return self._Z_dense
 
     def make_Z(
         self,
@@ -1353,7 +1419,8 @@ class Random(GaussianComponent):
         coordinate tuple (coordinate kernels). For the coordinate kernels the
         levels are the distinct tuples in first-occurrence order; ordinary kernels
         keep the sorted-unique order. Sets self.colnames, self.c, self.index,
-        self.L, self.Z.
+        self.L, and the factored incidence (self.F_base, self.lev_base); the
+        dense self.Z is only materialized on demand by the Z property.
         """
         Z_df = patsy.dmatrix(self.formula, data=data, return_type="dataframe")
         self.colnames = list(Z_df.columns)   # patsy element names
@@ -1378,10 +1445,18 @@ class Random(GaussianComponent):
             )
 
         self.L = L
-        rows = np.arange(n)
-        self.Z = np.zeros((n, c * L))
-        for j in range(c):
-            self.Z[rows, j * L + codes] = Z_base[:, j]
+
+        # the factored form is the authoritative incidence: (F_base, lev_base)
+        # carries exactly what a dense scatter would only read back through
+        # (values, level). Variance.from_designs builds the per-effect blocks
+        # from it, and the dense Z is materialized on demand via the Z
+        # property (dense forward, dense-Z branch of from_dataframe). The two
+        # relayouts of design (str/dist and ar grid) then recompute lev_base
+        # through their level_cell, keeping it aligned with the re-laid
+        # columns.
+        self.F_base  = Z_base
+        self.lev_base = np.asarray(codes, dtype=np.int64)
+        self._Z_dense = None
 
         # per-column scale: dispersion of each formula column on its non-zero
         # rows. Dummy/intercept (all non-zero values equal) -> std 0 -> factor 1;
@@ -1595,35 +1670,40 @@ class Residual(GaussianComponent):
         )
 
     def varmeth_inv(self) -> Callable:
-        def block(W: torch.Tensor | None = None):
-
-            if W is None:
+        def block(grid: torch.Tensor | None = None):
+            Sinv, logdet_S = self.build_Sinv()
+            
+            if grid is None:
                 # no masking: R = R_tot = S⊗K, invert and logdet by Kronecker structure
-                Sinv, logdet_S = self.build_Sinv()
                 Kinv, logdet_K = self.build_Kinv()
                 Rinv = torch.kron(Sinv.contiguous(), Kinv.contiguous())
-                logdet_R = self.L * logdet_S + (self.d) * logdet_K
-                return Rinv, logdet_R
-
-            if self.Rtrick:
-                # masked but fully diagonal: selection commutes, logdet from the diagonal
-                Sinv, logdet_S = self.build_Sinv()
-                Kinv, logdet_K = self.build_Kinv()
-                Rinv = W @ torch.kron(Sinv.contiguous(), Kinv.contiguous()) @ W.T
-
-                if self.R_is_diagonal:
-                    logdet_R = -torch.sum(torch.log(torch.diagonal(Rinv)))
-                else:
-                    logdet_R = self.L * logdet_S + self.d * logdet_K
+                logdet_R = self.L * logdet_S + self.d * logdet_K
                 return Rinv, logdet_R
             
+            if self.Rtrick:
+                # masked but selection-commuting: the masked inverse is read at
+                # the selected cells, never through the (d·L)² Kronecker block
+                r_i, l_i = grid // self.L, grid % self.L
+                if self.R_is_diagonal:
+                    Kd, _ = self.build_Kinv_diag()
+                    diag = Sinv.diagonal()[r_i] * Kd[l_i]
+                    Rinv = torch.diag(diag)
+                    logdet_R = -torch.sum(torch.log(diag))
+                else:
+                    # not diagonal but Rtrick: W is the identity, so the mask is
+                    # a no-op and the Kronecker block is read as is
+                    Kinv, logdet_K = self.build_Kinv()
+                    Rinv = torch.kron(Sinv.contiguous(), Kinv.contiguous())
+                    logdet_R = self.L * logdet_S + self.d * logdet_K
+                return Rinv, logdet_R
+
             # masked and dense: form R then factor
-            R = W @ self.varmeth()() @ W.T
+            R = self.varmeth()()[grid][:, grid]
             L = torch.linalg.cholesky(R)
             Rinv = torch.cholesky_inverse(L)
             logdet_R = 2.0 * torch.sum(torch.log(torch.diagonal(L)))
             return Rinv, logdet_R
-        
+
         return block
     
     def design(
@@ -1662,7 +1742,7 @@ class Residual(GaussianComponent):
                 )
             self.make_coords(data, checkerboard=True)   # rebuilds self.W over the grid
         
-        self.n, self.q = self.W.shape
+        self.n, self.q = len(self.grid), self.c * self.L
         self.d = self.k * self.c
 
         if self.distance is not None:
@@ -1673,12 +1753,17 @@ class Residual(GaussianComponent):
             self.precision = torch.as_tensor(np.asarray(self.precision), dtype=torch.double, device=self.device)
 
         self.init_varparams()         # -> self.varparams, self.log_S, (self.log_rho)
-        return self.W
+        return self.grid
     
-    def check_Rtrick(self, W):
+    def check_Rtrick(self, grid) -> None:
+        n = len(grid)
+        # NB: W_is_identity is read twice — here for the algebraic validity of
+        # W Rtot^-1 W', and by Variance.embed_residual to decide whether Zg and
+        # Xg may alias Z and X. Loosening it (a permutation is algebraically
+        # fine for Rtrick) would silently break that alias.
         self.W_is_identity = (
-            W.shape[0] == W.shape[1]
-            and np.allclose(W, np.eye(W.shape[0]))
+            n == self.d * self.L
+            and bool(np.array_equal(np.asarray(grid), np.arange(n)))
         )
         self.R_is_diagonal = (
             self.left_hand in ("iid", "diag")
@@ -1694,69 +1779,49 @@ class Residual(GaussianComponent):
     
     def make_W(self) -> None:
         """
-        W is the identity over the original rows of the DataFrame.
+        W is the identity over the original rows of the DataFrame, stored as the
+        row selector it is: grid[i] is the (response, level) cell carrying
+        observation i. The dense matrix is never built.
         """
         self.colnames = ["Intercept"]
         self.c = 1
         self.L = len(self.index)
-        self.W = np.eye(self.L)
+        self.grid = np.arange(self.L)
 
     def format_residuals(
         self,
         residuals: torch.Tensor,
-        Wtot: torch.Tensor,
+        grid: torch.Tensor,
     ) -> None:
         """
-        Receive the model residuals from the fitted equations, store them, and build
-        the labelled table.
+        Receive the model residuals from the fitted equations, store them, and
+        build the labelled table.
 
-        `Wtot` is the residual incidence matrix actually used by MixedModel after
-        response-wise missing-data masking. Each row of Wtot corresponds to one
-        retained observation in the stacked response vector y.
-
-        Row order follows the native stacking order of y:
-            response-outer, observed-row-inner
-
-        The original observation index is reconstructed from the non-zero column of
-        Wtot.
+        `grid` is the residual selector actually used by MixedModel after
+        response-wise missing-data masking: grid[i] is the (response, level)
+        cell of the i-th retained observation, in the native stacking order of y
+        (response-outer, observed-row-inner).
         """
         self.residuals = residuals
 
-        W_np = Wtot.detach().cpu().numpy() if isinstance(Wtot, torch.Tensor) else np.asarray(Wtot)
+        g = grid.detach().cpu().numpy() if isinstance(grid, torch.Tensor) else np.asarray(grid)
         vals = residuals.detach().cpu().numpy().ravel()
 
-        n_obs = self.W.shape[0]
+        response_idx = g // self.L
+        observation_idx = g % self.L
 
-        rows = []
+        self.table = pd.DataFrame({
+            "observation": observation_idx,
+            "response": [self.responses[r] for r in response_idx],
+            "residual": vals,
+        })
 
-        for i, value in enumerate(vals):
-            nz = np.flatnonzero(W_np[i])
-
-            if len(nz) != 1:
-                raise ValueError(
-                    "Each row of Wtot must contain exactly one non-zero entry."
-                )
-
-            global_col = int(nz[0])
-            response_idx = global_col // n_obs
-            observation_idx = global_col % n_obs
-
-            rows.append(
-                (
-                    observation_idx,
-                    self.responses[response_idx],
-                    float(value),
-                )
-            )
-
-        self.table = pd.DataFrame(
-            rows,
-            columns=["observation", "response", "residual"],
-        )
-
-        # compute SD
+        # SD: only diag(W R_tot W') is needed, i.e. R_tot read at the selected
+        # cells, so neither R_tot nor R is formed
         with torch.no_grad():
-            R = Wtot @ self.varmeth()() @ Wtot.T
-            sd = torch.sqrt(torch.diagonal(R)).cpu().numpy()
+            gt = torch.as_tensor(g, device=self.device)
+            Sd = self.build_S_full().diagonal()
+            Kd = self.build_K_diag() if self.K_is_diagonal else self.build_K().diagonal()
+            sd = torch.sqrt(Sd[gt // self.L] * Kd[gt % self.L]).cpu().numpy()
 
         self.table["SD"] = sd

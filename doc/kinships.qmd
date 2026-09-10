@@ -2,10 +2,8 @@
 title: "Kinship matrices"
 ---
 
-Quantitative genetics is the craddle of mixed modeling, and [pyreml]{.pyreml} tributes
-it with a handful of helpers dedicated to build genetic relatedness matrices. This matrices
-serve as `right_hand="str"` known covariances, structuring the genetic random effects of
-biological units.
+Quantitative genetics is the craddle of mixed modeling, and [pyreml]{.pyreml} tributes it with a handful of helpers dedicated to build genetic relatedness matrices.
+This matrices serve as `right_hand="str"` known covariances, structuring the genetic random effects of biological units.
 
 ```python
 Random(
@@ -20,9 +18,9 @@ These helpers are direct transpositions of established R tools.
 
 ## Additive relationship
 
-A pedigree helper `prepare_pedigree` is available. It expects a
-[pandas](https://pandas.pydata.org/) DataFrame with
-columns `id`, `dam` and `sire` (parents may be missing). The preparation includes:
+A pedigree helper `prepare_pedigree` is available.
+It expects a [pandas](https://pandas.pydata.org/) DataFrame with columns `id`, `dam` and `sire` (parents may be missing).
+The preparation includes:
 
 - lowering and checking the column names,
 
@@ -50,8 +48,7 @@ from pyreml import (
 ped = prepare_pedigree(df[["ID", "SIRE", "DAM"]])
 ```
 
-Then, `A_pedigree` transposes **makeA** from the R package
-[nadiv](https://cran.r-project.org/package=nadiv).
+Then, `A_pedigree` transposes **makeA** from the R package [nadiv](https://cran.r-project.org/package=nadiv).
 
 ```python
 A = A_pedigree(ped)
@@ -60,8 +57,7 @@ A = A_pedigree(ped)
 ## Dominance relationship
 
 `D_pedigree` transposes **makeD** from [nadiv](https://cran.r-project.org/package=nadiv).
-It derives the dominance relationship matrix $\mathbf{D}$ from $\mathbf{A}$: for
-two individuals $k \neq j$ with dams $d$ and sires $s$ [@shaw_genetic_1998; @wolak_dominance_2014]:
+It derives the dominance relationship matrix $\mathbf{D}$ from $\mathbf{A}$: for two individuals $k \neq j$ with dams $d$ and sires $s$ [@shaw_genetic_1998; @wolak_dominance_2014]:
 
 $$
 D_{kj} = \tfrac{1}{4}\left(
@@ -73,8 +69,8 @@ $$
 
 Caution:
 
-- this construction is an approximation that is only exact in the
-absence of inbreeding. Under inbreeding, it becomes unreliable [@ovaskainen_bayesian_2008].
+- this construction is an approximation that is only exact in the absence of inbreeding.
+Under inbreeding, it becomes unreliable [@ovaskainen_bayesian_2008].
 
 - whenever a single parent is missing, the individual is treated as a founder.
 
@@ -94,16 +90,13 @@ plt.show()
 
 ## Genomic relationship
 
-The genomic relationship matrix `A_genomic` transposes the **A.mat** function of the R package
-[rrBLUP](https://cran.r-project.org/package=rrBLUP). It builds a genomic
-relationship matrix from a [numpy](https://numpy.org/) marker matrix `X` of a
-diploid species, coded $-1, 0, 1$; with individuals in rows, markers in columns.
+The genomic relationship matrix `A_genomic` transposes the **A.mat** function of the R package [rrBLUP](https://cran.r-project.org/package=rrBLUP).
+It builds a genomic relationship matrix from a [numpy](https://numpy.org/) marker matrix `X` of a diploid species, coded $-1, 0, 1$; with individuals in rows, markers in columns.
 
-Relatedness is computed using VanRaden [-@vanraden_efficient_2008] approach. Setting `shrink=True` applies
-the Endelman–Jannink [-@endelman_shrinkage_2012] shrinkage for conditionning the matrix.
+Relatedness is computed using VanRaden [-@vanraden_efficient_2008] approach.
+Setting `shrink=True` applies the Endelman–Jannink [-@endelman_shrinkage_2012] shrinkage for conditionning the matrix.
 
-As an illustration, let's realize the naive simulation of an SNP genotype matrix
-from the pedigree relatedness.
+As an illustration, let's realize the naive simulation of an SNP genotype matrix from the pedigree relatedness.
 
 ::: {.scroll-cell}
 ```python

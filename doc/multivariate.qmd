@@ -2,14 +2,11 @@
 title: "Multivariate"
 ---
 
-[pyreml]{.pyreml} takes one or several columns as `response` and performs
-multivariate analysis by modeling the covariance between them
-[*e.g.* @calus_accuracy_2011; @jia_multiple-trait_2012]
+[pyreml]{.pyreml} takes one or several columns as `response` and performs multivariate analysis by modeling the covariance between them [*e.g.* @calus_accuracy_2011; @jia_multiple-trait_2012]
 
 ## Formulation
 
-For two responses $1$ and $2$ and two random effects $\mathbf{a}$ and $\mathbf{b}$, the model
-stacks response-wise:
+For two responses $1$ and $2$ and two random effects $\mathbf{a}$ and $\mathbf{b}$, the model stacks response-wise:
 
 $$
 \begin{bmatrix} \mathbf{y_1} \\ \mathbf{y_2} \end{bmatrix}
@@ -28,8 +25,7 @@ $$
 \begin{bmatrix}\mathbf{r_1}\\\mathbf{r_2}\end{bmatrix}.
 $$
 
-The random effects are jointly distributed across responses, for effect
-$\mathbf{a}$:
+The random effects are jointly distributed across responses, for effect $\mathbf{a}$:
 
 $$
 \begin{bmatrix} \mathbf{u_{a1}} \\ \mathbf{u_{a2}} \end{bmatrix}
@@ -37,14 +33,10 @@ $$
 \mathcal{N}\!\left(\mathbf{0}, \mathbf{\Sigma_a} \otimes \mathbf{K_a}\right),
 $$
 
-the between-response covariance being carried by the left-hand factor
-$\mathbf{\Sigma_a}$.
+the between-response covariance being carried by the left-hand factor $\mathbf{\Sigma_a}$.
 
-The full stacked random vector keeps the direct-sum form 
-$\mathbf{u} \sim \mathcal{N}(\mathbf{0}, \bigoplus_\mathbf{a} \mathbf{\Sigma_a} \otimes
-\mathbf{K_a})$, and the residual stacks likewise (see [training](training.qmd#reml)).
-This extends to any number of responses, random effects and
-random-regression components.
+The full stacked random vector keeps the direct-sum form $\mathbf{u} \sim \mathcal{N}(\mathbf{0}, \bigoplus_\mathbf{a} \mathbf{\Sigma_a} \otimes \mathbf{K_a})$, and the residual stacks likewise (see [training](training.qmd#reml)).
+This extends to any number of responses, random effects and random-regression components.
 
 The fixed effects $\boldsymbol{\beta}$ are always taken as response-specific.
 
@@ -54,8 +46,7 @@ Two common situations call for different residual left-hand factors.
 
 ### Multiple traits, same environment
 
-A residual correlation between traits is identifiable and
-advisable (`left_hand="full"`):
+A residual correlation between traits is identifiable and advisable (`left_hand="full"`):
 
 $$
 \mathbf{R} =
@@ -82,7 +73,8 @@ model = MixedModel.from_dataframe(
 
 ### Multiple environments, same trait
 
-When assessing the same genotype in different environments (multi-environment trial), the residual correlation cannot be estimated, as no experimental unit is ever observed in several environments. Therefore, the residual left-hand factor should stay diagonal (`left_hand="diag"`):
+When assessing the same genotype in different environments (multi-environment trial), the residual correlation cannot be estimated, as no experimental unit is ever observed in several environments.
+Therefore, the residual left-hand factor should stay diagonal (`left_hand="diag"`):
 
 $$
 \mathbf{R} =
@@ -109,9 +101,8 @@ model = MixedModel.from_dataframe(
 
 ## Factor-analytic
 
-When the number of responses grows, estimating a `full` $\mathbf{\Sigma_a}$
-becomes expensive. The [factor-analytic](variance_structures.qmd#factor-analytic) structure approximates
-it with a few axes, set by `n_axes`:
+When the number of responses grows, estimating a `full` $\mathbf{\Sigma_a}$ becomes expensive.
+The [factor-analytic](variance_structures.qmd#factor-analytic) structure approximates it with a few axes, set by `n_axes`:
 
 ```python
 random = Random(
@@ -123,9 +114,7 @@ random = Random(
 )
 ```
 
-The same practical considerations apply as for the `full` multivariate
-covariance structure: the residual structure should be kept consistent with
-the random effects, depending on the experimental design.
+The same practical considerations apply as for the `full` multivariate covariance structure: the residual structure should be kept consistent with the random effects, depending on the experimental design.
 
 ## Illustration
 
@@ -224,17 +213,11 @@ model = MixedModel.from_dataframe(
 ```
 :::
 
-A [jitter](variance_structures.qmd#jitter)
-is required as the specificities of the random effect
-$\operatorname{diag}(\mathbf{\Psi_a})$ are close to zero in this example.
-Also, it is a good practice to scale the different responses by their phenotypic
-mean and variance so that their difference in magnitude is not driving the FA
-decomposition.
+A [jitter](variance_structures.qmd#jitter) is required as the specificities of the random effect $\operatorname{diag}(\mathbf{\Psi_a})$ are close to zero in this example.
+Also, it is a good practice to scale the different responses by their phenotypic mean and variance so that their difference in magnitude is not driving the FA decomposition.
 
-The factor-analytic can be read as a principal component analysis. Let us
-scale the genetic covariance to genetic correlation, interpret $\mathbf{\Lambda_a}$ as a raw
-amount of $\mathbf{\Sigma_a}$ explained by each axis, and study the structure of
-the genetic component of the traits in their correlative space.
+The factor-analytic can be read as a principal component analysis.
+Let us scale the genetic covariance to genetic correlation, interpret $\mathbf{\Lambda_a}$ as a raw amount of $\mathbf{\Sigma_a}$ explained by each axis, and study the structure of the genetic component of the traits in their correlative space.
 
 ::: {.scroll-cell}
 ```python
@@ -280,7 +263,6 @@ plt.show()
 ```
 :::
 
-This yields a correlation circle allowing direct interpretation of the factorial axes,
-and a dendrogram clustering the responses with regards to the random effect.
+This yields a correlation circle allowing direct interpretation of the factorial axes, and a dendrogram clustering the responses with regards to the random effect.
 
 ![](img/fa.png){fig-align="center"}

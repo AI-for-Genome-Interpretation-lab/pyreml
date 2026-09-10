@@ -2,13 +2,10 @@
 title: "Choosing between fixed and random effects"
 ---
 
-Deciding whether a given effect should enter the model as fixed or random is rarely
-obvious: in most cases, the same explanatory variable can legitimately be treated either way.
-The goal of this section is not to give a mechanical rule but to lay out the arguments
-that should inform that decision when specifying a model with [pyreml]{.pyreml}.
+Deciding whether a given effect should enter the model as fixed or random is rarely obvious: in most cases, the same explanatory variable can legitimately be treated either way.
+The goal of this section is not to give a mechanical rule but to lay out the arguments that should inform that decision when specifying a model with [pyreml]{.pyreml}.
 
-The core idea behind a random effect is that its levels are regarded as a sample drawn
-from a population, summarised by a distribution:
+The core idea behind a random effect is that its levels are regarded as a sample drawn from a population, summarised by a distribution:
 
 $$
 \mathbf{a} \sim \mathcal{N}(\mathbf{0}, \mathbf{G_a}),
@@ -16,23 +13,16 @@ $$
 
 which is often made acceptable by the central limit theorem.
 
-A fixed effect, by contrast, carries no such
-distributional assumption: its levels are treated as purely deterministic quantities to
-be estimated on their own, with no population behind them.
+A fixed effect, by contrast, carries no such distributional assumption: its levels are treated as purely deterministic quantities to be estimated on their own, with no population behind them.
 
 ## The BLUP intuition
 
-When hesitating between treating an effect as BLUE or BLUP, it helps to understand the
-mathematics that separates Best Linear Unbiased Estimation (BLUE) from Best Linear
-Unbiased Prediction (BLUP).
+When hesitating between treating an effect as BLUE or BLUP, it helps to understand the mathematics that separates Best Linear Unbiased Estimation (BLUE) from Best Linear Unbiased Prediction (BLUP).
 
-- BLUEs are fitted so as to capture as much of the variance in the training data as
-  possible.
+- BLUEs are fitted so as to capture as much of the variance in the training data as possible.
 
 - BLUPs are shrunk towards $0$ in proportion to their uncertainty.
-This shrinkage aims at enhancing their generalizability,
-namely maximizing the correlation
-between the predicted and the true value underlying the observed phenomenon.
+This shrinkage aims at enhancing their generalizability, namely maximizing the correlation between the predicted and the true value underlying the observed phenomenon.
 
 This shrinkage can be expressed analytically [@garrick_deregressing_2009]:
 
@@ -44,8 +34,7 @@ $$
 
 with:
 
-- $\mathbf{\tilde{a}}$ the deregressed BLUPs, which can be understood as the value $\mathbf{\hat{a}}$ would have
-taken if they were BLUEs,
+- $\mathbf{\tilde{a}}$ the deregressed BLUPs, which can be understood as the value $\mathbf{\hat{a}}$ would have taken if they were BLUEs,
 - $\mathbf{\hat{a}}$ the BLUPs of the random effect $\mathbf{a}$,
 - $\mathbf{\Delta_a}$ the coefficient of determination matrix of $\mathbf{\hat{a}}$,
 - $\mathbf{P_a}$ the prediction error variance matrix of $\mathbf{\hat{a}}$.
@@ -53,16 +42,13 @@ taken if they were BLUEs,
 The diagonal of $\mathbf{\Delta_a}$ can immediately
 be understood as $R^2$, ranging from $0$ to $1$:
 
-- close to $0$, it indicates that no information is available for this specific level
-of the random effect. In this case, the corresponding BLUP is extremely shrunk:
-$\mathbf{\hat{a}}_i \approx 0$.
+- close to $0$, it indicates that no information is available for this specific level of the random effect.
+In this case, the corresponding BLUP is extremely shrunk: $\mathbf{\hat{a}}_i \approx 0$.
 
-- close to $1$, the level of the random effect is well known. In this case, defining
-the effect as BLUE or BLUP would lead to the same outcome: 
-$\mathbf{\hat{a}}_i \approx \mathbf{\tilde{a}}_i$.
+- close to $1$, the level of the random effect is well known.
+In this case, defining the effect as BLUE or BLUP would lead to the same outcome: $\mathbf{\hat{a}}_i \approx \mathbf{\tilde{a}}_i$.
 
-The example below makes the concept tangible, isolating
-the exact mathematical difference between BLUEs and BLUPs.
+The example below makes the concept tangible, isolating the exact mathematical difference between BLUEs and BLUPs.
 
 ::: {.scroll-cell}
 ```python
@@ -146,89 +132,53 @@ plt.tight_layout(); plt.show()
 ![](img/shrinkage.png){fig-align="center"}
 
 - The left panel shows the raw BLUPs against the matching BLUEs:
+    - the amplitude of BLUPs is always lower than the amplitude of BLUEs, preventing them from capturing as much variance in the training set.
+    - the distance from the BLUPs to the BLUEs is idiosyncratic, and dependent on the individual level of reliability around each BLUP.
 
-    - the amplitude of BLUPs is always lower than the amplitude of BLUEs, 
-preventing them from capturing as much variance in the training set.
-
-    - the distance from the BLUPs to the BLUEs is idiosyncratic, and dependent
-on the individual level of reliability around each BLUP.
-
-- The right panel shows the deregressed BLUPs against the same BLUEs: once the
-shrinkage is removed, the points fall back onto an exact identity line. 
+- The right panel shows the deregressed BLUPs against the same BLUEs: once the shrinkage is removed, the points fall back onto an exact identity line.
 The whole difference between a BLUP and a BLUE is this reliability-driven shrinkage.
 
-In this example, the correlation between BLUEs and the true simulated
-values is `0.687` and the correlation between BLUPs and the true
-simulated values is `0.743`. Shrinkage can be seen as the
-regularization commonly used in machine learning, that consists
-in trading fit to the training set for generalizability; this is
-illustrated by the higher accuracy of the BLUPs in this
-example.
+In this example, the correlation between BLUEs and the true simulated values is `0.687` and the correlation between BLUPs and the true simulated values is `0.743`.
+Shrinkage can be seen as the regularization commonly used in machine learning, that consists in trading fit to the training set for generalizability; this is illustrated by the higher accuracy of the BLUPs in this example.
 
 ## Arguments in favor of a fixed effect
 
 ### Can the effect be seen as drawn from a population of effects?
 
-This is the first question to ask, because if the levels at
-hand are not exchangeable members of some
-larger population, the distributional assumption $\mathbf{a} \sim \mathcal{N}(\mathbf{0},
-\mathbf{G_a})$ is simply not meaningful. When there is no population to speak of,
-there is not really a choice: the effect has to be fixed.
+This is the first question to ask, because if the levels at hand are not exchangeable members of some larger population, the distributional assumption $\mathbf{a} \sim \mathcal{N}(\mathbf{0}, \mathbf{G_a})$ is simply not meaningful.
+When there is no population to speak of, there is not really a choice: the effect has to be fixed.
 
 ### Are there enough levels to estimate a variance?
 
-A variance is a population quantity, and estimating one from a
-handful of levels is hopeless. Two or three individuals of the
-same species is far from optimal when it comes to characterize
-the distribution they would be drawn from, whereas a hundred are.
-With scarce samples, the variance estimate is so unstable that a
-fixed treatment, estimating each level directly,
-is safer than trying to learn a distribution.
+A variance is a population quantity, and estimating one from a handful of levels is hopeless.
+Two or three individuals of the same species is far from optimal when it comes to characterize the distribution they would be drawn from, whereas a hundred are.
+With scarce samples, the variance estimate is so unstable that a fixed treatment, estimating each level directly, is safer than trying to learn a distribution.
 
 ### Do we want to absorb confounding coming from the design?
 
-Effects that exist only to control for the structure
-of the experiment, such as a block, a batch, or any other
-nuisance factor, are best removed as completely as possible. Treating them as
-fixed soaks up their contribution entirely, maximizing their partial $R^2$
-rather than shrinking it, which protects the
-effects of focal interest from design-induced confounding ones.
+Effects that exist only to control for the structure of the experiment, such as a block, a batch, or any other nuisance factor, are best removed as completely as possible.
+Treating them as fixed soaks up their contribution entirely, maximizing their partial $R^2$ rather than shrinking it, which protects the effects of focal interest from design-induced confounding ones.
 
-When the set-up is unbalanced, some of the variance of
-the focal effects can be confounded and erased by treating
-design effects as fixed. Using the design effects as fixed
-can be seen as conservative.
+When the set-up is unbalanced, some of the variance of the focal effects can be confounded and erased by treating design effects as fixed.
+Using the design effects as fixed can be seen as conservative.
 
 ## Arguments in favor of a random effect
 
 ### Are the degrees of freedom available to estimate one effect per level ?
 
-When the number of levels is large relative
-to the data, as with an effect specified at the individual
-level, estimating every level as a free fixed parameter exhausts the degrees of freedom
-and yields noisy, overfit estimates. A random effect regularises the problem: by tying
-the levels to a common distribution it spends a single variance parameter instead of one
-estimate per level, and the shrinkage keeps the estimates stable.
+When the number of levels is large relative to the data, as with an effect specified at the individual level, estimating every level as a free fixed parameter exhausts the degrees of freedom and yields noisy, overfit estimates.
+A random effect regularises the problem: by tying the levels to a common distribution it spends a single variance parameter instead of one estimate per level, and the shrinkage keeps the estimates stable.
 
-This is often more a pragmatic argument than a conceptual one, constraining the
-choice toward picking *e.g.* design effects as random for the sake of parsimony, 
-even though they would be theoretically optimally selected as
-fixed so as to absorb as much undesirable, confounded variance as possible.
+This is often more a pragmatic argument than a conceptual one, constraining the choice toward picking *e.g.* design effects as random for the sake of parsimony, even though they would be theoretically optimally selected as fixed so as to absorb as much undesirable, confounded variance as possible.
 
 ### Is there a known variance structure ?
 
-If the effect comes with a known covariance
-structure, then it is by construction an effect
-with a variance, and it is naturally random.
+If the effect comes with a known covariance structure, then it is by construction an effect with a variance, and it is naturally random.
 A deterministic fixed effect has no variance of its own.
 
-The Estimation Error Variance (EEV)
-attached to a BLUE is an artefact of the
-sampling process, not a variance expressed by the effect itself.
+The Estimation Error Variance (EEV) attached to a BLUE is an artefact of the sampling process, not a variance expressed by the effect itself.
 
 ### Do we aim generalization outside the training dataset ?
 
-As introduced above, the BLUPs are mathematically built so as
-to maximize the generalizability of
-a prediction. As opposed to a common misconception, the focal interest for 
-an effect and its generalizability argues in favor of considering it as random.
+As introduced above, the BLUPs are mathematically built so as to maximize the generalizability of a prediction.
+As opposed to a common misconception, the focal interest for an effect and its generalizability argues in favor of considering it as random.
