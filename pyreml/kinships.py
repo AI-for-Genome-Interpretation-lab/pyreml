@@ -47,6 +47,10 @@ def A_genomic(
     '''
 
     n = X.shape[0]
+    if np.nanmin(X) >= 0 and np.nanmax(X) > 1:
+        raise ValueError(
+            "X must be encoded -1, 0, 1 with np.nan for missing calls."
+        )
 
     frac_missing = np.isnan(X).mean(axis=0)
     freq = np.nanmean(X + 1, axis=0) / 2
