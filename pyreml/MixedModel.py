@@ -422,6 +422,12 @@ class MixedModel:
         verbose = True,
     ):
 
+        if not self.do_REML and getattr(self, "residual", None) is None:
+            raise ValueError(
+                "do_REML=False requires a residual component (from_dataframe); "
+                "the low-level constructor only supports REML."
+            )
+
         t0 = time.time()
         info = {
             "device": self.device,
@@ -687,8 +693,8 @@ class MixedModel:
                         "was built."
                     )
                 return self.variance.capacitance(
-                    self._X, self._Z, r, self.residual, self.varmeth_inv,
-                    self.structured_forward,
+                    self._X, self._Z, r, getattr(self, "residual", None),
+                    self.varmeth_inv, self.structured_forward,
                 )
             else:
                 return self.variance.direct_solve(
@@ -898,21 +904,11 @@ class MixedModel:
 
     def compute_AIC(self, REML = True):
         """
-        -2logL_REML at convergence + parameter counts -> AIC.
-        not designed for the low level constructor (the number
-        of independent parameters cannot be automatically computed)
+        -2logL at convergence, then parameter counts -> AIC.
+        The likelihood is always available; the parameter count is not on the
+        low-level constructor (independent parameters cannot be inferred from
+        `params`), so AIC is only computed on a high-level build.
         """
-
-        if getattr(self, "residual", None) is None:
-            return
-        
-        self.df_beta = len(self.beta)
-        randoms = getattr(self, "random", [])
-        residual = getattr(self, "residual", None)
-        self.df_var = sum(c.n_params for c in randoms)
-        self.df_var += residual.n_params
-        self.n_params = self.df_beta + self.df_var
-        
         with torch.no_grad():
             if REML:
                 self.neg2loglik = float(self.REML_loss().detach())
@@ -921,4 +917,12 @@ class MixedModel:
                 self.neg2loglik = float(self.ML_loss().detach())
                 self.AIC_meth = "ML"
 
+        residual = getattr(self, "residual", None)
+        if residual is None:
+            return
+
+        randoms = getattr(self, "random", [])
+        self.df_beta = len(self.beta)
+        self.df_var = sum(c.n_params for c in randoms) + residual.n_params
+        self.n_params = self.df_beta + self.df_var
         self.AIC = self.neg2loglik + 2 * self.n_params

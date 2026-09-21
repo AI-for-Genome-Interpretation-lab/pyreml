@@ -64,6 +64,11 @@ def _np(t):
     return t.detach().cpu().numpy()
 
 
+def _exp(t):
+    """Natural-scale value of a log-parametrized leaf, detached from the graph."""
+    return float(torch.exp(t.detach()))
+
+
 def _assert_routing(fit):
     model, path = fit["model"], fit["path"]
     assert model.SMW is (path == "woodbury")
@@ -178,7 +183,7 @@ class TestLowLevelPedigree:
 
     @pytest.mark.parametrize("i, key", [(0, "var_a"), (1, "var_d"), (2, "var_r")])
     def test_variances(self, ped_fit, i, key):
-        actual = float(torch.exp(ped_fit["var"][i]))
+        actual = _exp(ped_fit["var"][i])
         np.testing.assert_allclose(actual, EXPECTED_PED[key], rtol=1e-4, atol=1e-5)
 
     @pytest.mark.parametrize("block, key", [(0, "blup_a"), (1, "blup_d")])
@@ -263,15 +268,15 @@ class TestLowLevelSpatial:
         assert spat_fit["model"].opti_REML.converged is True
 
     def test_rho(self, spat_fit):
-        actual = float(torch.exp(spat_fit["log_rho"]))
+        actual = _exp(spat_fit["log_rho"])
         np.testing.assert_allclose(actual, EXPECTED_SPAT["rho"][0], atol=1e-3)
 
     def test_Vu(self, spat_fit):
-        actual = float(torch.exp(spat_fit["log_su"]))
+        actual = _exp(spat_fit["log_su"])
         np.testing.assert_allclose(actual, EXPECTED_SPAT["Vu"], rtol=1e-3)
 
     def test_Ve(self, spat_fit):
-        actual = float(torch.exp(spat_fit["log_se"]))
+        actual = _exp(spat_fit["log_se"])
         np.testing.assert_allclose(actual, EXPECTED_SPAT["Ve"], rtol=1e-3)
 
     def test_intercept(self, spat_fit):
@@ -365,7 +370,7 @@ class TestLowLevelRegression:
         np.testing.assert_allclose(actual, EXPECTED_REG["varcorr"], atol=1e-4)
 
     def test_sigma_r(self, reg_fit):
-        actual = float(torch.exp(reg_fit["log_se"]))
+        actual = _exp(reg_fit["log_se"])
         np.testing.assert_allclose(actual, EXPECTED_REG["sigma_r"], atol=1e-4)
 
     def test_blup(self, reg_fit):
