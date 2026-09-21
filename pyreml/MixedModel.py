@@ -188,14 +188,14 @@ class MixedModel:
             y=y,
             X=X,
             Z=Z,
-            w_grid=w_grid,
+            params=[p["tensor"] for p in varparams],
             varmeth = varmeth,
             varmeth_inv = varmeth_inv,
-            varparams=varparams,
             q=q_random,
             do_REML=do_REML,
             device = device,
         )
+        mm.w_grid = w_grid
         mm.response = response
         mm.fixed_names = fixed_names
         mm.residual = residual
@@ -203,10 +203,6 @@ class MixedModel:
         mm.variance = variance
 
         variance.embed_residual(mm._Z, mm._X, mm.w_grid, residual)
-
-        # q and uhat are handed to the low-level constructor: on the factored
-        # path the width lives in Variance, which this constructor cannot know
-        # on its own, so from_dataframe carries it in.
 
         # SMW resolution, in three layers of increasing authority.
         #
@@ -252,13 +248,9 @@ class MixedModel:
         self,
         y: torch.Tensor,
         X: torch.Tensor,
+        params: list[torch.Tensor],
         Z: None | torch.Tensor = None,
-        W: None | torch.Tensor = None,
-        w_grid: None | torch.Tensor = None,
-        F: None | torch.Tensor = None,
-        s: None | torch.Tensor = None,
         q: None | int = None,
-        varparams: None | list[dict] = None,
         varmeth: Callable | None = None,
         varmeth_inv: Callable | None = None,
         do_REML: bool = True,
@@ -266,53 +258,15 @@ class MixedModel:
     ):
         self.device = device
 
-        if varparams is None:
-            raise ValueError("varparams must be provided")
+        if not all(p.is_leaf and p.requires_grad for p in params):
+            raise ValueError("params must be a list of torch tensors with requires_grad=True")
 
         self.y = y
         self.X = X
-
-        # random-effect design: either the dense n×q matrix Z, or the factored
-        # couple (F, s) of the structured forward, where F stores the values
-        # each observation carries (n, c) and s the level it loads them on
-        # (n,) as 0-based indices in [0, L). Z is built column-wise, element-
-        # outer / level-inner, exactly as Random.make_Z lays it out:
-        # Z[i, j·L + s[i]] = F[i, j]. G then runs over q = c·L such columns.
-        if Z is not None and (F is not None or s is not None):
-            raise ValueError("provide Z, or the factored couple (F, s), not both")
-        if (F is None) != (s is None):
-            raise ValueError("F and s must be provided together")
-        if F is not None:
-            F = F if isinstance(F, torch.Tensor) else torch.as_tensor(F, device=device)
-            s = s if isinstance(s, torch.Tensor) else torch.as_tensor(s, device=device)
-            F = F.to(dtype=torch.double, device=device)
-            s = s.to(device=device).reshape(-1).to(dtype=torch.long)
-            c, L = F.shape[1], int(s.max()) + 1
-            rows = torch.arange(len(y), device=device).unsqueeze(1).expand(len(y), c).reshape(-1)
-            cols = (torch.arange(c, device=device).unsqueeze(0) * L + s.unsqueeze(1)).reshape(-1)
-            Z = torch.zeros(len(y), c * L, dtype=torch.double, device=device)
-            Z[rows, cols] = F.reshape(-1)
         self.Z = Z
-        self.F = F
-        self.s = s
-
-        # residual row selector: the vector of (response, level) cells R_tot is
-        # read at. The low-level caller hands either the cell vector `w_grid`
-        # (kept as-is) or the dense selector `W`, derived through argmax and
-        # dropped so the n×n matrix is never retained. `w_grid` wins when both
-        # are given; an absent selector means "no residual masking": R = R_tot.
-        if w_grid is None:
-            if W is not None:
-                W = W if isinstance(W, torch.Tensor) else torch.as_tensor(W, device=device)
-                W = W.to(device=device)
-                w_grid = torch.argmax(W, dim=1)
-            else:
-                w_grid = torch.arange(len(y), dtype=torch.long, device=device)
-        elif not isinstance(w_grid, torch.Tensor):
-            w_grid = torch.as_tensor(w_grid, device=device)
-        self.w_grid = w_grid.to(dtype=torch.long, device=device)
-
+        self.params = params
         self.n, self.p = X.shape
+
         # the width of the random incidence. from_dataframe hands it in even
         # when the incidence is factored and Z stays None, rather than letting
         # this constructor repair self.q from the outside after the fact.
@@ -331,24 +285,15 @@ class MixedModel:
 
         self.beta = nn.Parameter(torch.zeros(self.X.shape[1], 1, dtype=torch.double, device = device))
 
-        self.varparams   = varparams
         self.do_REML     = do_REML
         self.varmeth     = types.MethodType(varmeth, self) if varmeth is not None else None
         self.varmeth_inv = types.MethodType(varmeth_inv, self) if varmeth_inv is not None else None
-
-        # empty decomposition: the low-level constructor has no per-effect
-        # structure to exploit, so both optimizations fall back on their own.
-        # from_dataframe replaces this with the real one.
-        self.variance = Variance()
-
-        # no per-effect decomposition here, so neither optimization applies.
-        # from_dataframe replaces all three once its structures are built.
-        self.variance = Variance()
+        self.variance    = Variance()
         self.structured_forward = False
-        self.analytic_backward = False
+        self.analytic_backward  = False
 
         self.opti_REML = OptiMix(
-            params = [self.beta, *(p["tensor"] for p in self.varparams)],
+            params = [self.beta, *self.params],
             compute_loss = self.REML_loss,
         )
         if self.q > 0:
