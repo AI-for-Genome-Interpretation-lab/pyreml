@@ -118,16 +118,31 @@ This approximation asymptotically improves with the sample size.
 
 ## Low-level constructor
 
-[pyreml]{.pyreml} provides a low-level constructor for application cases that are not implemented.
-The low-level constructor builds directly from the response vector `y`, the design matrix `X`, the random-effect design and the residual row selector.
-The random-effect design is either the dense matrix `Z` (n×q), or the factored couple `(F, s)` of the [structured forward](#structured-forward): `F` stores the values each observation carries (n, c), `s` the level it loads them on (n,), and pyreml builds `Z` at construction, column-wise, as `Z[i, j·L + s[i]] = F[i, j]` (pass `F=F, s=s` instead of `Z=Z`).
-The residual row selector likewise has two spellings: the cell vector `w_grid` (each observation mapped onto its cell of $\mathbf{\Sigma_R} \otimes \mathbf{K_R}$, the memory-free form) or the dense selector `W` (used transiently to derive `w_grid`, then dropped).
-`w_grid` wins when both are given; with neither `W` nor `w_grid`, the residual covariance is used un-masked.
-It must also be provided a list of PyTorch variance parameters `varparams` and at least one differentiable variance method: `varmeth`, `varmeth_inv`, or both.
+[pyreml]{.pyreml} provides a low-level constructor for models not covered by `from_dataframe`.
+It builds directly from the response `y`, the fixed-effect design matrix `X` and, optionally, the random-effect design matrix `Z`.
 
-Like `from_dataframe`, it accepts `device`.
-The computation dtype is `torch.double` by default.
-Every tensor inside `varmeth` / `varmeth_inv` must match the model's dtype and device.
+### Inputs
+
+- `y`: response, of shape `(n,)` or `(n, 1)`.
+- `X`: fixed-effect design, of shape `(n, p)`.
+- `Z`: random-effect design, of shape `(n, q)`, or `None` for a model without random effects.
+- `params`: list of the variance parameters to be optimized by REML. They must be leaf tensors with `requires_grad=True`. The fixed-effect coefficients β are created internally from the columns of `X`, so `params` holds the variance parameters only.
+- `varmeth` and/or `varmeth_inv`: the differentiable variance methods (see below). At least one of them must be provided.
+- `device`: as in `from_dataframe`.
+
+`y`, `X` and `Z` are not converted: they must already be `torch.double` tensors on `device`.
+Likewise, every tensor used inside `varmeth` / `varmeth_inv` must match the model's dtype and device.
+
+### Variance methods
+
+Both methods are bound to the model, so they receive it as `self` and can read `self.n`, `self.p`, `self.q`, `self.dtype` and `self.device`.
+
+- `varmeth(self)` returns `(G, R)`, with `G` of shape `(q, q)` (or `None` without random effects) and `R` of shape `(n, n)`. The model then solves on $\mathbf{V} = \mathbf{Z}\mathbf{G}\mathbf{Z}' + \mathbf{R}$.
+- `varmeth_inv(self)` returns `(Ginv, Rinv, logdet_G, logdet_R)` and enables the [SMW](training.qmd#smw) path, which never forms $\mathbf{V}$.
+
+When both methods are given, SMW is used if `q < n`.
+
+### Example
 
 ```python
 import torch
@@ -138,57 +153,29 @@ device = "cuda"
 log_su = torch.zeros((), dtype=torch.double, device=device, requires_grad=True)
 log_se = torch.zeros((), dtype=torch.double, device=device, requires_grad=True)
 
-varparams = [{"tensor": log_su}, {"tensor": log_se}]
-
 def varmeth(self):
-    G = torch.exp(log_su) * torch.eye(self.Z.shape[1], dtype=self.dtype, device=self.device)
+    G = torch.exp(log_su) * torch.eye(self.q, dtype=self.dtype, device=self.device)
     R = torch.exp(log_se) * torch.eye(self.n, dtype=self.dtype, device=self.device)
     return G, R
 
 model = MixedModel(
-    y, X, Z, W=None,
+    y=y,
+    X=X,
+    Z=Z,
+    params=[log_su, log_se],
     varmeth=varmeth,
-    varparams=varparams,
     device=device,
 )
 model.fit()
 ```
 
-### The `varmeth` contract
+### Outputs
 
-`varmeth(self) -> (G, R)` is bound as a method on the model, so it can read `self.Z`, `self.w_grid`, `self.n`, `self.dtype`, `self.device`, … and returns the pair $(\mathbf{G}, \mathbf{R})$ that forms $\mathbf{V} = \mathbf{Z}\mathbf{G} \mathbf{Z}^\top + \mathbf{R}$.
-It must be differentiable in the `varparams` tensors so autograd can propagate the REML gradient.
-`G` may be `None` when the model has no random effect.
+There are no `random` or `residual` components on a low-level model, so the per-effect tables of `from_dataframe` are not available.
+Results are read directly from the model:
 
-### The `varmeth_inv` contract
-
-`varmeth_inv(self) -> (Ginv, Rinv, logdet_G, logdet_R)` is the inverse-side alternative.
-Rather than forming $\mathbf{V}$ and factoring it, it supplies the structured inverses $\mathbf{G}^{-1}$ and $\mathbf{R}^{-1}$ together with the log-determinants $\log|\mathbf{G}|$ and $\log|\mathbf{R}|$, from which the likelihood is evaluated without ever assembling $\mathbf{V}$ (see [SMW](training.qmd#smw)).
-Like `varmeth`, it is bound as a method and must be differentiable in the `varparams` tensors.
-`Ginv` and `logdet_G` may both be `None` when the model has no random effect.
-
-```python
-def varmeth_inv(self):
-    Ginv = torch.exp(-log_su) * torch.eye(self.Z.shape[1], dtype=self.dtype, device=self.device)
-    Rinv = torch.exp(-log_se) * torch.eye(self.n, dtype=self.dtype, device=self.device)
-    logdet_G = self.Z.shape[1] * log_su
-    logdet_R = self.n * log_se
-    return Ginv, Rinv, logdet_G, logdet_R
-
-model = MixedModel(
-    y, X, Z, W=None,
-    varmeth_inv=varmeth_inv,
-    varparams=varparams,
-    dtype=dtype,
-    device=device,
-)
-model.fit()
-```
-
-Either method alone is sufficient and fixes the solving path; supplying both lets the model choose (see [SMW](training.qmd#smw)).
-
-### The `varparams` format
-
-A list of dicts, one per trainable variance parameter, each carrying at least a `tensor` key — a leaf PyTorch tensor with `requires_grad`, created on the model's `dtype` and `device`.
-These must be the very tensors read inside `varmeth` (or `varmeth_inv`).
-The optimizer trains $\boldsymbol{\beta}$ jointly with them; $\boldsymbol{\beta}$ is initialized from $\mathbf{X}$ and is not part of `varparams`.
+- `model.beta`: fixed-effect estimates;
+- `model.uhat`: random-effect predictions;
+- `model.PEV`: prediction error variance of `uhat`;
+- `model.residuals`: residuals;
+- `model.params`: the variance parameters, as passed.
