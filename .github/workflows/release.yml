@@ -3,6 +3,7 @@ name: Release
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   check:
@@ -29,7 +30,7 @@ jobs:
 
   release:
     needs: check
-    if: needs.check.outputs.is_new == 'true'
+    if: needs.check.outputs.is_new == 'true' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
