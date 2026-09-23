@@ -227,9 +227,10 @@ window.Quarto = {
   </ul></li>
   <li><a href="#low-level-constructor" id="toc-low-level-constructor" class="nav-link" data-scroll-target="#low-level-constructor">Low-level constructor</a>
   <ul class="collapse">
-  <li><a href="#the-varmeth-contract" id="toc-the-varmeth-contract" class="nav-link" data-scroll-target="#the-varmeth-contract">The <code>varmeth</code> contract</a></li>
-  <li><a href="#the-varmeth_inv-contract" id="toc-the-varmeth_inv-contract" class="nav-link" data-scroll-target="#the-varmeth_inv-contract">The <code>varmeth_inv</code> contract</a></li>
-  <li><a href="#the-varparams-format" id="toc-the-varparams-format" class="nav-link" data-scroll-target="#the-varparams-format">The <code>varparams</code> format</a></li>
+  <li><a href="#inputs" id="toc-inputs" class="nav-link" data-scroll-target="#inputs">Inputs</a></li>
+  <li><a href="#variance-methods" id="toc-variance-methods" class="nav-link" data-scroll-target="#variance-methods">Variance methods</a></li>
+  <li><a href="#example" id="toc-example" class="nav-link" data-scroll-target="#example">Example</a></li>
+  <li><a href="#outputs" id="toc-outputs" class="nav-link" data-scroll-target="#outputs">Outputs</a></li>
   </ul></li>
   </ul>
 </nav>
@@ -410,8 +411,30 @@ window.Quarto = {
 </section>
 <section id="low-level-constructor" class="level2">
 <h2 class="anchored" data-anchor-id="low-level-constructor">Low-level constructor</h2>
-<p><span class="pyreml">pyreml</span> provides a low-level constructor for application cases that are not implemented. The low-level constructor builds directly from the response vector <code>y</code>, the design matrix <code>X</code>, the random-effect design and the residual row selector. The random-effect design is either the dense matrix <code>Z</code> (n×q), or the factored couple <code>(F, s)</code> of the <a href="#structured-forward">structured forward</a>: <code>F</code> stores the values each observation carries (n, c), <code>s</code> the level it loads them on (n,), and pyreml builds <code>Z</code> at construction, column-wise, as <code>Z[i, j·L + s[i]] = F[i, j]</code> (pass <code>F=F, s=s</code> instead of <code>Z=Z</code>). The residual row selector likewise has two spellings: the cell vector <code>w_grid</code> (each observation mapped onto its cell of <span class="math inline">\(\mathbf{\Sigma_R} \otimes \mathbf{K_R}\)</span>, the memory-free form) or the dense selector <code>W</code> (used transiently to derive <code>w_grid</code>, then dropped). <code>w_grid</code> wins when both are given; with neither <code>W</code> nor <code>w_grid</code>, the residual covariance is used un-masked. It must also be provided a list of PyTorch variance parameters <code>varparams</code> and at least one differentiable variance method: <code>varmeth</code>, <code>varmeth_inv</code>, or both.</p>
-<p>Like <code>from_dataframe</code>, it accepts <code>device</code>. The computation dtype is <code>torch.double</code> by default. Every tensor inside <code>varmeth</code> / <code>varmeth_inv</code> must match the model’s dtype and device.</p>
+<p><span class="pyreml">pyreml</span> provides a low-level constructor for models not covered by <code>from_dataframe</code>. It builds directly from the response <code>y</code>, the fixed-effect design matrix <code>X</code> and, optionally, the random-effect design matrix <code>Z</code>.</p>
+<section id="inputs" class="level3">
+<h3 class="anchored" data-anchor-id="inputs">Inputs</h3>
+<ul>
+<li><code>y</code>: response, of shape <code>(n,)</code> or <code>(n, 1)</code>.</li>
+<li><code>X</code>: fixed-effect design, of shape <code>(n, p)</code>.</li>
+<li><code>Z</code>: random-effect design, of shape <code>(n, q)</code>, or <code>None</code> for a model without random effects.</li>
+<li><code>params</code>: list of the variance parameters to be optimized by REML. They must be leaf tensors with <code>requires_grad=True</code>. The fixed-effect coefficients β are created internally from the columns of <code>X</code>, so <code>params</code> holds the variance parameters only.</li>
+<li><code>varmeth</code> and/or <code>varmeth_inv</code>: the differentiable variance methods (see below). At least one of them must be provided.</li>
+<li><code>device</code>: as in <code>from_dataframe</code>.</li>
+</ul>
+<p><code>y</code>, <code>X</code> and <code>Z</code> are not converted: they must already be <code>torch.double</code> tensors on <code>device</code>. Likewise, every tensor used inside <code>varmeth</code> / <code>varmeth_inv</code> must match the model’s dtype and device.</p>
+</section>
+<section id="variance-methods" class="level3">
+<h3 class="anchored" data-anchor-id="variance-methods">Variance methods</h3>
+<p>Both methods are bound to the model, so they receive it as <code>self</code> and can read <code>self.n</code>, <code>self.p</code>, <code>self.q</code>, <code>self.dtype</code> and <code>self.device</code>.</p>
+<ul>
+<li><code>varmeth(self)</code> returns <code>(G, R)</code>, with <code>G</code> of shape <code>(q, q)</code> (or <code>None</code> without random effects) and <code>R</code> of shape <code>(n, n)</code>. The model then solves on <span class="math inline">\(\mathbf{V} = \mathbf{Z}\mathbf{G}\mathbf{Z}' + \mathbf{R}\)</span>.</li>
+<li><code>varmeth_inv(self)</code> returns <code>(Ginv, Rinv, logdet_G, logdet_R)</code> and enables the <a href="./training.html#smw">SMW</a> path, which never forms <span class="math inline">\(\mathbf{V}\)</span>.</li>
+</ul>
+<p>When both methods are given, SMW is used if <code>q &lt; n</code>.</p>
+</section>
+<section id="example" class="level3">
+<h3 class="anchored" data-anchor-id="example">Example</h3>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> torch</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pyreml <span class="im">import</span> MixedModel</span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -420,47 +443,31 @@ window.Quarto = {
 <span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>log_su <span class="op">=</span> torch.zeros((), dtype<span class="op">=</span>torch.double, device<span class="op">=</span>device, requires_grad<span class="op">=</span><span class="va">True</span>)</span>
 <span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>log_se <span class="op">=</span> torch.zeros((), dtype<span class="op">=</span>torch.double, device<span class="op">=</span>device, requires_grad<span class="op">=</span><span class="va">True</span>)</span>
 <span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>varparams <span class="op">=</span> [{<span class="st">"tensor"</span>: log_su}, {<span class="st">"tensor"</span>: log_se}]</span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> varmeth(<span class="va">self</span>):</span>
-<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    G <span class="op">=</span> torch.exp(log_su) <span class="op">*</span> torch.eye(<span class="va">self</span>.Z.shape[<span class="dv">1</span>], dtype<span class="op">=</span><span class="va">self</span>.dtype, device<span class="op">=</span><span class="va">self</span>.device)</span>
-<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    R <span class="op">=</span> torch.exp(log_se) <span class="op">*</span> torch.eye(<span class="va">self</span>.n, dtype<span class="op">=</span><span class="va">self</span>.dtype, device<span class="op">=</span><span class="va">self</span>.device)</span>
-<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> G, R</span>
-<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>model <span class="op">=</span> MixedModel(</span>
-<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    y, X, Z, W<span class="op">=</span><span class="va">None</span>,</span>
-<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    varmeth<span class="op">=</span>varmeth,</span>
-<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    varparams<span class="op">=</span>varparams,</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> varmeth(<span class="va">self</span>):</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    G <span class="op">=</span> torch.exp(log_su) <span class="op">*</span> torch.eye(<span class="va">self</span>.q, dtype<span class="op">=</span><span class="va">self</span>.dtype, device<span class="op">=</span><span class="va">self</span>.device)</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    R <span class="op">=</span> torch.exp(log_se) <span class="op">*</span> torch.eye(<span class="va">self</span>.n, dtype<span class="op">=</span><span class="va">self</span>.dtype, device<span class="op">=</span><span class="va">self</span>.device)</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> G, R</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>model <span class="op">=</span> MixedModel(</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    y<span class="op">=</span>y,</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    X<span class="op">=</span>X,</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    Z<span class="op">=</span>Z,</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    params<span class="op">=</span>[log_su, log_se],</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    varmeth<span class="op">=</span>varmeth,</span>
 <span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    device<span class="op">=</span>device,</span>
 <span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>)</span>
 <span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>model.fit()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<section id="the-varmeth-contract" class="level3">
-<h3 class="anchored" data-anchor-id="the-varmeth-contract">The <code>varmeth</code> contract</h3>
-<p><code>varmeth(self) -&gt; (G, R)</code> is bound as a method on the model, so it can read <code>self.Z</code>, <code>self.w_grid</code>, <code>self.n</code>, <code>self.dtype</code>, <code>self.device</code>, … and returns the pair <span class="math inline">\((\mathbf{G}, \mathbf{R})\)</span> that forms <span class="math inline">\(\mathbf{V} = \mathbf{Z}\mathbf{G} \mathbf{Z}^\top + \mathbf{R}\)</span>. It must be differentiable in the <code>varparams</code> tensors so autograd can propagate the REML gradient. <code>G</code> may be <code>None</code> when the model has no random effect.</p>
 </section>
-<section id="the-varmeth_inv-contract" class="level3">
-<h3 class="anchored" data-anchor-id="the-varmeth_inv-contract">The <code>varmeth_inv</code> contract</h3>
-<p><code>varmeth_inv(self) -&gt; (Ginv, Rinv, logdet_G, logdet_R)</code> is the inverse-side alternative. Rather than forming <span class="math inline">\(\mathbf{V}\)</span> and factoring it, it supplies the structured inverses <span class="math inline">\(\mathbf{G}^{-1}\)</span> and <span class="math inline">\(\mathbf{R}^{-1}\)</span> together with the log-determinants <span class="math inline">\(\log|\mathbf{G}|\)</span> and <span class="math inline">\(\log|\mathbf{R}|\)</span>, from which the likelihood is evaluated without ever assembling <span class="math inline">\(\mathbf{V}\)</span> (see <a href="./training.html#smw">SMW</a>). Like <code>varmeth</code>, it is bound as a method and must be differentiable in the <code>varparams</code> tensors. <code>Ginv</code> and <code>logdet_G</code> may both be <code>None</code> when the model has no random effect.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> varmeth_inv(<span class="va">self</span>):</span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    Ginv <span class="op">=</span> torch.exp(<span class="op">-</span>log_su) <span class="op">*</span> torch.eye(<span class="va">self</span>.Z.shape[<span class="dv">1</span>], dtype<span class="op">=</span><span class="va">self</span>.dtype, device<span class="op">=</span><span class="va">self</span>.device)</span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    Rinv <span class="op">=</span> torch.exp(<span class="op">-</span>log_se) <span class="op">*</span> torch.eye(<span class="va">self</span>.n, dtype<span class="op">=</span><span class="va">self</span>.dtype, device<span class="op">=</span><span class="va">self</span>.device)</span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    logdet_G <span class="op">=</span> <span class="va">self</span>.Z.shape[<span class="dv">1</span>] <span class="op">*</span> log_su</span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    logdet_R <span class="op">=</span> <span class="va">self</span>.n <span class="op">*</span> log_se</span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> Ginv, Rinv, logdet_G, logdet_R</span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>model <span class="op">=</span> MixedModel(</span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    y, X, Z, W<span class="op">=</span><span class="va">None</span>,</span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    varmeth_inv<span class="op">=</span>varmeth_inv,</span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    varparams<span class="op">=</span>varparams,</span>
-<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    dtype<span class="op">=</span>dtype,</span>
-<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    device<span class="op">=</span>device,</span>
-<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>model.fit()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Either method alone is sufficient and fixes the solving path; supplying both lets the model choose (see <a href="./training.html#smw">SMW</a>).</p>
-</section>
-<section id="the-varparams-format" class="level3">
-<h3 class="anchored" data-anchor-id="the-varparams-format">The <code>varparams</code> format</h3>
-<p>A list of dicts, one per trainable variance parameter, each carrying at least a <code>tensor</code> key — a leaf PyTorch tensor with <code>requires_grad</code>, created on the model’s <code>dtype</code> and <code>device</code>. These must be the very tensors read inside <code>varmeth</code> (or <code>varmeth_inv</code>). The optimizer trains <span class="math inline">\(\boldsymbol{\beta}\)</span> jointly with them; <span class="math inline">\(\boldsymbol{\beta}\)</span> is initialized from <span class="math inline">\(\mathbf{X}\)</span> and is not part of <code>varparams</code>.</p>
+<section id="outputs" class="level3">
+<h3 class="anchored" data-anchor-id="outputs">Outputs</h3>
+<p>There are no <code>random</code> or <code>residual</code> components on a low-level model, so the per-effect tables of <code>from_dataframe</code> are not available. Results are read directly from the model:</p>
+<ul>
+<li><code>model.beta</code>: fixed-effect estimates;</li>
+<li><code>model.uhat</code>: random-effect predictions;</li>
+<li><code>model.PEV</code>: prediction error variance of <code>uhat</code>;</li>
+<li><code>model.residuals</code>: residuals;</li>
+<li><code>model.params</code>: the variance parameters, as passed.</li>
+</ul>
 
 
 </section>
