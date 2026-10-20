@@ -1,6 +1,8 @@
 ---
-title: "pyreml"
+pagetitle: "pyreml"
 ---
+
+<img src="img/logo/pyreml.png" alt="pyreml" width="250"/>
 
 [pyreml]{.pyreml} is a general-purpose linear mixed model solver. It fits linear
 mixed models for a wide range of applications: quantitative genetics,

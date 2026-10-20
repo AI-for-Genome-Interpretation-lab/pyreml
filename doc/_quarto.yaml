@@ -4,7 +4,11 @@ project:
 
 website:
   title: "pyreml"
+  favicon: img/logo/favicon.png
   navbar:
+    logo: img/logo/pyreml.png
+    logo-alt: "pyreml"
+    title: false
     background: primary
     search: true
     left:
