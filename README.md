@@ -1,4 +1,4 @@
-# pyreml
+# <img src="https://raw.githubusercontent.com/ai-for-genome-interpretation-lab/pyreml/main/doc/img/logo/pyreml.png" alt="pyreml" width="250"/>
 
 **pyreml** is a general-purpose linear mixed model solver. It fits linear mixed models for a wide range of applications: quantitative genetics, spatial statistics, health sciences, among others.
 
