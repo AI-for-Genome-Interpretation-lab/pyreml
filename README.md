@@ -110,7 +110,7 @@ The documentation is available at [this address](https://ai-for-genome-interpret
 
 Please cite this package as:
 
-Marchal, A., & Raimondi, D. (2026). pyreml - general-purpose linear mixed model solver [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.21394319
+Marchal, A., Trottier, C., Bry, X., Raimondi, D., 2026. pyreml: a general-purpose, GPU-accelerated mixed model solver in Python. bioRxiv preprint. https://doi.org/10.64898/2026.10.20.757556
 
 ## Code
 
