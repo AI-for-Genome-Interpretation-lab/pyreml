@@ -2,9 +2,9 @@ cff-version: 1.2.0
 message: "If you use this software, please cite it using these metadata."
 title: "pyreml - general-purpose linear mixed model solver"
 abstract: >
-  Linear mixed models (LMM) are a popular modeling and inference framework, widely used in bioinformatics and other scientific fields. To obtain an unbiased estimation of the variance components, an LMM has to be fitted using restricted maximum likelihood (REML), a computationally intensive step. Most REML software is closed source, and currently there is no Python library offering complete LMM functionalities, such as the specification of spatial and genomic variance structures, multivariate analyses, random regression and factors, and heteroscedastic residuals. Here we propose pyreml, an LMM solver that fills this gap, comes with a user-centered interface and speeds up calculations by running on GPU. We show that pyreml fits a genomic best linear unbiased prediction (GBLUP) model more than one order of magnitude (>12×) faster than the current state-of-the-art, closed source REML software. We also show that pyreml can estimate a latent factor-analytic variance structure, a challenging feature that no current open source REML solution implements. Finally, we illustrate the use of pyreml to analyze longitudinal data, and to perform spatial analysis. Anchored by 500+ functional tests assessing the equivalence of its outputs to those from reference software (lme4, rrBLUP and BLUPF90), we demonstrate pyreml to be a performant, reliable and open-source solution available for academic, research and industrial LMM users.
+  pyreml is a general-purpose linear mixed model solver. It fits linear mixed models for a wide range of applications: quantitative genetics, spatial statistics, health sciences, among others. Models are fitted by direct differentiation of the Restricted Maximum Likelihood (REML), using PyTorch for variance parameter estimation. It benefits from PyTorch parallelization and GPU acceleration.
 type: software
-date-released: "2026-10-20"
+doi: "10.5281/zenodo.21394319"
 authors:
   - family-names: "Marchal"
     given-names: "Alexandre"
@@ -31,7 +31,13 @@ keywords:
   - "GPU"
 preferred-citation:
   type: article
-  title: "pyreml - general-purpose linear mixed model solver"
+  title: "pyreml: a general-purpose, GPU-accelerated mixed model solver in Python"
+  keywords:
+    - "Prediction"
+    - "Linear mixed model"
+    - "GPU"
+    - "REML"
+    - "GBLUP"
   authors:
     - family-names: "Marchal"
       given-names: "Alexandre"
@@ -45,3 +51,5 @@ preferred-citation:
   year: 2026
   month: 10
   doi: "10.64898/2026.10.20.757556"
+  abstract: >
+    Linear mixed models (LMM) are a popular modeling and inference framework, widely used in bioinformatics and other scientific fields. To obtain an unbiased estimation of the variance components, an LMM has to be fitted using restricted maximum likelihood (REML), a computationally intensive step. Most REML software is closed source, and currently there is no Python library offering complete LMM functionalities, such as the specification of spatial and genomic variance structures, multivariate analyses, random regression and factors, and heteroscedastic residuals. Here we propose pyreml, an LMM solver that fills this gap, comes with a user-centered interface and speeds up calculations by running on GPU. We show that pyreml fits a genomic best linear unbiased prediction (GBLUP) model more than one order of magnitude (>12×) faster than the current state-of-the-art, closed source REML software. We also show that pyreml can estimate a latent factor-analytic variance structure, a challenging feature that no current open source REML solution implements. Finally, we illustrate the use of pyreml to analyze longitudinal data, and to perform spatial analysis. Anchored by 500+ functional tests assessing the equivalence of its outputs to those from reference software (lme4, rrBLUP and BLUPF90), we demonstrate pyreml to be a performant, reliable and open-source solution available for academic, research and industrial LMM users.
