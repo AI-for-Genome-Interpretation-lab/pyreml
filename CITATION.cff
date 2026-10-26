@@ -4,6 +4,7 @@ title: "pyreml - general-purpose linear mixed model solver"
 abstract: >
   Linear mixed models (LMM) are a popular modeling and inference framework, widely used in bioinformatics and other scientific fields. To obtain an unbiased estimation of the variance components, an LMM has to be fitted using restricted maximum likelihood (REML), a computationally intensive step. Most REML software is closed source, and currently there is no Python library offering complete LMM functionalities, such as the specification of spatial and genomic variance structures, multivariate analyses, random regression and factors, and heteroscedastic residuals. Here we propose pyreml, an LMM solver that fills this gap, comes with a user-centered interface and speeds up calculations by running on GPU. We show that pyreml fits a genomic best linear unbiased prediction (GBLUP) model more than one order of magnitude (>12×) faster than the current state-of-the-art, closed source REML software. We also show that pyreml can estimate a latent factor-analytic variance structure, a challenging feature that no current open source REML solution implements. Finally, we illustrate the use of pyreml to analyze longitudinal data, and to perform spatial analysis. Anchored by 500+ functional tests assessing the equivalence of its outputs to those from reference software (lme4, rrBLUP and BLUPF90), we demonstrate pyreml to be a performant, reliable and open-source solution available for academic, research and industrial LMM users.
 type: software
+date-released: "2026-10-20"
 authors:
   - family-names: "Marchal"
     given-names: "Alexandre"
@@ -22,10 +23,25 @@ authors:
 license: "GPL-3.0-or-later"
 repository-code: "https://github.com/ai-for-genome-interpretation-lab/pyreml"
 url: "https://github.com/ai-for-genome-interpretation-lab/pyreml"
-doi: "10.64898/2026.10.20.757556"
 keywords:
   - "REML"
   - "Mixed model"
   - "BLUP"
   - "LMM"
   - "GPU"
+preferred-citation:
+  type: article
+  title: "pyreml - general-purpose linear mixed model solver"
+  authors:
+    - family-names: "Marchal"
+      given-names: "Alexandre"
+    - family-names: "Trottier"
+      given-names: "Catherine"
+    - family-names: "Bry"
+      given-names: "Xavier"
+    - family-names: "Raimondi"
+      given-names: "Daniele"
+  journal: "bioRxiv"
+  year: 2026
+  month: 10
+  doi: "10.64898/2026.10.20.757556"
