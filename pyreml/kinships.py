@@ -59,8 +59,6 @@ def A_genomic(
     markers = np.where((MAF >= min_MAF) & (frac_missing <= max_missing))[0]
     m = len(markers)
     var_A = 2 * np.mean(freq[markers] * (1 - freq[markers]))
-    mono = np.where(freq * (1 - freq) == 0)[0]
-    X[:, mono] = 2 * freq[mono] - 1
     freq_mat = np.ones((n, 1)) @ freq[markers].reshape(1, -1)
     W = X[:, markers] + 1 - 2 * freq_mat
 
