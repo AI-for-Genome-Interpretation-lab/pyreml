@@ -1488,7 +1488,7 @@ class Random(GaussianComponent):
 
         Also computes:
             - SE: sqrt(diag(PEV))
-            - CD: coefficient of determination, diag((Sigma - PEV) @ Sigma^-1),
+            - CD: coefficient of determination (reliability), 1 - diag(PEV) / diag(Sigma),
               with Sigma = S ⊗ K (+ jitter) the effect's full variance block.
         """
         self.uhat.copy_(uhat.detach().reshape(self.uhat.shape))
@@ -1500,8 +1500,7 @@ class Random(GaussianComponent):
         with torch.no_grad():
             Sigma = self.varmeth()()
             se = torch.sqrt(torch.diagonal(pev)).cpu().numpy()
-            Sigma_inv = torch.linalg.inv(Sigma)
-            cd = torch.diagonal((Sigma - pev) @ Sigma_inv).cpu().numpy()
+            cd = (1 - torch.diagonal(pev) / torch.diagonal(Sigma)).cpu().numpy()
 
         if self._coord_cols is not None:
             coord_cols = list(self._coord_cols)

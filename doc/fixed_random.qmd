@@ -39,8 +39,8 @@ with:
 - $\mathbf{\Delta_a}$ the coefficient of determination matrix of $\mathbf{\hat{a}}$,
 - $\mathbf{P_a}$ the prediction error variance matrix of $\mathbf{\hat{a}}$.
 
-The diagonal of $\mathbf{\Delta_a}$ can immediately
-be understood as $R^2$, ranging from $0$ to $1$:
+$\mathbf{\Delta_a}$ deregresses all levels jointly; the reliability of each level taken alone is $1 - P_{a,ii} / G_{a,ii}$, which equals the diagonal of $\mathbf{\Delta_a}$ when $\mathbf{G_a}$ is diagonal.
+It can immediately be understood as $R^2$, ranging from $0$ to $1$:
 
 - close to $0$, it indicates that no information is available for this specific level of the random effect.
 In this case, the corresponding BLUP is extremely shrunk: $\mathbf{\hat{a}}_i \approx 0$.
