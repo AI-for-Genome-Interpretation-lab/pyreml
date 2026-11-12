@@ -51,7 +51,7 @@ class OptiMix():
         self.quad     = float(quad.detach())
         self.k_reml   = float(k_reml.detach())
         self.const    = float(const)
-        self.L        = L.detach()
+        self.L_diag   = torch.diagonal(L.detach()).clone()
         self._workingloss = loss.item()
 
         loss.backward()
@@ -162,7 +162,7 @@ class OptiMix():
         """
         
         terms = [self.logdet_V, self.quad, self.k_reml, self.const]
-        dtype = self.L.dtype
+        dtype = self.L_diag.dtype
 
         # hard ceiling of the storage format: 15.65 (f64) / 6.92 (f32)
         self.digits_machine = -np.log10(torch.finfo(dtype).eps)
@@ -177,14 +177,14 @@ class OptiMix():
 
         # roundoff accumulated over ~m^3/3 flops. Random-walk growth sqrt(m),
         # not Wilkinson's worst case m (aligned signs, pessimistic by 1-2 orders).
-        self.digits_roundoff = np.log10(np.sqrt(self.L.shape[0]))
+        self.digits_roundoff = np.log10(np.sqrt(self.L_diag.shape[0]))
 
         # conditioning: forward error ~ growth * kappa * eps. Dominates when a
         # variance component drifts to zero. kappa_2(M) = kappa_2(L)**2,
         # approximated by the ratio of the extreme diagonal entries of L: exact
         # for diagonally dominant M, collapses to 1 when off-diagonal entries
         # dominate -> understates, never overstates.
-        diag = torch.diagonal(self.L).abs()
+        diag = self.L_diag.abs()
         kappa = (diag.max() / diag.min().clamp_min(torch.finfo(dtype).tiny)) ** 2
         self.digits_conditionning = np.log10(float(kappa))
 
