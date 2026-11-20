@@ -823,11 +823,11 @@ class MixedModel:
             
             p = self.p
             self.beta.data.copy_(sol[:p])
-            self.EEV = C[:p, :p]
+            self.EEV = C[:p, :p].clone()
+            PEV = C[p:, p:].clone()          # (q, q), empty (0, 0) without random vector
 
             if has_z:
                 self.uhat.data.copy_(sol[p:])
-                PEV = C[p:, p:]
 
             # Fixed effects: labelled table if high-level, raw beta + EEV otherwise.
             self.format_fixed()

@@ -389,6 +389,19 @@ class TestMultivariateStr:
         expected = ref_se ** 2  # se_a_train already restricted to train IDs
         np.testing.assert_allclose(actual, expected, rtol=0.03) # !!
 
+    def test_cd(self, mod_str, kinship_train):
+        # CD is the reliability 1 - PEV_ii / Sigma_ii with Sigma = SigmaA ⊗ A,
+        # not diag((Sigma - PEV) Sigma^-1), which differs once Sigma is not diagonal
+        A, _, ped_ids = kinship_train
+        rand = mod_str.random[0]
+        pos = {id_: i for i, id_ in enumerate(ped_ids)}
+        diag_A = np.diag(A)[[pos[id_] for id_ in rand.index.tolist()]]
+        diag_Sigma = np.kron(np.diag(rand.build_S().detach().cpu().numpy()), diag_A)
+        pev = np.diag(rand.PEV.detach().cpu().numpy())
+        cd = rand.table["CD"].to_numpy()
+        np.testing.assert_allclose(cd, 1 - pev / diag_Sigma, rtol=1e-6)
+        assert ((cd >= 0) & (cd <= 1)).all()
+
 class TestUnivariatePrediction:
 
     def test_predict_a(self, mod_uni, kinship_full):

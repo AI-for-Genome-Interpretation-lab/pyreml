@@ -200,6 +200,45 @@ class TestLowLevelPedigree:
         np.testing.assert_allclose(actual, se ** 2, rtol=2e-3)
 
 
+def test_pedigree_marginal_without_Z():
+    """
+    Same model in marginal form: Z=None and the whole V returned by varmeth as
+    (None, V). HMME used to raise UnboundLocalError on PEV on this path; the fit
+    must complete with an empty PEV and the reference variances.
+    """
+    df_train, A, D, ped_ids = _pedigree_data()
+    design = _dense_design(
+        data=df_train,
+        response="flexuosity",
+        fixed="1 + BLOC",
+        random=[
+            Random(unit="ID", right_hand="str", covariance=A, matrix_index=ped_ids),
+            Random(unit="ID", right_hand="str", covariance=D, matrix_index=ped_ids),
+        ],
+    )
+    index = design.random[0].index.tolist()
+    Z = design.Z[:, :len(index)]
+    KA = Z @ torch.as_tensor(_reorder(A, ped_ids, index), dtype=torch.double, device=DEVICE) @ Z.T
+    KD = Z @ torch.as_tensor(_reorder(D, ped_ids, index), dtype=torch.double, device=DEVICE) @ Z.T
+
+    log_v0 = float(np.log(design.y.var().item()))
+    log_sa, log_sd, log_se = _leaf(log_v0), _leaf(log_v0), _leaf(log_v0)
+
+    def varmeth(self):
+        I = torch.eye(self.n, dtype=self.dtype, device=self.device)
+        V = torch.exp(log_sa) * KA.to(self.dtype) + torch.exp(log_sd) * KD.to(self.dtype) + torch.exp(log_se) * I
+        return None, V
+
+    model = MixedModel(
+        y=design.y, X=design.X, Z=None, params=[log_sa, log_sd, log_se], varmeth=varmeth, device=DEVICE,
+    ).fit(DTYPE, verbose=False)
+
+    assert model.opti_REML.converged is True
+    assert tuple(model.PEV.shape) == (0, 0)
+    for leaf, key in zip([log_sa, log_sd, log_se], ["var_a", "var_d", "var_r"]):
+        np.testing.assert_allclose(_exp(leaf), EXPECTED_PED[key], rtol=1e-4, atol=1e-5)
+
+
 # --------------------------------------------------------------------------- #
 # Spatial: supplied Euclidean distance, exp(-rho * D)
 # --------------------------------------------------------------------------- #

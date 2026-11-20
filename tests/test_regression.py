@@ -1,4 +1,6 @@
+import gc
 import json
+import weakref
 from pathlib import Path
 
 import numpy as np
@@ -243,6 +245,25 @@ class TestLMM:
         expected = EXPECTED_RANDOM_REG["aic"]
         actual = float(mod_lmm.AIC)
         np.testing.assert_allclose(actual, expected, atol=1e-10)
+
+    def test_no_reference_cycle(self, df):
+        # direct solve + closed-form gradient: beta.grad used to carry a graph
+        # back to beta through V-inverse, a cycle invisible to the garbage
+        # collector that leaked one n x n matrix per fit
+        model = MixedModel.from_dataframe(
+            data=df,
+            response="height",
+            fixed="1 + circumference",
+            random=Random(unit="BLOC", formula="1 + circumference", left_hand="full"),
+            SMW=False,
+            structured_forward=True,
+            analytic_backward=True,
+            device=DEVICE,
+        ).fit(DTYPE, verbose=False)
+        beta = weakref.ref(model.beta)
+        del model
+        gc.collect()
+        assert beta() is None
 
 class TestGeneticAndPermanentEnvironment:
 

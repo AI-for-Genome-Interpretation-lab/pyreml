@@ -534,8 +534,7 @@ class Solve:
     def __init__(self, variance: Variance, X: torch.Tensor, r: torch.Tensor):
         self.variance = variance
         self.X = X
-        self.r = r
-
+        self.r = r.detach()
         # V-inverse r, cached by gradient_matrix() for beta_grain()
         self._u: Optional[torch.Tensor] = None
 
